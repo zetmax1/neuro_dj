@@ -1,4 +1,7 @@
 venv
 
 .env
+db.sqlite3
+2026-06-02.txt
+DOCUMENTATION.md
 
