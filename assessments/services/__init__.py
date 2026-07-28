@@ -17,9 +17,11 @@ Internal architecture:
 """
 
 from assessments.services.orchestrator import process_submission
-from assessments.services.question_selection import get_next_question
+from assessments.services.question_selection import get_next_question, get_stratified_test_questions
 
 __all__: list[str] = [
     "process_submission",
     "get_next_question",
+    "get_stratified_test_questions",
 ]
+

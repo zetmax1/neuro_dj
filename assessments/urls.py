@@ -7,7 +7,13 @@ All routes use strict snake_case.
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from assessments.views.assessment import NextQuestionView, SubmitAnswerView, TestsListView
+from assessments.views.assessment import (
+    NextQuestionView,
+    SubmitAnswerView,
+    TestsListView,
+    TestSessionView,
+    SubmitTestSessionView,
+)
 from assessments.views.knowledge import UserKnowledgeStateListView
 from assessments.views.instructor import InstructorQuestionViewSet
 
@@ -23,7 +29,20 @@ urlpatterns = [
         TestsListView.as_view(),
         name="tests_list",
     ),
+    # GET — Full stratified test session paper (?topic_id=<int>)
+    path(
+        "assessments/test_session/",
+        TestSessionView.as_view(),
+        name="test_session",
+    ),
+    # POST — Submit full test session and get difficulty-weighted score
+    path(
+        "assessments/submit_test_session/",
+        SubmitTestSessionView.as_view(),
+        name="submit_test_session",
+    ),
     # GET — Next adaptive question for a topic (?topic_id=<int>)
+
     path(
         "assessments/next_question/",
         NextQuestionView.as_view(),

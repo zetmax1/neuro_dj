@@ -22,7 +22,13 @@ def rebuild_mptt_tree(apps, schema_editor):
     custom manager and rebuild() capability.
     """
     from curriculum.models import Topic
-    Topic.objects.rebuild()
+    from django.db.utils import OperationalError
+    try:
+        if Topic.objects.exists():
+            Topic.objects.rebuild()
+    except OperationalError:
+        pass
+
 
 
 def noop_reverse(apps, schema_editor):

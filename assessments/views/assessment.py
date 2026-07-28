@@ -20,16 +20,198 @@ from rest_framework.views import APIView
 
 from curriculum.models import Topic
 
-from assessments.models import Choice, Question, UserKnowledgeState
+from assessments.models import Choice, DifficultyLevel, MasteryLevel, Question, UserKnowledgeState, AssessmentAttempt
 from assessments.serializers.assessment import (
     QuestionSerializer,
     SubmissionResultSerializer,
     SubmitAnswerSerializer,
 )
-from assessments.services import get_next_question, process_submission
+from assessments.services import get_next_question, get_stratified_test_questions, process_submission
 from drf_spectacular.utils import extend_schema
 
 logger = logging.getLogger(__name__)
+
+
+@extend_schema(tags=["Student Assessments"])
+class TestSessionView(APIView):
+    """
+    GET /api/assessments/test_session/?topic_id=<id>
+    Generates a full stratified test session (10 questions: 40% Easy, 30% Medium, 30% Hard).
+    Returns topic settings (pass_mark_percentage, test_question_count) and list of questions with choices.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        topic_id = request.query_params.get("topic_id")
+        if not topic_id:
+            return Response(
+                {"detail": "Query parameter 'topic_id' is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            topic = Topic.objects.get(pk=topic_id)
+        except Topic.DoesNotExist:
+            return Response(
+                {"detail": f"Topic with id {topic_id} does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        questions = get_stratified_test_questions(topic_id=int(topic_id))
+
+        serializer = QuestionSerializer(questions, many=True)
+        return Response(
+            {
+                "topic_id": topic.id,
+                "topic_name": topic.name,
+                "pass_mark_percentage": topic.pass_mark_percentage,
+                "test_question_count": len(questions),
+                "configured_target_count": topic.test_question_count,
+                "questions": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+@extend_schema(tags=["Student Assessments"])
+class SubmitTestSessionView(APIView):
+    """
+    POST /api/assessments/submit_test_session/
+    Evaluates the full test session with difficulty-weighted grading (Easy=1pt, Medium=2pt, Hard=3pt).
+    Calculates final grade %, compares against topic.pass_mark_percentage, records attempts, and updates mastery.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request: Request) -> Response:
+        topic_id = request.data.get("topic_id")
+        answers = request.data.get("answers", [])
+
+        if not topic_id:
+            return Response(
+                {"detail": "Field 'topic_id' is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            topic = Topic.objects.get(pk=topic_id)
+        except Topic.DoesNotExist:
+            return Response(
+                {"detail": f"Topic with id {topic_id} does not exist."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        DIFFICULTY_WEIGHTS = {
+            DifficultyLevel.EASY: 1,
+            DifficultyLevel.MEDIUM: 2,
+            DifficultyLevel.HARD: 3,
+        }
+
+        total_points = 0
+        earned_points = 0
+
+        breakdown = {
+            "easy": {"correct": 0, "total": 0, "points": 0},
+            "medium": {"correct": 0, "total": 0, "points": 0},
+            "hard": {"correct": 0, "total": 0, "points": 0},
+        }
+
+        answers_summary = []
+
+        for item in answers:
+            q_id = item.get("question_id")
+            c_id = item.get("choice_id")
+
+            try:
+                question = Question.objects.get(pk=q_id)
+            except Question.DoesNotExist:
+                continue
+
+            weight = DIFFICULTY_WEIGHTS.get(question.difficulty, 1)
+            total_points += weight
+
+            diff_key = (
+                "easy"
+                if question.difficulty == DifficultyLevel.EASY
+                else ("medium" if question.difficulty == DifficultyLevel.MEDIUM else "hard")
+            )
+            breakdown[diff_key]["total"] += 1
+
+            is_correct = False
+            selected_choice_obj = None
+
+            if c_id:
+                try:
+                    selected_choice_obj = Choice.objects.get(pk=c_id, question=question)
+                    is_correct = selected_choice_obj.is_correct
+                except Choice.DoesNotExist:
+                    is_correct = False
+
+            if is_correct:
+                earned_points += weight
+                breakdown[diff_key]["correct"] += 1
+                breakdown[diff_key]["points"] += weight
+
+            # Record AssessmentAttempt
+            if selected_choice_obj:
+                AssessmentAttempt.objects.create(
+                    user=request.user,
+                    question=question,
+                    selected_choice=selected_choice_obj,
+                    is_correct=is_correct,
+                )
+
+            answers_summary.append(
+                {
+                    "question_id": question.id,
+                    "difficulty": question.difficulty,
+                    "difficulty_display": question.get_difficulty_display(),
+                    "is_correct": is_correct,
+                    "weight": weight,
+                    "points_earned": weight if is_correct else 0,
+                    "explanation": question.explanation,
+                }
+            )
+
+        grade_percentage = round((earned_points / total_points * 100), 1) if total_points > 0 else 0.0
+        is_passed = grade_percentage >= topic.pass_mark_percentage
+
+        # Update User Knowledge State
+        state, _ = UserKnowledgeState.objects.get_or_create(
+            user=request.user,
+            topic=topic,
+        )
+        state.total_attempts += len(answers)
+        state.correct_attempts += sum(1 for a in answers_summary if a["is_correct"])
+
+        # Update mastery percentage continuously
+        new_mastery = max(state.mastery_percentage, grade_percentage)
+        state.mastery_percentage = new_mastery
+        if is_passed and grade_percentage >= 70.0:
+            state.mastery_level = MasteryLevel.MASTERED
+        elif is_passed:
+            state.mastery_level = MasteryLevel.ADVANCED
+        state.save()
+
+        # Unlock dependent child topics if passed
+        if is_passed:
+            topic.children.filter(is_unlocked=False).update(is_unlocked=True)
+
+        return Response(
+            {
+                "topic_id": topic.id,
+                "topic_name": topic.name,
+                "total_questions": len(answers_summary),
+                "total_points": total_points,
+                "earned_points": earned_points,
+                "grade_percentage": grade_percentage,
+                "pass_mark_percentage": topic.pass_mark_percentage,
+                "is_passed": is_passed,
+                "breakdown": breakdown,
+                "answers_summary": answers_summary,
+            },
+            status=status.HTTP_200_OK,
+        )
+
 
 
 @extend_schema(tags=["Student Assessments"])

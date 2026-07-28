@@ -86,10 +86,59 @@ def get_next_question(*, user, topic_id: int) -> Optional[Question]:
         mastery_level, DifficultyLevel.EASY
     )
 
-    candidate: Optional[Question] = (
-        base_qs.filter(difficulty=target_difficulty).first()
-    )
-    if candidate:
-        return candidate
-
     return base_qs.order_by("difficulty").first()
+
+
+def get_stratified_test_questions(*, topic_id: int) -> list[Question]:
+    """
+    Selects a stratified random sample of test questions for a topic.
+    Target difficulty distribution for N questions (e.g. 10):
+      - Easy (40%): 4 questions
+      - Medium (30%): 3 questions
+      - Hard (30%): 3 questions
+    If any difficulty tier has fewer questions available, backfills from remaining pool.
+    """
+    import random
+
+    topic = Topic.objects.get(pk=topic_id)
+    topic_ids = list(topic.get_descendants(include_self=True).values_list("id", flat=True))
+
+    target_total = topic.test_question_count or 10
+
+    # Calculate target counts per difficulty tier
+    target_easy = int(round(target_total * 0.40))
+    target_med = int(round(target_total * 0.30))
+    target_hard = max(0, target_total - target_easy - target_med)
+
+    qs_easy = list(Question.objects.filter(topic_id__in=topic_ids, difficulty=DifficultyLevel.EASY, is_active=True).prefetch_related("choices"))
+    qs_med = list(Question.objects.filter(topic_id__in=topic_ids, difficulty=DifficultyLevel.MEDIUM, is_active=True).prefetch_related("choices"))
+    qs_hard = list(Question.objects.filter(topic_id__in=topic_ids, difficulty=DifficultyLevel.HARD, is_active=True).prefetch_related("choices"))
+
+    random.shuffle(qs_easy)
+    random.shuffle(qs_med)
+    random.shuffle(qs_hard)
+
+    selected_easy = qs_easy[:target_easy]
+    selected_med = qs_med[:target_med]
+    selected_hard = qs_hard[:target_hard]
+
+    selected_ids = {q.id for q in (selected_easy + selected_med + selected_hard)}
+
+    # Pool of remaining questions across all tiers
+    remaining = [
+        q for q in (qs_easy + qs_med + qs_hard)
+        if q.id not in selected_ids
+    ]
+    random.shuffle(remaining)
+
+    # Backfill if any tier was short of questions
+    combined = selected_easy + selected_med + selected_hard
+    needed = target_total - len(combined)
+    if needed > 0 and remaining:
+        combined.extend(remaining[:needed])
+
+    # Sort final question paper by difficulty order (Easy -> Medium -> Hard)
+    combined.sort(key=lambda q: (q.difficulty, q.id))
+
+    return combined
+

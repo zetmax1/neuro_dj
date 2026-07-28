@@ -14,10 +14,12 @@ class InstructorTopicSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "slug", "parent", "description",
             "position", "is_unlocked", "instructor",
+            "pass_mark_percentage", "test_question_count",
             "total_duration_minutes",
             "created_at", "updated_at",
         ]
         read_only_fields = ["total_duration_minutes"]
+
 
 
 class TopicResourceSerializer(serializers.ModelSerializer):

@@ -94,6 +94,8 @@ class TopicTreeSerializer(serializers.ModelSerializer):
             "parent_id",
             "tree_depth",
             "position",
+            "pass_mark_percentage",
+            "test_question_count",
             "mastery_percentage",
             "mastery_level",
             "mastery_level_display",
@@ -102,6 +104,7 @@ class TopicTreeSerializer(serializers.ModelSerializer):
             "children",
         ]
         read_only_fields = fields
+
 
     def get_mastery_level_display(self, obj: Topic) -> str:
         """Human-readable mastery level label from the annotated integer."""

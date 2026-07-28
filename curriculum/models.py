@@ -74,7 +74,18 @@ class Topic(MPTTModel):
         ),
     )
 
+    # Test Session Settings (Configured by Teacher/Instructor)
+    pass_mark_percentage: float = models.FloatField(
+        default=60.0,
+        help_text="Minimum grade percentage required to pass topic test session (default: 60%).",
+    )
+    test_question_count: int = models.PositiveIntegerField(
+        default=10,
+        help_text="Number of questions randomly selected per test session for students (default: 10).",
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
+
     updated_at = models.DateTimeField(auto_now=True)
 
     class MPTTMeta:
