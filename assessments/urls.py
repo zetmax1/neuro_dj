@@ -7,7 +7,7 @@ All routes use strict snake_case.
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from assessments.views.assessment import NextQuestionView, SubmitAnswerView
+from assessments.views.assessment import NextQuestionView, SubmitAnswerView, TestsListView
 from assessments.views.knowledge import UserKnowledgeStateListView
 from assessments.views.instructor import InstructorQuestionViewSet
 
@@ -17,12 +17,19 @@ router = DefaultRouter()
 router.register(r"instructor/questions", InstructorQuestionViewSet, basename="instructor-question")
 
 urlpatterns = [
+    # GET — All available tests list with difficulty, question count, and mastery
+    path(
+        "assessments/tests/",
+        TestsListView.as_view(),
+        name="tests_list",
+    ),
     # GET — Next adaptive question for a topic (?topic_id=<int>)
     path(
         "assessments/next_question/",
         NextQuestionView.as_view(),
         name="next_question",
     ),
+
     # POST — Submit an answer and get updated mastery + next question
     path(
         "assessments/submit_answer/",

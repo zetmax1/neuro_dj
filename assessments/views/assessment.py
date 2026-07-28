@@ -20,7 +20,7 @@ from rest_framework.views import APIView
 
 from curriculum.models import Topic
 
-from assessments.models import Choice, Question
+from assessments.models import Choice, Question, UserKnowledgeState
 from assessments.serializers.assessment import (
     QuestionSerializer,
     SubmissionResultSerializer,
@@ -33,7 +33,55 @@ logger = logging.getLogger(__name__)
 
 
 @extend_schema(tags=["Student Assessments"])
+class TestsListView(APIView):
+    """
+    GET /api/assessments/tests/ — List all available assessment tests with question counts, difficulty, and user mastery.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        topics = Topic.objects.all()
+        result = []
+        user = request.user
+
+        states = {
+            state.topic_id: state
+            for state in UserKnowledgeState.objects.filter(user=user)
+        }
+
+        for topic in topics:
+            descendant_ids = list(topic.get_descendants(include_self=True).values_list("id", flat=True))
+            questions = Question.objects.filter(topic_id__in=descendant_ids, is_active=True)
+            q_count = questions.count()
+
+            state = states.get(topic.id)
+            mastery_pct = round(state.mastery_percentage, 1) if state else 0.0
+
+            if questions.exists():
+                avg_diff = sum(q.difficulty for q in questions) / q_count
+                diff_str = "Easy" if avg_diff <= 1.5 else ("Medium" if avg_diff <= 2.5 else "Hard")
+            else:
+                diff_str = "Adaptive"
+
+            result.append({
+                "id": topic.id,
+                "name": topic.name,
+                "slug": topic.slug,
+                "description": topic.description or f"Adaptive test assessment covering {topic.name}.",
+                "parent_name": topic.parent.name if topic.parent else "Core Curriculum",
+                "question_count": q_count,
+                "is_unlocked": topic.is_unlocked,
+                "mastery_percentage": mastery_pct,
+                "difficulty_level": diff_str,
+                "estimated_minutes": max(5, q_count * 2),
+            })
+
+        return Response(result, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["Student Assessments"])
 class NextQuestionView(APIView):
+
     """
     Returns the next appropriate question for the authenticated user
     based on their current knowledge state for the given topic.
