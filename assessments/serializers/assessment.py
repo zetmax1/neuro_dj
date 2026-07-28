@@ -57,8 +57,10 @@ class QuestionSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "text",
+            "image",
             "difficulty",
             "difficulty_display",
+            "time_limit_seconds",
             "topic_id",
             "topic_name",
             "topic_slug",
@@ -99,5 +101,6 @@ class SubmissionResultSerializer(serializers.Serializer):
     explanation = serializers.CharField()
     mastery_level = serializers.IntegerField()
     mastery_display = serializers.CharField()
+    mastery_percentage = serializers.FloatField()
     streak = serializers.IntegerField()
     next_question = QuestionSerializer(allow_null=True)

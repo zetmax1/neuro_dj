@@ -2,7 +2,8 @@
 assessments/models.py — The Adaptive Testing & Tracking Engine.
 
 This app owns all interactive assessment mechanics and user state tracking.
-It contains Question, Choice, UserKnowledgeState, and AssessmentAttempt.
+It contains Question, Choice, UserKnowledgeState, AssessmentAttempt,
+and UserKnowledgeHistory.
 
 Dependency rule: assessments depends on curriculum (one-way).
 All cross-app references use string-based foreign keys ('curriculum.Topic')
@@ -12,6 +13,7 @@ to prevent circular dependency loops at the import level.
 from __future__ import annotations
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -67,6 +69,29 @@ class Question(models.Model):
         default=DifficultyLevel.MEDIUM,
         db_index=True,
     )
+    # 2PL IRT parameters
+    irt_discrimination: float = models.FloatField(
+        default=1.0,
+        help_text="2PL IRT discrimination parameter (a). Default=1.0.",
+    )
+    irt_difficulty: float = models.FloatField(
+        default=0.0,
+        help_text="2PL IRT difficulty parameter (b). Default=0.0.",
+    )
+    image = models.ImageField(
+        upload_to="questions/%Y/%m/",
+        blank=True,
+        null=True,
+        help_text="Optional image for visual/diagram-based questions.",
+    )
+    time_limit_seconds = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Optional per-question time limit in seconds. "
+            "NULL means the platform default applies."
+        ),
+    )
     is_active: bool = models.BooleanField(default=True, db_index=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -104,6 +129,21 @@ class Choice(models.Model):
     class Meta:
         ordering = ["id"]
 
+    def clean(self) -> None:
+        """Enforce a maximum of 4 choices per question."""
+        super().clean()
+        if self.question_id:
+            existing_count = (
+                Choice.objects
+                .filter(question_id=self.question_id)
+                .exclude(pk=self.pk)
+                .count()
+            )
+            if existing_count >= 4:
+                raise ValidationError(
+                    "A question cannot have more than 4 answer choices."
+                )
+
     def __str__(self) -> str:
         marker = "✓" if self.is_correct else "✗"
         return f"[{marker}] {self.text[:60]}"
@@ -137,6 +177,16 @@ class UserKnowledgeState(models.Model):
     mastery_level: int = models.IntegerField(
         choices=MasteryLevel.choices,
         default=MasteryLevel.NOT_STARTED,
+    )
+    # Continuous mastery probability (0.0–1.0) from probabilistic engines.
+    # For streak-based engines this is derived from mastery_level / 4.0.
+    mastery_percentage: float = models.FloatField(
+        default=0.0,
+        help_text=(
+            "Raw engine-computed mastery probability (0.0–1.0). "
+            "Stored as a float for BKT/IRT precision; converted to an "
+            "integer percentage (0–100) for display via round(value * 100)."
+        ),
     )
     # Running accuracy as a percentage (0–100)
     score: int = models.PositiveIntegerField(default=0)
@@ -213,3 +263,111 @@ class AssessmentAttempt(models.Model):
     def __str__(self) -> str:
         status = "✓" if self.is_correct else "✗"
         return f"[{status}] {self.user} → Q{self.question_id}"
+
+
+class UserAbility(models.Model):
+    """
+    Stores 2PL IRT latent ability estimate (theta) per user per topic/topic-group.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="abilities",
+        db_index=True,
+    )
+    topic = models.ForeignKey(
+        "curriculum.Topic",
+        on_delete=models.CASCADE,
+        related_name="abilities",
+        db_index=True,
+    )
+    theta: float = models.FloatField(
+        default=0.0,
+        help_text="Latent ability estimate (theta), typically in [-3.0, 3.0].",
+    )
+    theta_updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "topic"],
+                name="uniq_user_topic_ability",
+            ),
+        ]
+        verbose_name = "User Ability"
+        verbose_name_plural = "User Abilities"
+
+    def __str__(self) -> str:
+        return f"{self.user} | {self.topic} — theta={self.theta:.3f}"
+
+
+# ---------------------------------------------------------------------------
+# 5. Algorithm Choices & Historical Analytics Ledger
+# ---------------------------------------------------------------------------
+
+class AlgorithmChoice(models.TextChoices):
+    """Identifiers for the pluggable student-model estimation engines."""
+    STREAK = "streak", "Streak Estimation"
+    BKT = "bkt", "Bayesian Knowledge Tracing"
+    IRT = "irt", "Item Response Theory"
+    HYBRID_BKT_IRT = "hybrid_bkt_irt", "Hybrid BKT + IRT"
+
+
+class UserKnowledgeHistory(models.Model):
+    """
+    Immutable historical analytics ledger.
+
+    Every time a student-model engine recalculates mastery, a new row is
+    appended here. Rows are never updated or deleted — this guarantees a
+    complete chronological audit trail for academic data analysis and
+    frontend performance graphs.
+
+    The composite index on (user, topic, created_at) enables efficient
+    time-series queries such as:
+        UserKnowledgeHistory.objects.filter(
+            user=u, topic=t,
+        ).order_by('created_at')
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="knowledge_history",
+        db_index=True,
+    )
+    topic = models.ForeignKey(
+        "curriculum.Topic",
+        on_delete=models.CASCADE,
+        related_name="knowledge_history",
+        db_index=True,
+    )
+    calculated_mastery = models.FloatField(
+        help_text=(
+            "Engine-computed mastery estimate (0.0–1.0 for probabilistic "
+            "models, or integer-mapped for streak-based models)."
+        ),
+    )
+    algorithm_used = models.CharField(
+        max_length=30,
+        choices=AlgorithmChoice.choices,
+        help_text="Which estimation engine produced this data point.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["user", "topic", "created_at"],
+                name="idx_history_user_topic_ts",
+            ),
+        ]
+        verbose_name = "Knowledge History Entry"
+        verbose_name_plural = "Knowledge History Entries"
+
+    def __str__(self) -> str:
+        return (
+            f"{self.user} | {self.topic} — "
+            f"{self.calculated_mastery:.3f} ({self.algorithm_used})"
+        )

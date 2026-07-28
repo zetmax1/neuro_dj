@@ -1,7 +1,7 @@
 """
 curriculum/serializers/topic.py — Serializer for the hierarchical topic tree.
 
-Handles the MPTT-style tree structure and injects dynamic user progress
+Handles the MPTT tree structure and injects dynamic user progress
 metrics (mastery_percentage, is_unlocked) without executing recursive
 database queries. Tree construction happens in-memory from a pre-fetched
 flat queryset passed via serializer context.
@@ -21,6 +21,7 @@ from typing import Any
 from rest_framework import serializers
 
 from curriculum.models import Topic
+from curriculum.services.graph import is_unlocked_dag
 
 # ---------------------------------------------------------------------------
 # Mastery level display mapping — local constant to avoid cross-app imports.
@@ -57,7 +58,7 @@ class TopicTreeSerializer(serializers.ModelSerializer):
       - mastery_percentage: User's accuracy score (0–100) on this topic.
       - is_unlocked: Whether the user can access this topic.
       - mastery_level / mastery_level_display: Current state-machine level.
-      - tree_depth: Depth in the tree (from django-tree-queries).
+      - tree_depth: Depth in the tree (from django-mptt's `level` field).
     """
 
     # --- Annotated fields (injected at query time, not stored) -------------
@@ -74,8 +75,11 @@ class TopicTreeSerializer(serializers.ModelSerializer):
     mastery_level_display = serializers.SerializerMethodField()
     is_unlocked = serializers.SerializerMethodField()
 
-    # Tree depth from django-tree-queries' with_tree_fields()
-    tree_depth = serializers.IntegerField(read_only=True, default=0)
+    # Tree depth from django-mptt's built-in `level` field
+    tree_depth = serializers.IntegerField(source="level", read_only=True, default=0)
+
+    # Aggregated total duration from all related resources
+    total_duration_minutes = serializers.IntegerField(read_only=True, default=0)
 
     # Recursive children — resolved from context, never from the DB
     children = serializers.SerializerMethodField()
@@ -94,6 +98,7 @@ class TopicTreeSerializer(serializers.ModelSerializer):
             "mastery_level",
             "mastery_level_display",
             "is_unlocked",
+            "total_duration_minutes",
             "children",
         ]
         read_only_fields = fields
@@ -105,26 +110,18 @@ class TopicTreeSerializer(serializers.ModelSerializer):
 
     def get_is_unlocked(self, obj: Topic) -> bool:
         """
-        Determine if the topic is accessible to the user.
+        Determine if the topic is accessible to the user using DAG prerequisite rules.
 
-        Unlocking rules:
-          - Root nodes (parent_id=None) are always unlocked.
-          - Child nodes are unlocked when the parent's mastery_level
-            >= BEGINNER (level 1). The user must have started working
-            on the prerequisite topic.
-
-        The parent mastery lookup is O(1) — we read from the
-        `mastery_by_topic_id` dict passed in serializer context, which
-        was pre-computed from the same flat queryset in the view layer.
+        Reads pre-computed `unlocked_topic_ids` set from serializer context if available (O(1)),
+        or delegates to `is_unlocked_dag(user, obj)`.
         """
-        if obj.parent_id is None:
-            return True
+        unlocked_set = self.context.get("unlocked_topic_ids")
+        if unlocked_set is not None:
+            return obj.pk in unlocked_set
 
-        mastery_by_topic_id: dict[int, int] = self.context.get(
-            "mastery_by_topic_id", {}
-        )
-        parent_mastery: int = mastery_by_topic_id.get(obj.parent_id, 0)
-        return parent_mastery >= _UNLOCK_THRESHOLD
+        request = self.context.get("request")
+        user = getattr(request, "user", None) if request else None
+        return is_unlocked_dag(user, obj)
 
     def get_children(self, obj: Topic) -> list[dict[str, Any]]:
         """

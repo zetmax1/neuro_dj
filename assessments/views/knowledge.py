@@ -14,8 +14,10 @@ from rest_framework import generics, permissions
 
 from assessments.models import UserKnowledgeState
 from assessments.serializers.knowledge import UserKnowledgeStateSerializer
+from drf_spectacular.utils import extend_schema
 
 
+@extend_schema(tags=["Student Assessments"])
 class UserKnowledgeStateListView(generics.ListAPIView):
     """
     Returns all knowledge states for the authenticated user.

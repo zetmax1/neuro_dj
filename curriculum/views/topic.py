@@ -17,18 +17,23 @@ import logging
 from collections import defaultdict
 from typing import Any
 
+from django.apps import apps
+from django.conf import settings
 from django.db.models import QuerySet
 from rest_framework import generics, permissions
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from curriculum.models import Topic
+from curriculum.models import Topic, TopicPrerequisite
 from curriculum.serializers.topic import TopicTreeSerializer
 from curriculum.services import get_learning_path_queryset
+from drf_spectacular.utils import extend_schema
 
 logger = logging.getLogger(__name__)
 
 
+
+@extend_schema(tags=["Student Curriculum"])
 class LearningPathTreeView(generics.ListAPIView):
     """
     Returns the full hierarchical topic tree annotated with the
@@ -55,7 +60,7 @@ class LearningPathTreeView(generics.ListAPIView):
         Return the optimized topic queryset with user mastery annotations.
 
         Delegates to curriculum.services.get_learning_path_queryset() which:
-          - Applies .with_tree_fields() for tree_depth, tree_path, tree_ordering
+          - Orders by MPTT's tree_id/lft for natural tree traversal
           - Annotates mastery_score + mastery_level via Subquery/OuterRef
             using lazy model resolution (apps.get_model) for cross-app access
         """
@@ -78,7 +83,6 @@ class LearningPathTreeView(generics.ListAPIView):
 
         # Step 2: O(n) parent→children grouping in Python
         topics_by_parent: dict[int | None, list[Topic]] = defaultdict(list)
-        # Step 3: O(n) topic_id→mastery_level lookup for is_unlocked checks
         mastery_by_topic_id: dict[int, int] = {}
 
         for topic in topics:
@@ -86,6 +90,33 @@ class LearningPathTreeView(generics.ListAPIView):
             mastery_by_topic_id[topic.pk] = (
                 getattr(topic, "user_mastery_level", 0) or 0
             )
+
+        # Step 3: Compute DAG unlocked status
+        prereqs_map: dict[int, list[int]] = defaultdict(list)
+        for t_id, p_id in TopicPrerequisite.objects.all().values_list("topic_id", "prerequisite_id"):
+            prereqs_map[t_id].append(p_id)
+
+        raw_threshold = getattr(settings, "MASTERY_THRESHOLD", 0.70)
+        threshold = raw_threshold / 100.0 if raw_threshold > 1.0 else float(raw_threshold)
+
+        mastered_topic_ids: set[int] = set()
+        if request.user and request.user.is_authenticated:
+            UserKnowledgeState = apps.get_model("assessments", "UserKnowledgeState")
+            mastered_topic_ids = set(
+                UserKnowledgeState.objects.filter(
+                    user=request.user,
+                    mastery_percentage__gte=threshold,
+                ).values_list("topic_id", flat=True)
+            )
+
+        unlocked_topic_ids: set[int] = set()
+        for topic in topics:
+            if topic.pk in prereqs_map:
+                if all(p_id in mastered_topic_ids for p_id in prereqs_map[topic.pk]):
+                    unlocked_topic_ids.add(topic.pk)
+            else:
+                if topic.parent_id is None or topic.parent_id in mastered_topic_ids:
+                    unlocked_topic_ids.add(topic.pk)
 
         # Root nodes have parent_id=None
         root_topics: list[Topic] = topics_by_parent.get(None, [])
@@ -97,6 +128,7 @@ class LearningPathTreeView(generics.ListAPIView):
                 "request": request,
                 "topics_by_parent": topics_by_parent,
                 "mastery_by_topic_id": mastery_by_topic_id,
+                "unlocked_topic_ids": unlocked_topic_ids,
             },
         )
         return Response(serializer.data)

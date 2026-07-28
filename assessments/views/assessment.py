@@ -27,10 +27,12 @@ from assessments.serializers.assessment import (
     SubmitAnswerSerializer,
 )
 from assessments.services import get_next_question, process_submission
+from drf_spectacular.utils import extend_schema
 
 logger = logging.getLogger(__name__)
 
 
+@extend_schema(tags=["Student Assessments"])
 class NextQuestionView(APIView):
     """
     Returns the next appropriate question for the authenticated user
@@ -75,18 +77,35 @@ class NextQuestionView(APIView):
             )
 
         if question is None:
-            return Response(
-                {
-                    "detail": "No more questions available for this topic.",
-                    "topic_id": topic_id,
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            topic = Topic.objects.get(pk=topic_id)
+            topic_ids = list(topic.get_descendants(include_self=True).values_list("id", flat=True))
+            has_questions = Question.objects.filter(topic_id__in=topic_ids, is_active=True).exists()
+
+            if not has_questions:
+                return Response(
+                    {
+                        "detail": "No questions available for this topic yet.",
+                        "reason": "no_questions",
+                        "topic_id": topic_id,
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            else:
+                return Response(
+                    {
+                        "detail": "No more questions available for this topic.",
+                        "reason": "completed",
+                        "topic_id": topic_id,
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
 
         serializer = QuestionSerializer(question)
         return Response(serializer.data)
 
 
+@extend_schema(tags=["Student Assessments"])
 class SubmitAnswerView(APIView):
     """
     Accepts the user's quiz answer, delegates to the service layer,

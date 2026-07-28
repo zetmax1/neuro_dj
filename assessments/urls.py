@@ -4,12 +4,17 @@ assessments/urls.py — URL routing for the assessments app.
 All routes use strict snake_case.
 """
 
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 
 from assessments.views.assessment import NextQuestionView, SubmitAnswerView
 from assessments.views.knowledge import UserKnowledgeStateListView
+from assessments.views.instructor import InstructorQuestionViewSet
 
 app_name = "assessments"
+
+router = DefaultRouter()
+router.register(r"instructor/questions", InstructorQuestionViewSet, basename="instructor-question")
 
 urlpatterns = [
     # GET — Next adaptive question for a topic (?topic_id=<int>)
@@ -30,4 +35,7 @@ urlpatterns = [
         UserKnowledgeStateListView.as_view(),
         name="knowledge_states",
     ),
+    
+    # Instructor APIs
+    path("assessments/", include(router.urls)),
 ]
