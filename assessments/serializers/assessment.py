@@ -36,12 +36,15 @@ class ChoiceSerializer(serializers.ModelSerializer):
 # Question — with nested choices (is_correct hidden)
 # ---------------------------------------------------------------------------
 
+import random
+
 class QuestionSerializer(serializers.ModelSerializer):
     """
     Full question with nested ChoiceSerializer data.
 
     Choices are pre-loaded via prefetch_related('choices') in the service
     layer, so the nested serializer triggers zero additional DB queries.
+    Choices are randomly shuffled for students when retrieved.
     """
 
     topic_id = serializers.IntegerField(source="topic.id", read_only=True)
@@ -67,6 +70,14 @@ class QuestionSerializer(serializers.ModelSerializer):
             "choices",
         ]
         read_only_fields = fields
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        if "choices" in ret and isinstance(ret["choices"], list):
+            choices_list = list(ret["choices"])
+            random.shuffle(choices_list)
+            ret["choices"] = choices_list
+        return ret
 
 
 # ---------------------------------------------------------------------------

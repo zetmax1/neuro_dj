@@ -15,7 +15,11 @@ from assessments.views.assessment import (
     SubmitTestSessionView,
 )
 from assessments.views.knowledge import UserKnowledgeStateListView
-from assessments.views.instructor import InstructorQuestionViewSet
+from assessments.views.instructor import (
+    InstructorQuestionViewSet,
+    ImportQuestionsView,
+    DownloadQuestionTemplateView,
+)
 
 app_name = "assessments"
 
@@ -62,6 +66,18 @@ urlpatterns = [
         name="knowledge_states",
     ),
     
+    # Instructor Excel/Word import & Shablon template endpoints
+    path(
+        "assessments/instructor/questions_import/",
+        ImportQuestionsView.as_view(),
+        name="import_questions",
+    ),
+    path(
+        "assessments/instructor/templates/questions/",
+        DownloadQuestionTemplateView.as_view(),
+        name="download_question_template",
+    ),
+
     # Instructor APIs
     path("assessments/", include(router.urls)),
 ]
