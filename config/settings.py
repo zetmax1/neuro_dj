@@ -149,6 +149,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = '/static/'
+STATICFILES_DIRS = [BASE_DIR / 'static']
+
+UNFOLD = {
+    "SITE_TITLE": "NeuroDJ Administration",
+    "SITE_HEADER": "NeuroDJ Admin",
+    "SITE_URL": "/",
+    "STYLES": [
+        lambda request: "/static/css/admin_custom.css",
+    ],
+}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'

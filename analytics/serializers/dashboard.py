@@ -99,6 +99,10 @@ class DashboardOverviewSerializer(serializers.Serializer):
     overall_accuracy_pct: serializers.IntegerField = serializers.IntegerField(
         help_text="Percentage of correct submissions (0–100).",
     )
+    current_streak: serializers.IntegerField = serializers.IntegerField(
+        help_text="Current activity streak in days.",
+        default=0,
+    )
 
     # ── Learning velocity ─────────────────────────────────────────────
     average_attempts_to_master: serializers.FloatField = serializers.FloatField(

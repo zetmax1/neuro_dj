@@ -301,6 +301,12 @@ class DashboardOverviewView(APIView):
             for attempt in recent_attempts
         ]
 
+        # ── Calculate current streak ────────────────────────────────────
+        from django.db.models import Max
+        max_streak_agg = UserKnowledgeState.objects.filter(user=user).aggregate(Max("streak"))
+        max_streak_val = max_streak_agg.get("streak__max") or 0
+        current_streak: int = max_streak_val if max_streak_val > 0 else (1 if total_submissions > 0 else 0)
+
         # ── Build response ────────────────────────────────────────────
         response_data: dict[str, Any] = {
             "total_topics": total_topics,
@@ -309,6 +315,7 @@ class DashboardOverviewView(APIView):
             "mastery_ratio": mastery_ratio,
             "total_submissions": total_submissions,
             "overall_accuracy_pct": overall_accuracy_pct,
+            "current_streak": current_streak,
             "average_attempts_to_master": average_attempts_to_master,
             "strongest_topic": strongest_topic,
             "weakest_topic": weakest_topic,
