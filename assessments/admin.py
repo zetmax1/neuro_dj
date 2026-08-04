@@ -59,23 +59,12 @@ class AssessmentAttemptAdmin(ModelAdmin):
 
 @admin.register(UserKnowledgeHistory)
 class UserKnowledgeHistoryAdmin(ModelAdmin):
-    """Read-only admin for the immutable analytics ledger."""
+    """Admin interface for the analytics ledger."""
     list_display = [
         "user", "topic", "calculated_mastery",
         "algorithm_used", "created_at",
     ]
     list_filter = ["algorithm_used", "created_at"]
     search_fields = ["user__email", "topic__name"]
-    readonly_fields = [
-        "user", "topic", "calculated_mastery",
-        "algorithm_used", "created_at",
-    ]
+    readonly_fields = ["created_at"]
 
-    def has_add_permission(self, request):
-        return False
-
-    def has_change_permission(self, request, obj=None):
-        return False
-
-    def has_delete_permission(self, request, obj=None):
-        return False
