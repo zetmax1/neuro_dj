@@ -129,7 +129,14 @@ class Question(models.Model):
     )
     irt_difficulty: float = models.FloatField(
         default=0.0,
-        help_text="2PL IRT difficulty parameter (b). Default=0.0.",
+        help_text="Item difficulty b_q, moved by Elo after every answer (3.3).",
+    )
+    # n_q of K(n_q) = ELO_ALPHA / (1 + ELO_BETA·n_q): the answers this item has
+    # received. Not back-filled from legacy answers, which belong to the
+    # removed engines and would shift b_q wrongly (D33).
+    n_answers: int = models.PositiveIntegerField(
+        default=0,
+        help_text="Answers recorded for this question; the Elo step size shrinks as it grows.",
     )
     image = models.ImageField(
         upload_to="questions/%Y/%m/",
@@ -548,7 +555,13 @@ class AssessmentAttempt(models.Model):
 
 class UserAbility(models.Model):
     """
-    Stores 2PL IRT latent ability estimate (theta) per user per topic/topic-group.
+    The learner's ability θ, held per **course** (D33).
+
+    θ is a property of the learner, not of a single topic: it is estimated from
+    every answer inside one course and is what question selection compares
+    against b_q, so selection and the update read the same number. The course
+    is the root of the answered topic's tree, the same source as the ledger's
+    ``course`` snapshot.
     """
 
     user = models.ForeignKey(
@@ -557,30 +570,105 @@ class UserAbility(models.Model):
         related_name="abilities",
         db_index=True,
     )
-    topic = models.ForeignKey(
+    course = models.ForeignKey(
         "curriculum.Topic",
         on_delete=models.CASCADE,
         related_name="abilities",
         db_index=True,
+        help_text="Root of the tree (kind=course, D2).",
     )
     theta: float = models.FloatField(
         default=0.0,
-        help_text="Latent ability estimate (theta), typically in [-3.0, 3.0].",
+        help_text="Ability θ_s, clamped to ±THESIS_MODEL['THETA_CLAMP'].",
+    )
+    # n_s of K(n_s): the learner's answers in this course so far.
+    n_answers: int = models.PositiveIntegerField(
+        default=0,
+        help_text="Answers this learner has given in this course.",
     )
     theta_updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=["user", "topic"],
-                name="uniq_user_topic_ability",
+                fields=["user", "course"],
+                name="uniq_user_course_ability",
             ),
         ]
         verbose_name = "User Ability"
         verbose_name_plural = "User Abilities"
 
     def __str__(self) -> str:
-        return f"{self.user} | {self.topic} — theta={self.theta:.3f}"
+        return f"{self.user} | {self.course} — theta={self.theta:.3f}"
+
+
+class ParamSource(models.TextChoices):
+    DEFAULT = "default", "Default"
+    FITTED = "fitted", "Fitted"
+
+
+class TopicModelParams(models.Model):
+    """
+    The per-topic base values P0, PT, G0, S0 (3.3).
+
+    A topic without a row uses the defaults in ``settings.THESIS_MODEL``, so
+    this table holds only what calibration has actually fitted. ``source``
+    says which of the two a row is: ``calibrate_bkt`` writes ``fitted`` and
+    leaves a topic with too little data untouched.
+
+    G0 < G_MAX and S0 < S_MAX are required by γ (``neuro_model.irt.gamma``).
+    Those bounds live in settings and can be overridden per environment, so
+    they are checked in ``clean()`` rather than by a database constraint; the
+    constraints below hold the parameter-independent ranges.
+    """
+
+    topic = models.OneToOneField(
+        "curriculum.Topic",
+        on_delete=models.CASCADE,
+        related_name="model_params",
+    )
+    p0: float = models.FloatField(help_text="P0 — the base prior of this topic.")
+    pt: float = models.FloatField(help_text="PT — the learning rate per opportunity.")
+    g0: float = models.FloatField(help_text="G0 — the base guess rate; must be < G_MAX.")
+    s0: float = models.FloatField(help_text="S0 — the base slip rate; must be < S_MAX.")
+    source: str = models.CharField(
+        max_length=10,
+        choices=ParamSource.choices,
+        default=ParamSource.DEFAULT,
+        db_index=True,
+    )
+    fitted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When calibration produced these values; NULL for defaults.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Topic Model Parameters"
+        verbose_name_plural = "Topic Model Parameters"
+        constraints = [
+            models.CheckConstraint(condition=Q(p0__gt=0.0) & Q(p0__lt=1.0), name="params_p0_range"),
+            models.CheckConstraint(condition=Q(pt__gte=0.0) & Q(pt__lte=1.0), name="params_pt_range"),
+            models.CheckConstraint(condition=Q(g0__gt=0.0) & Q(g0__lt=1.0), name="params_g0_range"),
+            models.CheckConstraint(condition=Q(s0__gt=0.0) & Q(s0__lt=1.0), name="params_s0_range"),
+            models.CheckConstraint(
+                condition=Q(source=ParamSource.DEFAULT, fitted_at__isnull=True)
+                | Q(source=ParamSource.FITTED, fitted_at__isnull=False),
+                name="params_fitted_at_matches_source",
+            ),
+        ]
+
+    def clean(self) -> None:
+        super().clean()
+        bounds = settings.THESIS_MODEL
+        if self.g0 >= bounds["G_MAX"]:
+            raise ValidationError({"g0": f"G0 must be below G_MAX ({bounds['G_MAX']})."})
+        if self.s0 >= bounds["S_MAX"]:
+            raise ValidationError({"s0": f"S0 must be below S_MAX ({bounds['S_MAX']})."})
+
+    def __str__(self) -> str:
+        return f"{self.topic} — P0={self.p0:.3f} PT={self.pt:.3f} ({self.source})"
 
 
 # ---------------------------------------------------------------------------
@@ -588,11 +676,18 @@ class UserAbility(models.Model):
 # ---------------------------------------------------------------------------
 
 class AlgorithmChoice(models.TextChoices):
-    """Identifiers for the pluggable student-model estimation engines."""
-    STREAK = "streak", "Streak Estimation"
-    BKT = "bkt", "Bayesian Knowledge Tracing"
-    IRT = "irt", "Item Response Theory"
-    HYBRID_BKT_IRT = "hybrid_bkt_irt", "Hybrid BKT + IRT"
+    """
+    The engine that produced a history row.
+
+    ``thesis_hybrid`` is the only engine (D34); the values below it named the
+    engines removed in stage 3 and stay listed so the rows they already wrote
+    remain valid choices in this immutable ledger.
+    """
+    THESIS_HYBRID = "thesis_hybrid", "Thesis hybrid (BKT + IRT + prerequisites)"
+    STREAK = "streak", "Streak Estimation (removed)"
+    BKT = "bkt", "Bayesian Knowledge Tracing (removed)"
+    IRT = "irt", "Item Response Theory (removed)"
+    HYBRID_BKT_IRT = "hybrid_bkt_irt", "Hybrid BKT + IRT (removed)"
 
 
 class UserKnowledgeHistory(models.Model):

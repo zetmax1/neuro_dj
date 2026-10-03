@@ -16,11 +16,13 @@ from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema
 
 from curriculum.models import Topic
+from curriculum.services.graph import get_snapshot
+
 from assessments.models import (
     AssessmentAttempt,
-    UserAbility,
     UserKnowledgeHistory,
 )
+from assessments.services.question_selection import ability_of
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +65,11 @@ class TopicDiagnosticsView(APIView):
             for idx, entry in enumerate(history_qs)
         ]
 
-        # 2. Current IRT Theta (UserAbility)
-        user_ability = UserAbility.objects.filter(user=user, topic=topic).first()
-        current_theta: float = round(user_ability.theta, 3) if user_ability else 0.0
+        # 2. Current ability θ — held per course since D33, so it is read
+        # through the same helper question selection uses.
+        current_theta: float = round(
+            ability_of(user=user, course_id=get_snapshot().root_of(topic.pk)), 3,
+        )
 
         # 3. Recent Questions Answered (last 10)
         attempts = list(
@@ -80,7 +84,9 @@ class TopicDiagnosticsView(APIView):
                 "question_id": att.question_id,
                 "irt_difficulty": round(getattr(att.question, "irt_difficulty", 0.0), 3),
                 "was_correct": att.is_correct,
-                "theta_at_time": current_theta,
+                # The ledger records the θ each answer was scored against;
+                # rows the engine did not process fall back to the current one.
+                "theta_at_time": round(att.theta_after, 3) if att.theta_after is not None else current_theta,
                 "answered_at": att.answered_at.isoformat(),
             }
             for att in reversed(attempts)

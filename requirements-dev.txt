@@ -5,3 +5,6 @@ Faker==40.28.1
 hypothesis==6.168.3
 coverage==7.16.2
 locust==2.46.6
+# Optional calibration path: `calibrate_bkt --method=pybkt` (D36). The default
+# grid search needs nothing extra, so this stays out of requirements.txt.
+pyBKT==1.4.1

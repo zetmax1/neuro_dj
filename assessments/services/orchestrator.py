@@ -8,7 +8,8 @@ Coordinates the full answer-submission lifecycle inside a single
     2. Lock the learner's (user, topic) ledger key, then the state row.
     3. Classify the answer: a repeat of a question answered within the
        review window is logged as ``review_repeat`` and changes nothing (D25).
-    4. Delegate the mastery calculation to the active engine (strategy pattern).
+    4. Run Algorithm 2.4 (``student_model.apply_answer``), which locks the
+       ability row and the question row and moves P(L), θ and b_q.
     5. Persist mastery_percentage + discrete mastery_level on the state row.
     6. Append the answer to the ledger (``ledger.record_attempt``) together
        with the quantities the engine used, and link the history entry to it.
@@ -16,14 +17,18 @@ Coordinates the full answer-submission lifecycle inside a single
        child topics (removed with the readiness service in stage 4).
     8. Select the next adaptive question.
 
+The order inside step 4 is fixed by 3.3 and is the engine's own concern: P(G)
+and P(S) come from the θ and b in force when the question was asked, p̂ is
+recorded as predicted, and Elo moves θ and b only afterwards.
+
 The orchestrator never writes anything for topics or questions the learner
 did not answer (D8): the descendant cascade and the easy-question skip that
 fabricated answers were removed in stage 1.
 
-Engine resolution:
-    The active engine is determined by ``settings.STUDENT_MODEL_ENGINE``.
-    Change this setting to swap algorithms without touching any
-    orchestration code.
+Engine:
+    ``thesis_hybrid`` is the only engine (D34). The classical variants are
+    reproduced by its ablation flags (``settings.THESIS_FLAGS``), so there is
+    nothing to resolve at runtime.
 """
 
 from __future__ import annotations
@@ -33,10 +38,10 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Optional
 
-from django.conf import settings
 from django.db import transaction
 
 from curriculum.models import Topic
+from curriculum.services.graph import get_snapshot
 
 from assessments.models import (
     AlgorithmChoice,
@@ -47,8 +52,7 @@ from assessments.models import (
     UserKnowledgeHistory,
     UserKnowledgeState,
 )
-from assessments.services import ledger
-from assessments.services.engines import get_engine
+from assessments.services import ledger, student_model
 from assessments.services.question_selection import get_next_question
 
 logger = logging.getLogger(__name__)
@@ -91,36 +95,6 @@ class SubmissionResult:
 
 
 # ---------------------------------------------------------------------------
-# Mastery float → MasteryLevel mapping (for probabilistic engines)
-# ---------------------------------------------------------------------------
-
-_PROBABILITY_THRESHOLDS: list[tuple[float, int]] = [
-    (0.90, MasteryLevel.MASTERED),
-    (0.70, MasteryLevel.ADVANCED),
-    (0.45, MasteryLevel.INTERMEDIATE),
-    (0.20, MasteryLevel.BEGINNER),
-]
-
-
-def _mastery_float_to_level(value: float, algorithm: str) -> int:
-    """
-    Convert a raw engine output to a discrete MasteryLevel.
-
-    For streak-based engines the float is already an integer-mapped
-    level (0.0–4.0). For probabilistic engines the float is P(mastery)
-    in [0.0, 1.0] and we apply threshold binning.
-    """
-    if algorithm == AlgorithmChoice.STREAK:
-        return int(value)
-
-    # Probabilistic engine: threshold binning
-    for threshold, level in _PROBABILITY_THRESHOLDS:
-        if value >= threshold:
-            return level
-    return MasteryLevel.NOT_STARTED
-
-
-# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -153,6 +127,11 @@ def process_submission(
     question: Question = choice.question
     topic: Topic = question.topic
     is_correct: bool = choice.is_correct
+
+    # One snapshot for the whole submission: the course of the ability row, the
+    # prerequisites of P(L0) and the ledger's kb_version all come from it, so
+    # they cannot disagree with each other.
+    snapshot = get_snapshot()
 
     # --- Step 2: Serialise this learner's answers on this topic ------------
     # The advisory lock is taken before the state row lock (same order as the
@@ -198,38 +177,29 @@ def process_submission(
         )
     )
 
-    # --- Step 5: Resolve and invoke the active engine ----------------------
-    # The engine reads its prior from the state *before* the counters below
-    # are incremented.
-    algorithm_key: str = getattr(
-        settings, "STUDENT_MODEL_ENGINE", AlgorithmChoice.STREAK,
-    )
-    engine = get_engine(algorithm_key)
-    update = engine.update(
+    # --- Step 5: Algorithm 2.4 ---------------------------------------------
+    # The engine reads P(L), θ and b_q as they stand now and writes the new θ
+    # and b_q itself; the counters below move only afterwards.
+    applied = student_model.apply_answer(
         user=user,
         topic=topic,
-        current_state=state,
+        course_id=snapshot.root_of(topic.pk),
         question=question,
         is_correct=is_correct,
+        snapshot=snapshot,
     )
-    mastery_float: float = update.mastery
+    mastery_float: float = applied.mastery
 
     # --- Step 6: Persist mastery state -------------------------------------
     state.total_attempts += 1
     if is_correct:
         state.correct_attempts += 1
-
-    # Map the engine output to a discrete MasteryLevel for backward compat
-    state.mastery_level = _mastery_float_to_level(
-        mastery_float, algorithm_key,
-    )
-
-    # Store the raw probability (0.0–1.0) for BKT/IRT precision.
-    # For streak engines, normalise the level to [0.0, 1.0] range.
-    if algorithm_key == AlgorithmChoice.STREAK:
-        state.mastery_percentage = float(state.mastery_level) / float(MasteryLevel.MASTERED)
+        state.streak += 1
     else:
-        state.mastery_percentage = mastery_float
+        state.streak = 0
+
+    state.mastery_level = student_model.mastery_level_for(mastery_float)
+    state.mastery_percentage = mastery_float
 
     # Recalculate running accuracy
     state.score = round(
@@ -246,14 +216,14 @@ def process_submission(
         user=user,
         choice=choice,
         source=source,
-        trace=replace(update.trace, engine_version=engine.version),
+        trace=replace(applied.trace, kb_version=snapshot.version),
         answered_at=answered_at,
     )
     UserKnowledgeHistory.objects.create(
         user=user,
         topic=topic,
         calculated_mastery=mastery_float,
-        algorithm_used=algorithm_key,
+        algorithm_used=AlgorithmChoice.THESIS_HYBRID,
         attempt=attempt,
         created_at=attempt.answered_at,
     )

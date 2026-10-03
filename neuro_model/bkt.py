@@ -1,0 +1,66 @@
+"""
+neuro_model/bkt.py — the Bayesian knowledge-tracing update (chapter II, 3.3).
+
+One observation x ∈ {0, 1} on a topic whose mastery probability is P(L):
+
+- p̂ = P(L)(1 − P(S)) + (1 − P(L))P(G)      — the prediction, recorded as it was;
+- P(L|1) = P(L)(1 − P(S)) / p̂              — correct answer;
+- P(L|0) = P(L)·P(S) / (1 − p̂)             — wrong answer;
+- P(L)′ = P(L|x) + (1 − P(L|x))·PT          — the learning transition.
+
+``step`` returns both the posterior (before the transition) and P(L)′, because
+the 2.5 assertion is stated for the posterior: if P(G) + P(S) < 1 then
+P(L|1) > P(L) and P(L|0) < P(L). After the PT transition P(L) can rise even on
+a wrong answer — classical BKT behaviour, documented by a test rather than
+corrected.
+
+All functions are pure.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+__all__ = ["BKTStep", "predict", "posterior", "transition", "step"]
+
+# Below this, p̂ (or 1 − p̂) is treated as degenerate and the prior is kept.
+# With valid parameters (P(G) > 0, P(S) < 1) neither denominator can vanish.
+_EPSILON = 1e-12
+
+
+@dataclass(frozen=True)
+class BKTStep:
+    """One observation: the prediction, the posterior and P(L) after PT."""
+    p_hat: float
+    posterior: float
+    p_after: float
+
+
+def predict(*, p_l: float, guess: float, slip: float) -> float:
+    """p̂ = P(L)(1 − P(S)) + (1 − P(L))P(G)."""
+    return p_l * (1.0 - slip) + (1.0 - p_l) * guess
+
+
+def posterior(*, p_l: float, guess: float, slip: float, is_correct: bool) -> float:
+    """P(L | x) by Bayes' rule, before the learning transition."""
+    p_hat = predict(p_l=p_l, guess=guess, slip=slip)
+    if is_correct:
+        numerator, denominator = p_l * (1.0 - slip), p_hat
+    else:
+        numerator, denominator = p_l * slip, 1.0 - p_hat
+    if denominator < _EPSILON:
+        return p_l
+    return numerator / denominator
+
+
+def transition(*, posterior: float, pt: float) -> float:
+    """P(L)′ = P(L|x) + (1 − P(L|x))·PT, clamped to [0, 1]."""
+    updated = posterior + (1.0 - posterior) * pt
+    return min(1.0, max(0.0, updated))
+
+
+def step(*, p_l: float, guess: float, slip: float, pt: float, is_correct: bool) -> BKTStep:
+    """One full observation; ``p_hat`` is the value predicted before the update."""
+    p_hat = predict(p_l=p_l, guess=guess, slip=slip)
+    post = posterior(p_l=p_l, guess=guess, slip=slip, is_correct=is_correct)
+    return BKTStep(p_hat=p_hat, posterior=post, p_after=transition(posterior=post, pt=pt))

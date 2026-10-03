@@ -60,10 +60,21 @@ class TestTopicDiagnosticsEndpoint(TestCase):
         self.assertEqual(data["mastery_trend"][0]["attempt_number"], 1)
         self.assertIn("mastery_probability", data["mastery_trend"][0])
 
-        # Verify current theta
+        # Verify current theta: a correct answer raises it above the start.
         self.assertIn("current_theta", data)
+        self.assertGreater(data["current_theta"], 0.0)
 
-        # Verify recent items
+        # Verify recent items. Elo moves b_q after every answer (3.3), so the
+        # reported difficulty is the item's new value: a correct answer makes
+        # the question look easier than the -0.5 it was seeded with.
         self.assertGreaterEqual(len(data["recent_items"]), 1)
-        self.assertEqual(data["recent_items"][0]["question_id"], self.q1.id)
-        self.assertEqual(data["recent_items"][0]["irt_difficulty"], -0.5)
+        item = data["recent_items"][0]
+        self.assertEqual(item["question_id"], self.q1.id)
+        self.assertLess(item["irt_difficulty"], -0.5)
+        self.assertEqual(
+            item["irt_difficulty"],
+            round(Question.objects.get(pk=self.q1.pk).irt_difficulty, 3),
+        )
+        # θ is recorded per answer, so it is the value this answer was scored
+        # against rather than whatever θ happens to be now.
+        self.assertEqual(item["theta_at_time"], data["current_theta"])

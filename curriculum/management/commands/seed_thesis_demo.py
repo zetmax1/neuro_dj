@@ -28,6 +28,7 @@ from django.db import transaction
 from django.utils.timezone import now
 
 from accounts.demo import DEMO_EMAILS, DemoPassword
+from assessments.services import student_model
 from curriculum.models import TopicKind
 from curriculum.services import kb
 from curriculum.services.graph import is_unlocked_dag
@@ -81,18 +82,16 @@ class Command(BaseCommand):
             self.style.MIGRATE_HEADING("=== Starting Thesis Demo Database Seeding ===")
         )
 
-        # 1. Engine Check
-        active_engine = getattr(settings, "STUDENT_MODEL_ENGINE", "streak")
-        if active_engine != "hybrid_bkt_irt":
+        # 1. Engine and ablation flags (D34: there is only one engine).
+        self.stdout.write(
+            self.style.SUCCESS(f"[OK] Engine: {student_model.ENGINE_VERSION}.")
+        )
+        if settings.THESIS_FLAGS != {"use_irt": True, "use_prereq_init": True}:
             self.stdout.write(
                 self.style.WARNING(
-                    f"[WARNING] settings.STUDENT_MODEL_ENGINE is currently '{active_engine}'. "
-                    f"For thesis demo, 'hybrid_bkt_irt' is strongly recommended."
+                    f"[WARNING] settings.THESIS_FLAGS is {settings.THESIS_FLAGS}. "
+                    "The demo expects the full model (both flags on)."
                 )
-            )
-        else:
-            self.stdout.write(
-                self.style.SUCCESS("[OK] Student model engine confirmed as 'hybrid_bkt_irt'.")
             )
 
         demo_password = DemoPassword(self.stdout)

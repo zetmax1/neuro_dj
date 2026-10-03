@@ -253,7 +253,9 @@ SPECTACULAR_SETTINGS = {
 # Adaptive learning engine (legacy, replaced in stages 3–4)
 # ---------------------------------------------------------------------------
 
-STUDENT_MODEL_ENGINE = env("STUDENT_MODEL_ENGINE", default="hybrid_bkt_irt")
+# One engine only (D34): the removed bayesian / irt / hybrid_bkt_irt / streak
+# strategies are reproduced by the ablation flags below, so there is no engine
+# setting to pick any more.
 MASTERY_THRESHOLD = 0.70
 
 
@@ -284,4 +286,11 @@ _THESIS_DEFAULTS = {
 THESIS_MODEL = {
     name: env.float(f"THESIS_{name}", default=default)
     for name, default in _THESIS_DEFAULTS.items()
+}
+
+# Ablation of 3.3: BKT (both off), BKT+IRT (use_irt), BKT+IRT+Pre (both on).
+# The prototype runs the full model; stage 8 sets these per experiment arm.
+THESIS_FLAGS = {
+    "use_irt": env.bool("THESIS_USE_IRT", default=True),
+    "use_prereq_init": env.bool("THESIS_USE_PREREQ_INIT", default=True),
 }

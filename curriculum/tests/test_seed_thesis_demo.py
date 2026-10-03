@@ -38,10 +38,15 @@ class TestSeedThesisDemoCommand(TestCase):
         # 3. Verify Algorithmic History Ledger & Ability Theta
         student = User.objects.get(email="hybrid_demo@test.com")
         history_count = UserKnowledgeHistory.objects.filter(user=student).count()
-        ability_count = UserAbility.objects.filter(user=student).count()
-
         self.assertGreaterEqual(history_count, 15)
-        self.assertGreaterEqual(ability_count, 2)
+
+        # Ability is one row per course the learner answered in (D33), and the
+        # demo seeds a single course, so one row that has actually moved.
+        abilities = list(UserAbility.objects.filter(user=student))
+        self.assertEqual(len(abilities), 1)
+        self.assertEqual(abilities[0].course, cs)
+        self.assertGreaterEqual(abilities[0].n_answers, 15)
+        self.assertNotEqual(abilities[0].theta, 0.0)
 
         # 4. Verify DAG unlock status for demo_topic and creation of 3 demo users
         from curriculum.services.graph import is_unlocked_dag

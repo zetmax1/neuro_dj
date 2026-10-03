@@ -33,12 +33,14 @@ from assessments.models import (
     UserKnowledgeState,
 )
 from assessments.services import ledger
-from assessments.services.engines.bayesian import DEFAULT_P_INIT
 from assessments.services.orchestrator import process_submission
 from curriculum.models import KnowledgeBaseVersion, Topic
 from curriculum.testing import make_course, make_section, make_topic
 
 User = get_user_model()
+
+# A first attempt on a topic with no prerequisites starts from P0 (3.3).
+DEFAULT_P0: float = settings.THESIS_MODEL["DEFAULT_P0"]
 
 LEDGER_MODULE = Path("assessments/services/ledger.py")
 WRITE_PATTERNS = [
@@ -199,26 +201,37 @@ def test_hybrid_trace_is_stored_and_prior_comes_from_state(student, course_tree)
     _submit(student, q1, right1)
     _submit(student, q2, wrong2)
 
+    course = course_tree[0]
     first, second = AssessmentAttempt.objects.filter(user=student).order_by("attempt_no")
     state = UserKnowledgeState.objects.get(user=student, topic=leaf)
     for row in (first, second):
         assert row.source == AttemptSource.ADAPTIVE
-        assert row.engine_version == "hybrid_bkt_irt/0"
+        assert row.engine_version == "thesis_hybrid/1"
         assert row.p_hat == pytest.approx(
             row.p_before * (1 - row.slip_used) + (1 - row.p_before) * row.guess_used
         )
-        assert row.b_before == row.b_after == row.question.irt_difficulty
+        # Elo now moves the item too, and the stored b_q is the new value.
+        assert row.b_after != pytest.approx(row.b_before)
         assert row.history_entry.calculated_mastery == pytest.approx(row.p_after)
+        assert row.history_entry.algorithm_used == "thesis_hybrid"
         assert row.history_entry.created_at == row.answered_at
         # The KB version is recorded since stage 2; readiness comes in stage 4.
         assert row.kb_version == KnowledgeBaseVersion.current()
         assert row.readiness_score is None and row.was_ready is None
 
-    assert first.p_before == pytest.approx(DEFAULT_P_INIT)
+    assert first.p_before == pytest.approx(DEFAULT_P0)
     assert second.p_before == pytest.approx(first.p_after)
     assert second.theta_before == pytest.approx(first.theta_after)
     assert state.mastery_percentage == pytest.approx(second.p_after)
-    assert UserAbility.objects.get(user=student, topic=leaf).theta == pytest.approx(second.theta_after)
+
+    # θ is held per course (D33) and counts both answers.
+    ability = UserAbility.objects.get(user=student, course=course)
+    assert ability.theta == pytest.approx(second.theta_after)
+    assert ability.n_answers == 2
+    # Each question carries its own Elo history.
+    assert Question.objects.get(pk=q1.pk).irt_difficulty == pytest.approx(first.b_after)
+    assert Question.objects.get(pk=q1.pk).n_answers == 1
+    assert Question.objects.get(pk=q2.pk).irt_difficulty == pytest.approx(second.b_after)
 
 
 @pytest.mark.django_db
@@ -229,7 +242,7 @@ def test_state_without_engine_estimate_falls_back_to_p0(student, course_tree, st
     UserKnowledgeState.objects.create(user=student, topic=leaf, mastery_percentage=stored, total_attempts=5)
     q, right, _ = _question(leaf, "Q")
     _submit(student, q, right)
-    assert AssessmentAttempt.objects.get(user=student).p_before == pytest.approx(DEFAULT_P_INIT)
+    assert AssessmentAttempt.objects.get(user=student).p_before == pytest.approx(DEFAULT_P0)
 
 
 @pytest.mark.django_db
@@ -253,11 +266,12 @@ def test_submit_answer_api_reports_ledger_source(student, course_tree):
 
 @pytest.mark.django_db
 def test_repeat_within_window_is_logged_but_changes_nothing(student, course_tree):
-    _, _, leaf, _ = course_tree
+    course, _, leaf, _ = course_tree
     q, right, wrong = _question(leaf, "Q")
     _submit(student, q, wrong)
     before = UserKnowledgeState.objects.get(user=student, topic=leaf)
-    theta_before = UserAbility.objects.get(user=student, topic=leaf).theta
+    ability_before = UserAbility.objects.get(user=student, course=course)
+    b_before = Question.objects.get(pk=q.pk).irt_difficulty
 
     result = _submit(student, q, right)
 
@@ -268,7 +282,13 @@ def test_repeat_within_window_is_logged_but_changes_nothing(student, course_tree
     assert (after.mastery_percentage, after.total_attempts, after.correct_attempts) == (
         before.mastery_percentage, before.total_attempts, before.correct_attempts,
     )
-    assert UserAbility.objects.get(user=student, topic=leaf).theta == theta_before
+    # review_repeat moves neither θ, nor b_q, nor either answer counter (D25).
+    ability_after = UserAbility.objects.get(user=student, course=course)
+    assert (ability_after.theta, ability_after.n_answers) == (
+        ability_before.theta, ability_before.n_answers,
+    )
+    item = Question.objects.get(pk=q.pk)
+    assert (item.irt_difficulty, item.n_answers) == (b_before, 1)
     repeat = AssessmentAttempt.objects.get(user=student, attempt_no=2)
     assert repeat.is_correct is True
     assert repeat.p_before is None and repeat.p_after is None and repeat.engine_version == ""
@@ -404,7 +424,7 @@ def test_parallel_answers_get_gapless_numbers_and_chain():
     assert errors == []
     rows = list(AssessmentAttempt.objects.filter(user=user).order_by("attempt_no"))
     assert [r.attempt_no for r in rows] == list(range(1, 11))
-    assert rows[0].p_before == pytest.approx(DEFAULT_P_INIT)
+    assert rows[0].p_before == pytest.approx(DEFAULT_P0)
     for prev, row in zip(rows, rows[1:]):
         assert row.p_before == pytest.approx(prev.p_after)
         assert row.theta_before == pytest.approx(prev.theta_after)

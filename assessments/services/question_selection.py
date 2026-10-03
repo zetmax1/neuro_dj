@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Optional
 
-from django.conf import settings
 from django.db.models import Exists, F, OuterRef, QuerySet
 from django.db.models.functions import Abs
 from django.utils import timezone
@@ -17,40 +16,48 @@ from curriculum.models import Topic
 from curriculum.services.graph import get_snapshot
 
 from assessments.models import (
-    AlgorithmChoice,
     AssessmentAttempt,
     DifficultyLevel,
-    MasteryLevel,
     Question,
     UserAbility,
-    UserKnowledgeState,
 )
 from assessments.services.ledger import review_window
 
-MASTERY_TO_DIFFICULTY: dict[int, int] = {
-    MasteryLevel.NOT_STARTED: DifficultyLevel.EASY,
-    MasteryLevel.BEGINNER: DifficultyLevel.EASY,
-    MasteryLevel.INTERMEDIATE: DifficultyLevel.MEDIUM,
-    MasteryLevel.ADVANCED: DifficultyLevel.HARD,
-    MasteryLevel.MASTERED: DifficultyLevel.HARD,
-}
+
+def ability_of(*, user, course_id: int) -> float:
+    """
+    θ_s for this learner in this course, 0 when they have never answered.
+
+    Selection and the Elo update read the same row (D33), so the question the
+    learner is given is the one the model will score them against.
+    """
+    theta = (
+        UserAbility.objects
+        .filter(user=user, course_id=course_id)
+        .values_list("theta", flat=True)
+        .first()
+    )
+    return 0.0 if theta is None else theta
 
 
 def get_next_question(*, user, topic_id: int) -> Optional[Question]:
     """
-    Select the next adaptive question for a user on a topic.
+    The next question for this learner on this topic: the one whose difficulty
+    is closest to their ability, ``|b_q − θ_s|``, ties broken by id.
 
-    If the active engine is 'irt' or 'hybrid_bkt_irt', selects the question whose
-    `irt_difficulty` is closest to the user's current `theta` (maximizing IRT information).
-    Otherwise, falls back to discrete 3-bucket difficulty matching.
+    θ_s is the learner's ability in the **course** that holds the topic, which
+    is the same θ the Elo step updates — the inconsistency of the removed
+    per-topic lookup is gone.
 
     Questions the learner answered within the review window come last: a
     repeat is logged as review_repeat and does not update P(L) (D25), so it is
-    served only when nothing else is left. Archived topics are not answerable.
+    served only when nothing else is left. Questions already answered
+    correctly are not served again. Archived topics are not answerable.
     """
     topic: Topic = Topic.objects.get(pk=topic_id, is_archived=False)
+    snapshot = get_snapshot()
     # Questions belong to topics only (Y4): the candidates are Leaves(n).
-    topic_ids: list[int] = sorted(get_snapshot().leaves_of(topic.pk))
+    topic_ids: list[int] = sorted(snapshot.leaves_of(topic.pk))
 
     answered_correctly_ids: QuerySet = (
         AssessmentAttempt.objects
@@ -64,44 +71,19 @@ def get_next_question(*, user, topic_id: int) -> Optional[Question]:
         answered_at__gte=timezone.now() - review_window(),
     )
 
-    base_qs: QuerySet[Question] = (
+    theta = ability_of(user=user, course_id=snapshot.root_of(topic.pk))
+
+    return (
         Question.objects
         .filter(topic_id__in=topic_ids, is_active=True)
         .exclude(pk__in=answered_correctly_ids)
         .annotate(answered_recently=Exists(answered_recently))
+        .annotate(information=Abs(F("irt_difficulty") - theta))
         .select_related("topic")
         .prefetch_related("choices")
+        .order_by("answered_recently", "information", "id")
+        .first()
     )
-
-
-    active_engine: str = getattr(settings, "STUDENT_MODEL_ENGINE", AlgorithmChoice.BKT)
-
-    # IRT / Hybrid continuous selection: pick question closest to user's theta
-    if active_engine in (AlgorithmChoice.IRT, AlgorithmChoice.HYBRID_BKT_IRT):
-        ability_obj = UserAbility.objects.filter(user=user, topic=topic).first()
-        theta: float = ability_obj.theta if ability_obj else 0.0
-
-        candidate = (
-            base_qs.annotate(diff_dist=Abs(F("irt_difficulty") - theta))
-            .order_by("answered_recently", "diff_dist", "id")
-            .first()
-        )
-        if candidate:
-            return candidate
-        return base_qs.first()
-
-    # Discrete 3-bucket selection for streak and plain bkt
-    try:
-        state = UserKnowledgeState.objects.get(user=user, topic=topic)
-        mastery_level: int = state.mastery_level
-    except UserKnowledgeState.DoesNotExist:
-        mastery_level = MasteryLevel.NOT_STARTED
-
-    target_difficulty: int = MASTERY_TO_DIFFICULTY.get(
-        mastery_level, DifficultyLevel.EASY
-    )
-
-    return base_qs.order_by("answered_recently", "difficulty", "id").first()
 
 
 def get_stratified_test_questions(*, topic_id: int) -> list[Question]:
