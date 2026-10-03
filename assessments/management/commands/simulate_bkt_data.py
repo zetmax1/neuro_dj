@@ -9,7 +9,8 @@ from faker import Faker
 
 from assessments.models import AttemptSource, Choice, DifficultyLevel, Question
 from assessments.services.orchestrator import process_submission
-from curriculum.models import Topic
+from curriculum.models import Topic, TopicKind
+from curriculum.services import kb
 
 User = get_user_model()
 fake = Faker()
@@ -64,18 +65,11 @@ class Command(BaseCommand):
         self.stdout.write("Ensuring simulation curriculum tree...")
 
         with transaction.atomic():
-            cs, _ = Topic.objects.get_or_create(
-                slug="sim-computer-science",
-                defaults={"name": "[SIM] Computer Science", "is_unlocked": True},
-            )
-            ds, _ = Topic.objects.get_or_create(
-                slug="sim-data-structures",
-                defaults={"name": "[SIM] Data Structures", "parent": cs, "is_unlocked": False},
-            )
-            algos, _ = Topic.objects.get_or_create(
-                slug="sim-algorithms",
-                defaults={"name": "[SIM] Algorithms", "parent": cs, "is_unlocked": False},
-            )
+            cs = kb.ensure_node(slug="sim-computer-science", name="[SIM] Computer Science", is_unlocked=True)
+            ds = kb.ensure_node(slug="sim-data-structures", name="[SIM] Data Structures", parent=cs,
+                                kind=TopicKind.SECTION, is_unlocked=False)
+            algos = kb.ensure_node(slug="sim-algorithms", name="[SIM] Algorithms", parent=cs,
+                                   kind=TopicKind.SECTION, is_unlocked=False)
             leaf_specs = [
                 ("sim-binary-trees", "[SIM] Binary Trees", ds),
                 ("sim-hash-maps", "[SIM] Hash Maps", ds),
@@ -85,9 +79,8 @@ class Command(BaseCommand):
             leaf_topics = []
             choices_to_create = []
             for slug, name, parent in leaf_specs:
-                topic, created = Topic.objects.get_or_create(
-                    slug=slug, defaults={"name": name, "parent": parent, "is_unlocked": False},
-                )
+                created = not Topic.objects.filter(slug=slug).exists()
+                topic = kb.ensure_node(slug=slug, name=name, parent=parent, kind=TopicKind.TOPIC, is_unlocked=False)
                 leaf_topics.append(topic)
                 if not created:
                     continue

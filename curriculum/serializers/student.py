@@ -11,7 +11,7 @@ class StudentTopicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Topic
         fields = [
-            "id", "name", "slug", "parent", "description", "position",
+            "id", "name", "slug", "parent", "kind", "description", "position",
             "is_unlocked", "pass_mark_percentage", "test_question_count",
             "total_duration_minutes",
         ]

@@ -14,6 +14,7 @@ from django.db.models.functions import Abs
 from django.utils import timezone
 
 from curriculum.models import Topic
+from curriculum.services.graph import get_snapshot
 
 from assessments.models import (
     AlgorithmChoice,
@@ -48,11 +49,8 @@ def get_next_question(*, user, topic_id: int) -> Optional[Question]:
     served only when nothing else is left. Archived topics are not answerable.
     """
     topic: Topic = Topic.objects.get(pk=topic_id, is_archived=False)
-    topic_ids: list[int] = list(
-        topic.get_descendants(include_self=True)
-        .filter(is_archived=False)
-        .values_list("id", flat=True)
-    )
+    # Questions belong to topics only (Y4): the candidates are Leaves(n).
+    topic_ids: list[int] = sorted(get_snapshot().leaves_of(topic.pk))
 
     answered_correctly_ids: QuerySet = (
         AssessmentAttempt.objects
@@ -118,11 +116,7 @@ def get_stratified_test_questions(*, topic_id: int) -> list[Question]:
     import random
 
     topic = Topic.objects.get(pk=topic_id, is_archived=False)
-    topic_ids = list(
-        topic.get_descendants(include_self=True)
-        .filter(is_archived=False)
-        .values_list("id", flat=True)
-    )
+    topic_ids = sorted(get_snapshot().leaves_of(topic.pk))
 
     target_total = topic.test_question_count or 10
 

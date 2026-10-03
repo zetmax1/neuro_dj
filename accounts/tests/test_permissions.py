@@ -7,6 +7,7 @@ from rest_framework.test import APIClient
 
 from accounts.permissions import get_role, is_instructor
 from curriculum.models import Topic, TopicResource
+from curriculum.testing import make_node
 
 User = get_user_model()
 
@@ -47,18 +48,27 @@ def test_instructor_group_without_staff_can_manage_questions_and_topics():
 
     resp = client.post("/api/curriculum/instructor/topics/", {"name": "Algebra", "slug": "algebra"}, format="json")
     assert resp.status_code == 201
-    topic_id = resp.json()["id"]
-
+    course_id = resp.json()["id"]
+    assert resp.json()["kind"] == "course"
     resp = client.post(
-        "/api/assessments/instructor/questions/",
-        {
-            "topic": topic_id,
-            "text": "2 + 2?",
-            "difficulty": 1,
-            "choices": [{"text": "4", "is_correct": True}, {"text": "5", "is_correct": False}],
-        },
+        "/api/curriculum/instructor/topics/",
+        {"name": "Sums", "slug": "sums", "parent": course_id},
         format="json",
     )
+    assert resp.status_code == 201
+    topic_id = resp.json()["id"]
+    assert resp.json()["kind"] == "topic"
+
+    question = {
+        "text": "2 + 2?",
+        "difficulty": 1,
+        "choices": [{"text": "4", "is_correct": True}, {"text": "5", "is_correct": False}],
+    }
+    # Y4: a course holds no questions.
+    resp = client.post("/api/assessments/instructor/questions/", {**question, "topic": course_id}, format="json")
+    assert resp.status_code == 400
+    assert "topic" in resp.json()
+    resp = client.post("/api/assessments/instructor/questions/", {**question, "topic": topic_id}, format="json")
     assert resp.status_code == 201
     assert client.get("/api/assessments/instructor/questions/").status_code == 200
     assert client.get("/api/assessments/instructor/templates/questions/?file_format=excel").status_code == 200
@@ -67,7 +77,7 @@ def test_instructor_group_without_staff_can_manage_questions_and_topics():
 @pytest.mark.django_db
 def test_student_cannot_read_instructor_endpoints():
     student = make_user("s@example.org")
-    topic = Topic.objects.create(name="T", slug="t")
+    topic = make_node("T", slug="t")
     client = client_for(student)
 
     for url in (
@@ -83,7 +93,7 @@ def test_student_cannot_read_instructor_endpoints():
 @pytest.mark.django_db
 def test_student_read_only_topic_endpoints():
     student = make_user("s@example.org")
-    topic = Topic.objects.create(name="T", slug="t")
+    topic = make_node("T", slug="t")
     TopicResource.objects.create(topic=topic, title="Notes", duration_minutes=7)
     client = client_for(student)
 

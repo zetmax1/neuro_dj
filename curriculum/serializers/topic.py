@@ -1,7 +1,7 @@
 """
 curriculum/serializers/topic.py — Serializer for the hierarchical topic tree.
 
-Handles the MPTT tree structure and injects dynamic user progress
+Handles the topic tree structure and injects dynamic user progress
 metrics (mastery_percentage, is_unlocked) without executing recursive
 database queries. Tree construction happens in-memory from a pre-fetched
 flat queryset passed via serializer context.
@@ -58,7 +58,8 @@ class TopicTreeSerializer(serializers.ModelSerializer):
       - mastery_percentage: User's accuracy score (0–100) on this topic.
       - is_unlocked: Whether the user can access this topic.
       - mastery_level / mastery_level_display: Current state-machine level.
-      - tree_depth: Depth in the tree (from django-mptt's `level` field).
+      - tree_depth: Depth in the tree (0 for courses).
+      - kind, pos (D4) and lev (Algorithm 2.2, topics only) from the KB snapshot.
     """
 
     # --- Annotated fields (injected at query time, not stored) -------------
@@ -75,8 +76,10 @@ class TopicTreeSerializer(serializers.ModelSerializer):
     mastery_level_display = serializers.SerializerMethodField()
     is_unlocked = serializers.SerializerMethodField()
 
-    # Tree depth from django-mptt's built-in `level` field
-    tree_depth = serializers.IntegerField(source="level", read_only=True, default=0)
+    # Tree position data from the KB snapshot passed in the context
+    tree_depth = serializers.SerializerMethodField()
+    pos = serializers.SerializerMethodField()
+    lev = serializers.SerializerMethodField()
 
     # Aggregated total duration from all related resources
     total_duration_minutes = serializers.IntegerField(read_only=True, default=0)
@@ -92,7 +95,10 @@ class TopicTreeSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "parent_id",
+            "kind",
             "tree_depth",
+            "pos",
+            "lev",
             "position",
             "pass_mark_percentage",
             "test_question_count",
@@ -105,6 +111,15 @@ class TopicTreeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
+
+    def get_tree_depth(self, obj: Topic) -> int:
+        return self.context["kb"].depth.get(obj.pk, 0)
+
+    def get_pos(self, obj: Topic) -> int | None:
+        return self.context["kb"].pos.get(obj.pk)
+
+    def get_lev(self, obj: Topic) -> int | None:
+        return self.context["kb"].lev.get(obj.pk)
 
     def get_mastery_level_display(self, obj: Topic) -> str:
         """Human-readable mastery level label from the annotated integer."""

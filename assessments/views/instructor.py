@@ -12,8 +12,9 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from drf_spectacular.utils import extend_schema
 from accounts.permissions import IsInstructor
 from curriculum.models import Topic
-from assessments.models import Question, Choice
+from assessments.models import Question
 from assessments.serializers.instructor import InstructorQuestionSerializer
+from assessments.services.question_import import ImportRejected, import_questions
 
 @extend_schema(tags=["Instructor Management"])
 class InstructorQuestionViewSet(viewsets.ModelViewSet):
@@ -192,7 +193,7 @@ class ImportQuestionsView(APIView):
             )
 
         try:
-            topic = Topic.objects.get(pk=topic_id)
+            topic = Topic.objects.get(pk=topic_id, is_archived=False)
         except Topic.DoesNotExist:
             return Response(
                 {"detail": f"Topic with id={topic_id} not found."},
@@ -216,26 +217,10 @@ class ImportQuestionsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        created_count = 0
-        with transaction.atomic():
-            for q_item in parsed_questions:
-                q_obj = Question.objects.create(
-                    topic=topic,
-                    text=q_item["text"],
-                    difficulty=q_item["difficulty"],
-                    explanation=q_item.get("explanation", ""),
-                    is_active=True
-                )
-                choices_to_create = [
-                    Choice(
-                        question=q_obj,
-                        text=c["text"],
-                        is_correct=c["is_correct"]
-                    )
-                    for c in q_item["choices"]
-                ]
-                Choice.objects.bulk_create(choices_to_create)
-                created_count += 1
+        try:
+            created_count = import_questions(topic, parsed_questions)
+        except ImportRejected as exc:
+            return Response(exc.payload(), status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
             "detail": f"Successfully imported {created_count} questions for topic '{topic.name}'.",

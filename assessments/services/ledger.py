@@ -11,13 +11,15 @@ to keep it that way.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db import connection, transaction
 from django.db.models import Max
 from django.utils import timezone
+
+from curriculum.services.graph import get_snapshot
 
 from assessments.models import (
     AssessmentAttempt,
@@ -103,11 +105,6 @@ def classify_source(*, user, question: Question, requested: str) -> str:
     return requested
 
 
-def course_of(topic):
-    """Course of a topic: the root of its tree (D2)."""
-    return topic.get_root()
-
-
 def record_attempt(
     *,
     user,
@@ -121,7 +118,8 @@ def record_attempt(
     Append one answer to the ledger and return the new row.
 
     ``is_correct`` is taken from the choice, ``topic``/``course`` from the
-    question at this moment, and ``attempt_no`` is the next number for
+    question at this moment (course = the root of the topic's tree, D2, and
+    ``kb_version`` from the KB snapshot), and ``attempt_no`` is the next number for
     (user, topic). Must run inside the caller's transaction so the row commits
     or rolls back together with the state update it belongs to.
     """
@@ -140,6 +138,13 @@ def record_attempt(
     question: Question = choice.question
     topic = question.topic
     lock_learner_topics(user.pk, [topic.pk])
+    snapshot = get_snapshot()
+    if topic.pk not in snapshot:
+        raise ValueError(f"Topic {topic.pk} is archived or unknown; it cannot be answered.")
+    trace = trace or ModelTrace()
+    if trace.kb_version is None:
+        # The KB version the answer was given under (TY6, experiments).
+        trace = replace(trace, kb_version=snapshot.version)
     last_no = (
         AssessmentAttempt.objects
         .filter(user=user, topic=topic)
@@ -152,10 +157,10 @@ def record_attempt(
         selected_choice=choice,
         is_correct=choice.is_correct,
         topic=topic,
-        course=course_of(topic),
+        course_id=snapshot.root_of(topic.pk),
         attempt_no=last_no + 1,
         source=source,
         session=session,
         answered_at=answered_at or timezone.now(),
-        **asdict(trace or ModelTrace()),
+        **asdict(trace),
     )

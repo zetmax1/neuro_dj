@@ -8,6 +8,7 @@ from assessments.models import Choice, DifficultyLevel, Question, UserKnowledgeS
 from assessments.services.engines.bayesian import BayesianKnowledgeTracingEngine
 from assessments.services.orchestrator import process_submission
 from curriculum.models import Topic
+from curriculum.testing import make_topic
 
 User = get_user_model()
 
@@ -56,7 +57,7 @@ def test_concurrent_answer_submissions() -> None:
     no swallowed database error.
     """
     user = User.objects.create_user(email="concurrent@test.com", password=None)
-    topic = Topic.objects.create(name="Concurrency", slug="concurrency", is_unlocked=True)
+    topic = make_topic("Concurrency", slug="concurrency", is_unlocked=True)
     choices = []
     for i, correct in enumerate((True, False)):
         q = Question.objects.create(topic=topic, text=f"Q{i}?", difficulty=DifficultyLevel.MEDIUM)

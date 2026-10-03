@@ -13,12 +13,13 @@ from accounts.demo import DEMO_EMAILS
 from assessments.models import AssessmentAttempt, AttemptSource, Choice, Question
 from assessments.services.orchestrator import process_submission
 from curriculum.models import Topic
+from curriculum.testing import make_topic
 
 User = get_user_model()
 
 
 def _answer_once(user, slug="real-topic"):
-    topic, _ = Topic.objects.get_or_create(slug=slug, defaults={"name": slug})
+    topic = Topic.objects.filter(slug=slug).first() or make_topic(slug, slug=slug)
     q = Question.objects.create(topic=topic, text="Q")
     choice = Choice.objects.create(question=q, text="A", is_correct=True)
     process_submission(user=user, question_id=q.pk, choice_id=choice.pk)

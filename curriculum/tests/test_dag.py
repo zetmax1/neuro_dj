@@ -1,190 +1,108 @@
 """
-curriculum/tests/test_dag.py — Unit tests for TopicPrerequisite DAG operations.
+curriculum/tests/test_dag.py — prerequisite relations through the KB service.
 
-Tests:
-  (a) Cycle rejection on model save/clean
-  (b) Topological ordering (Kahn's algorithm) for multi-branch prerequisites
-  (c) is_unlocked_dag AND-logic (requiring ALL prerequisites mastered)
-  (d) Prerequisite graph API endpoint (GET /api/curriculum/prerequisite-graph/)
+  (a) cycle and self-loop rejection (Algorithm 2.1), with the chain
+  (b) topological order of G_L (Algorithm 2.2) across branches
+  (c) legacy is_unlocked_dag AND-logic (kept until stage 4)
+  (d) GET /api/curriculum/prerequisite-graph/ format
+
+    Mathematics (course) ── Calculus (topic)
+    Physics     (course) ── Classical Mechanics (topic)
+    Quantum     (course) ── Quantum Computing (topic)
 """
 
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from curriculum.models import Topic, TopicPrerequisite
-from curriculum.services.graph import (
-    get_all_prerequisites,
-    is_unlocked_dag,
-    topological_order,
-)
 from assessments.models import UserKnowledgeState
+from curriculum.services import kb
+from curriculum.services.graph import get_snapshot, is_unlocked_dag
+from curriculum.testing import make_course, make_topic
 
 User = get_user_model()
 
 
 class DAGTestSetup(TestCase):
-    """
-    Setup multi-branch tree structure:
-        Math (Root 1)
-        └── Calculus (Child 1)
-
-        Physics (Root 2)
-        └── Classical Mechanics (Child 2)
-
-        Quantum Computing (Root 3 or Child of Math)
-        Depends on BOTH Calculus AND Classical Mechanics
-    """
-
     @classmethod
     def setUpTestData(cls) -> None:
-        cls.user = User.objects.create_user(
-            email="student1@test.com",
-            password=None,
-        )
-
-        # Branch 1: Math
-        cls.math = Topic.objects.create(
-            name="Mathematics", slug="math", position=0
-        )
-        cls.calculus = Topic.objects.create(
-            name="Calculus", slug="calculus", parent=cls.math, position=0
-        )
-
-        # Branch 2: Physics
-        cls.physics = Topic.objects.create(
-            name="Physics", slug="physics", position=1
-        )
-        cls.mechanics = Topic.objects.create(
-            name="Classical Mechanics", slug="mechanics", parent=cls.physics, position=0
-        )
-
-        # Topic with 2 prerequisites from different tree branches
-        cls.quantum = Topic.objects.create(
-            name="Quantum Computing", slug="quantum-computing", position=2
-        )
-
-        Topic.objects.rebuild()
+        cls.user = User.objects.create_user(email="student1@test.com", password=None)
+        cls.math = make_course("Mathematics", slug="math", position=0)
+        cls.calculus = make_topic("Calculus", cls.math, slug="calculus")
+        cls.physics = make_course("Physics", slug="physics", position=1)
+        cls.mechanics = make_topic("Classical Mechanics", cls.physics, slug="mechanics")
+        quantum_course = make_course("Quantum", slug="quantum", position=2)
+        cls.quantum = make_topic("Quantum Computing", quantum_course, slug="quantum-computing")
 
 
 class TestCycleRejection(DAGTestSetup):
-    """(a) Test that cycle creation is rejected by TopicPrerequisite.clean()."""
-
     def test_self_reference_rejected(self):
-        """A topic cannot depend on itself."""
-        prereq = TopicPrerequisite(topic=self.calculus, prerequisite=self.calculus)
-        with self.assertRaises(ValidationError) as cm:
-            prereq.clean()
-        self.assertIn("cannot be a prerequisite of itself", str(cm.exception))
+        with self.assertRaises(kb.KBError) as cm:
+            kb.add_prerequisite(prerequisite=self.calculus, topic=self.calculus)
+        self.assertEqual(cm.exception.reason, "self")
 
-    def test_direct_cycle_rejected(self):
-        """A -> B then B -> A should raise ValidationError."""
-        # Calculus requires Math (Calculus -> Math)
-        TopicPrerequisite.objects.create(topic=self.calculus, prerequisite=self.math)
+    def test_direct_cycle_rejected_with_chain(self):
+        kb.add_prerequisite(prerequisite=self.calculus, topic=self.quantum)
+        with self.assertRaises(kb.KBError) as cm:
+            kb.add_prerequisite(prerequisite=self.quantum, topic=self.calculus)
+        self.assertEqual(cm.exception.reason, "cycle")
+        self.assertEqual(cm.exception.chain, [self.calculus.id, self.quantum.id])
 
-        # Try to make Math require Calculus (Math -> Calculus) -> Cycle!
-        bad_prereq = TopicPrerequisite(topic=self.math, prerequisite=self.calculus)
-        with self.assertRaises(ValidationError) as cm:
-            bad_prereq.clean()
-        self.assertIn("creates a cycle", str(cm.exception))
+    def test_transitive_cycle_rejected_with_chain(self):
+        kb.add_prerequisite(prerequisite=self.calculus, topic=self.mechanics)
+        kb.add_prerequisite(prerequisite=self.mechanics, topic=self.quantum)
+        with self.assertRaises(kb.KBError) as cm:
+            kb.add_prerequisite(prerequisite=self.quantum, topic=self.calculus)
+        self.assertEqual(cm.exception.chain, [self.calculus.id, self.mechanics.id, self.quantum.id])
 
-    def test_transitive_cycle_rejected(self):
-        """A -> B -> C then C -> A should raise ValidationError."""
-        # Calculus requires Math
-        TopicPrerequisite.objects.create(topic=self.calculus, prerequisite=self.math)
-        # Quantum requires Calculus
-        TopicPrerequisite.objects.create(topic=self.quantum, prerequisite=self.calculus)
-
-        # Try to make Math require Quantum (Math -> Quantum) -> Math -> Quantum -> Calculus -> Math cycle!
-        bad_prereq = TopicPrerequisite(topic=self.math, prerequisite=self.quantum)
-        with self.assertRaises(ValidationError) as cm:
-            bad_prereq.clean()
-        self.assertIn("creates a cycle", str(cm.exception))
+    def test_cross_course_cycle_through_course_relations(self):
+        # Course-level relation: every topic of Physics needs every topic of Mathematics.
+        kb.add_prerequisite(prerequisite=self.math, topic=self.physics)
+        with self.assertRaises(kb.KBError) as cm:
+            kb.add_prerequisite(prerequisite=self.mechanics, topic=self.calculus)
+        self.assertEqual(cm.exception.reason, "cycle")
 
 
 class TestTopologicalOrder(DAGTestSetup):
-    """(b) Test topological_order for a topic having 2+ prerequisites from different tree branches."""
-
     def test_topological_sort_multi_branch(self):
-        # Quantum requires Calculus (Branch 1) AND Classical Mechanics (Branch 2)
-        TopicPrerequisite.objects.create(topic=self.quantum, prerequisite=self.calculus)
-        TopicPrerequisite.objects.create(topic=self.quantum, prerequisite=self.mechanics)
+        kb.add_prerequisite(prerequisite=self.calculus, topic=self.quantum)
+        kb.add_prerequisite(prerequisite=self.mechanics, topic=self.quantum)
+        snapshot = get_snapshot()
+        order = list(snapshot.order)
+        self.assertEqual(order, [self.calculus.id, self.mechanics.id, self.quantum.id])
+        self.assertEqual(snapshot.lev[self.quantum.id], 1)
+        self.assertEqual(snapshot.pre[self.quantum.id], (self.calculus.id, self.mechanics.id))
 
-        # Calculus requires Math
-        TopicPrerequisite.objects.create(topic=self.calculus, prerequisite=self.math)
-
-        topics = [self.math, self.calculus, self.physics, self.mechanics, self.quantum]
-        ordered = topological_order(topics)
-        ordered_ids = [t.id for t in ordered]
-
-        # Verify prerequisites appear BEFORE dependent topic (Quantum)
-        math_idx = ordered_ids.index(self.math.id)
-        calc_idx = ordered_ids.index(self.calculus.id)
-        mech_idx = ordered_ids.index(self.mechanics.id)
-        quantum_idx = ordered_ids.index(self.quantum.id)
-
-        self.assertLess(math_idx, calc_idx, "Math must come before Calculus")
-        self.assertLess(calc_idx, quantum_idx, "Calculus must come before Quantum")
-        self.assertLess(mech_idx, quantum_idx, "Mechanics must come before Quantum")
-
-    def test_get_all_prerequisites_transitive(self):
-        TopicPrerequisite.objects.create(topic=self.calculus, prerequisite=self.math)
-        TopicPrerequisite.objects.create(topic=self.quantum, prerequisite=self.calculus)
-        TopicPrerequisite.objects.create(topic=self.quantum, prerequisite=self.mechanics)
-
-        all_prereqs = get_all_prerequisites(self.quantum)
-        expected = {self.calculus, self.math, self.mechanics}
-        self.assertEqual(all_prereqs, expected)
+    def test_descendants_are_transitive(self):
+        kb.add_prerequisite(prerequisite=self.calculus, topic=self.mechanics)
+        kb.add_prerequisite(prerequisite=self.mechanics, topic=self.quantum)
+        self.assertEqual(get_snapshot().descendants(self.calculus.id), [self.mechanics.id, self.quantum.id])
 
 
 class TestIsUnlockedDAG(DAGTestSetup):
-    """(c) Test that is_unlocked_dag correctly requires ALL prerequisites, not just one."""
+    """(c) Legacy unlock check: requires ALL direct prerequisites (removed in stage 4)."""
 
     def test_multi_prerequisite_unlocking(self):
-        # Quantum requires BOTH Calculus AND Classical Mechanics
-        TopicPrerequisite.objects.create(topic=self.quantum, prerequisite=self.calculus)
-        TopicPrerequisite.objects.create(topic=self.quantum, prerequisite=self.mechanics)
-
-        # Initially, neither prerequisite is mastered -> Quantum is LOCKED
+        kb.add_prerequisite(prerequisite=self.calculus, topic=self.quantum)
+        kb.add_prerequisite(prerequisite=self.mechanics, topic=self.quantum)
         self.assertFalse(is_unlocked_dag(self.user, self.quantum))
 
-        # Master ONLY Calculus (mastery_percentage = 0.85)
-        UserKnowledgeState.objects.create(
-            user=self.user,
-            topic=self.calculus,
-            mastery_percentage=0.85,
-        )
+        UserKnowledgeState.objects.create(user=self.user, topic=self.calculus, mastery_percentage=0.85)
+        self.assertFalse(is_unlocked_dag(self.user, self.quantum))
 
-        # Only 1 of 2 prerequisites mastered -> STILL LOCKED
-        self.assertFalse(
-            is_unlocked_dag(self.user, self.quantum),
-            "Topic should remain locked when only 1 of 2 prerequisites is mastered",
-        )
-
-        # Master the 2nd prerequisite: Classical Mechanics
-        UserKnowledgeState.objects.create(
-            user=self.user,
-            topic=self.mechanics,
-            mastery_percentage=0.90,
-        )
-
-        # BOTH prerequisites mastered -> NOW UNLOCKED!
-        self.assertTrue(
-            is_unlocked_dag(self.user, self.quantum),
-            "Topic should unlock once ALL prerequisites are mastered",
-        )
+        UserKnowledgeState.objects.create(user=self.user, topic=self.mechanics, mastery_percentage=0.90)
+        self.assertTrue(is_unlocked_dag(self.user, self.quantum))
 
 
 class TestPrerequisiteGraphAPI(DAGTestSetup):
-    """(d) Test GET /api/curriculum/prerequisite-graph/ endpoint."""
+    """(d) GET /api/curriculum/prerequisite-graph/ (addendum A4-2 – A4-5)."""
 
     def test_graph_endpoint_response_format(self):
-        TopicPrerequisite.objects.create(topic=self.quantum, prerequisite=self.calculus)
-        TopicPrerequisite.objects.create(topic=self.quantum, prerequisite=self.mechanics)
+        kb.add_prerequisite(prerequisite=self.calculus, topic=self.quantum)
+        kb.add_prerequisite(prerequisite=self.mechanics, topic=self.quantum, weight=0.5)
 
         client = APIClient()
         url = "/api/curriculum/prerequisite-graph/"
@@ -192,23 +110,23 @@ class TestPrerequisiteGraphAPI(DAGTestSetup):
 
         client.force_authenticate(user=self.user)
         response = client.get(url)
-
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
 
-        self.assertIn("nodes", data)
-        self.assertIn("edges", data)
+        self.assertEqual(data["kb_version"], get_snapshot().version)
+        self.assertNotIn("warnings", data)  # instructors only
+        nodes = {n["id"]: n["data"] for n in data["nodes"]}
+        self.assertEqual(nodes[str(self.quantum.id)]["kind"], "topic")
+        self.assertEqual(nodes[str(self.quantum.id)]["lev"], 1)
+        self.assertEqual(nodes[str(self.math.id)]["kind"], "course")
+        self.assertIsNone(nodes[str(self.math.id)]["lev"])
+        self.assertEqual([n["data"]["pos"] for n in data["nodes"]], sorted(n["data"]["pos"] for n in data["nodes"]))
 
-        # Nodes should contain topic IDs and labels
-        node_ids = [n["id"] for n in data["nodes"]]
-        self.assertIn(str(self.quantum.id), node_ids)
-        self.assertIn(str(self.calculus.id), node_ids)
-
-        # Edges should connect prerequisite -> topic
         edges = data["edges"]
-        self.assertEqual(len(edges), 2)
-        edge_targets = {e["target"] for e in edges}
-        edge_sources = {e["source"] for e in edges}
-
-        self.assertEqual(edge_targets, {str(self.quantum.id)})
-        self.assertEqual(edge_sources, {str(self.calculus.id), str(self.mechanics.id)})
+        self.assertEqual({e["target"] for e in edges}, {str(self.quantum.id)})
+        self.assertEqual({e["source"] for e in edges}, {str(self.calculus.id), str(self.mechanics.id)})
+        self.assertEqual(sorted(e["weight"] for e in edges), [0.5, 1.0])
+        self.assertEqual(
+            {(e["source"], e["target"], e["inherited"]) for e in data["leaf_edges"]},
+            {(str(self.calculus.id), str(self.quantum.id), False), (str(self.mechanics.id), str(self.quantum.id), False)},
+        )

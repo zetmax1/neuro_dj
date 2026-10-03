@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -42,6 +42,57 @@ class MasteryLevel(models.IntegerChoices):
 # ---------------------------------------------------------------------------
 # 2. Assessment Content
 # ---------------------------------------------------------------------------
+
+MAX_CHOICES = 4
+
+
+def lock_question_topics(topic_ids) -> None:
+    """
+    Y4: questions belong to exactly one active node of kind ``topic``.
+
+    Locks the target topic rows (FOR UPDATE) so that a concurrent kind change
+    in curriculum.services.kb, which locks the same row, cannot interleave with
+    the check. Must run inside a transaction.
+    """
+    from django.apps import apps
+
+    Topic = apps.get_model("curriculum", "Topic")
+    ids = sorted({int(getattr(t, "pk", t)) for t in topic_ids if t is not None})
+    usable = set(
+        Topic.objects.select_for_update()
+        .filter(pk__in=ids, kind="topic", is_archived=False)
+        .values_list("pk", flat=True)
+    )
+    bad = [pk for pk in ids if pk not in usable]
+    if bad:
+        raise ValidationError(
+            {"topic": f"Questions can only belong to active topics of kind 'topic' (Y4); got {bad}."}
+        )
+
+
+class QuestionQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        target = kwargs.get("topic", kwargs.get("topic_id"))
+        if "topic" in kwargs or "topic_id" in kwargs:
+            with transaction.atomic(using=self.db):
+                lock_question_topics([target])
+                return super().update(**kwargs)
+        return super().update(**kwargs)
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        objs = list(objs)
+        if "topic" in fields or "topic_id" in fields:
+            with transaction.atomic(using=self.db):
+                lock_question_topics(o.topic_id for o in objs)
+                return super().bulk_update(objs, fields, batch_size=batch_size)
+        return super().bulk_update(objs, fields, batch_size=batch_size)
+
+    def bulk_create(self, objs, *args, **kwargs):
+        objs = list(objs)
+        with transaction.atomic(using=self.db):
+            lock_question_topics(o.topic_id for o in objs)
+            return super().bulk_create(objs, *args, **kwargs)
+
 
 class Question(models.Model):
     """
@@ -99,6 +150,8 @@ class Question(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    objects = QuestionQuerySet.as_manager()
+
     class Meta:
         ordering = ["id"]
         indexes = [
@@ -109,8 +162,59 @@ class Question(models.Model):
             ),
         ]
 
+    @classmethod
+    def from_db(cls, db, field_names, values):
+        instance = super().from_db(db, field_names, values)
+        instance._loaded_topic_id = instance.__dict__.get("topic_id")
+        return instance
+
+    def clean(self) -> None:
+        super().clean()
+        if self.topic_id is not None:
+            topic = self.topic
+            if topic.kind != "topic" or topic.is_archived:
+                raise ValidationError(
+                    {"topic": "Questions can only belong to active topics of kind 'topic' (Y4)."}
+                )
+
+    def save(self, *args, **kwargs) -> None:
+        if self._state.adding or getattr(self, "_loaded_topic_id", None) != self.topic_id:
+            with transaction.atomic():
+                lock_question_topics([self.topic_id])
+                super().save(*args, **kwargs)
+        else:
+            super().save(*args, **kwargs)
+        self._loaded_topic_id = self.topic_id
+
     def __str__(self) -> str:
         return f"Q{self.pk}: {self.text[:80]}"
+
+
+def check_choice_limits(objs) -> None:
+    """At most MAX_CHOICES choices per question, also on bulk paths (imports)."""
+    from collections import Counter
+
+    added = Counter(o.question_id for o in objs if o.pk is None)
+    if not added:
+        return
+    existing = Counter(
+        dict(
+            Choice.objects.filter(question_id__in=added)
+            .values("question_id")
+            .annotate(n=models.Count("id"))
+            .values_list("question_id", "n")
+        )
+    )
+    over = sorted(q for q, n in added.items() if existing[q] + n > MAX_CHOICES)
+    if over:
+        raise ValidationError(f"A question cannot have more than {MAX_CHOICES} answer choices (questions {over}).")
+
+
+class ChoiceQuerySet(models.QuerySet):
+    def bulk_create(self, objs, *args, **kwargs):
+        objs = list(objs)
+        check_choice_limits(objs)
+        return super().bulk_create(objs, *args, **kwargs)
 
 
 class Choice(models.Model):
@@ -128,8 +232,15 @@ class Choice(models.Model):
     text: str = models.CharField(max_length=500)
     is_correct: bool = models.BooleanField(default=False)
 
+    objects = ChoiceQuerySet.as_manager()
+
     class Meta:
         ordering = ["id"]
+
+    def save(self, *args, **kwargs) -> None:
+        if self._state.adding:
+            check_choice_limits([self])
+        super().save(*args, **kwargs)
 
     def clean(self) -> None:
         """Enforce a maximum of 4 choices per question."""
@@ -141,7 +252,7 @@ class Choice(models.Model):
                 .exclude(pk=self.pk)
                 .count()
             )
-            if existing_count >= 4:
+            if existing_count >= MAX_CHOICES:
                 raise ValidationError(
                     "A question cannot have more than 4 answer choices."
                 )

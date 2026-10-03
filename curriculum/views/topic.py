@@ -27,6 +27,7 @@ from rest_framework.response import Response
 from curriculum.models import Topic, TopicPrerequisite
 from curriculum.serializers.topic import TopicTreeSerializer
 from curriculum.services import get_learning_path_queryset
+from curriculum.services.graph import get_snapshot
 from drf_spectacular.utils import extend_schema
 
 logger = logging.getLogger(__name__)
@@ -60,7 +61,7 @@ class LearningPathTreeView(generics.ListAPIView):
         Return the optimized topic queryset with user mastery annotations.
 
         Delegates to curriculum.services.get_learning_path_queryset() which:
-          - Orders by MPTT's tree_id/lft for natural tree traversal
+          - Orders siblings by (position, id); the view sorts by ``pos`` (D4)
           - Annotates mastery_score + mastery_level via Subquery/OuterRef
             using lazy model resolution (apps.get_model) for cross-app access
         """
@@ -77,9 +78,14 @@ class LearningPathTreeView(generics.ListAPIView):
           4. Serialize only root nodes; children are resolved recursively
              from the context dict.
         """
-        # Step 1: Single DB query — all topics with mastery annotations
+        # Step 1: Single DB query — all topics with mastery annotations,
+        # in programme order pos (D4) from the cached KB snapshot.
+        snapshot = get_snapshot()
         queryset: QuerySet[Topic] = self.get_queryset()
-        topics: list[Topic] = list(queryset)
+        topics: list[Topic] = sorted(
+            (t for t in queryset if t.pk in snapshot.pos),
+            key=lambda t: snapshot.pos[t.pk],
+        )
 
         # Step 2: O(n) parent→children grouping in Python
         topics_by_parent: dict[int | None, list[Topic]] = defaultdict(list)
@@ -133,6 +139,7 @@ class LearningPathTreeView(generics.ListAPIView):
                 "topics_by_parent": topics_by_parent,
                 "mastery_by_topic_id": mastery_by_topic_id,
                 "unlocked_topic_ids": unlocked_topic_ids,
+                "kb": snapshot,
             },
         )
         return Response(serializer.data)

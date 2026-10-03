@@ -35,7 +35,8 @@ from assessments.models import (
 from assessments.services import ledger
 from assessments.services.engines.bayesian import DEFAULT_P_INIT
 from assessments.services.orchestrator import process_submission
-from curriculum.models import Topic
+from curriculum.models import KnowledgeBaseVersion, Topic
+from curriculum.testing import make_course, make_section, make_topic
 
 User = get_user_model()
 
@@ -96,10 +97,10 @@ def student():
 
 @pytest.fixture
 def course_tree():
-    course = Topic.objects.create(name="Course", slug="course")
-    section = Topic.objects.create(name="Section", slug="section", parent=course)
-    leaf_a = Topic.objects.create(name="Leaf A", slug="leaf-a", parent=section)
-    leaf_b = Topic.objects.create(name="Leaf B", slug="leaf-b", parent=section)
+    course = make_course("Course", slug="course")
+    section = make_section("Section", course, slug="section")
+    leaf_a = make_topic("Leaf A", section, slug="leaf-a")
+    leaf_b = make_topic("Leaf B", section, slug="leaf-b")
     return course, section, leaf_a, leaf_b
 
 
@@ -128,15 +129,19 @@ def test_easy_skip_probe_writes_only_real_answers(student, course_tree):
 
 
 @pytest.mark.django_db
-def test_mastering_a_section_does_not_touch_descendants(student, course_tree):
-    """Audit 4.7: mastering S used to write P=1.0 with 0 answers to every descendant."""
-    _, section, leaf_a, leaf_b = course_tree
+def test_mastering_a_topic_writes_nothing_for_other_nodes(student, course_tree):
+    """
+    Audit 4.7: mastering a node used to write P=1.0 with 0 answers to every
+    descendant. Since stage 2 only topics hold questions (Y4), so the check is
+    that no other node gets a state or an answer.
+    """
+    course, section, leaf_a, leaf_b = course_tree
     for i in range(4):
-        q, right, _ = _question(section, f"S{i}")
+        q, right, _ = _question(leaf_a, f"S{i}")
         _submit(student, q, right)
 
-    assert UserKnowledgeState.objects.get(user=student, topic=section).mastery_percentage >= 0.70
-    assert not UserKnowledgeState.objects.filter(user=student, topic__in=[leaf_a, leaf_b]).exists()
+    assert UserKnowledgeState.objects.get(user=student, topic=leaf_a).mastery_percentage >= 0.70
+    assert not UserKnowledgeState.objects.filter(user=student).exclude(topic=leaf_a).exists()
     assert AssessmentAttempt.objects.filter(user=student).count() == 4
 
 
@@ -205,8 +210,9 @@ def test_hybrid_trace_is_stored_and_prior_comes_from_state(student, course_tree)
         assert row.b_before == row.b_after == row.question.irt_difficulty
         assert row.history_entry.calculated_mastery == pytest.approx(row.p_after)
         assert row.history_entry.created_at == row.answered_at
-        # Filled from stage 2 (KB version) and stage 4 (readiness).
-        assert row.kb_version is None and row.readiness_score is None and row.was_ready is None
+        # The KB version is recorded since stage 2; readiness comes in stage 4.
+        assert row.kb_version == KnowledgeBaseVersion.current()
+        assert row.readiness_score is None and row.was_ready is None
 
     assert first.p_before == pytest.approx(DEFAULT_P_INIT)
     assert second.p_before == pytest.approx(first.p_after)
@@ -371,7 +377,7 @@ def test_database_rejects_out_of_range_values(student, course_tree):
 @pytest.mark.django_db(transaction=True)
 def test_parallel_answers_get_gapless_numbers_and_chain():
     user = User.objects.create_user(email="parallel@example.org", password=None)
-    topic = Topic.objects.create(name="Parallel", slug="parallel")
+    topic = make_topic("Parallel", slug="parallel")
     pairs = []
     for i in range(10):
         q, right, wrong = _question(topic, f"P{i}", b=i / 5)
@@ -414,7 +420,7 @@ def test_parallel_ledger_writes_without_a_state_lock():
     the ledger's own (user, topic) lock for attempt_no.
     """
     user = User.objects.create_user(email="parallel-ledger@example.org", password=None)
-    topic = Topic.objects.create(name="Parallel ledger", slug="parallel-ledger")
+    topic = make_topic("Parallel ledger", slug="parallel-ledger")
     choices = [_question(topic, f"L{i}")[1] for i in range(10)]
 
     barrier = threading.Barrier(len(choices))

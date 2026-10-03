@@ -15,6 +15,7 @@ from assessments.models import (
     UserKnowledgeHistory,
 )
 from assessments.services.orchestrator import process_submission
+from curriculum.testing import make_topic
 
 User = get_user_model()
 
@@ -25,7 +26,7 @@ class TestTopicDiagnosticsEndpoint(TestCase):
             email="diag_user@test.com",
             password=None,
         )
-        self.topic = Topic.objects.create(name="Linear Algebra", slug="linear-algebra")
+        self.topic = make_topic("Linear Algebra", slug="linear-algebra")
         self.q1 = Question.objects.create(
             topic=self.topic,
             text="Vector addition?",

@@ -294,15 +294,13 @@ def _unlock_child_topics(*, topic: Topic) -> None:
     """
     Bulk-unlock all immediate child topics of a mastered topic.
 
-    Uses django-mptt's ``get_children()`` which produces a
-    single lft/rght range query. The subsequent ``.update()`` is also
-    a single DB hit — no Python-level loops with per-row queries.
+    One query for the children and one bulk UPDATE of the legacy global
+    flag (not a structural field, so the KB guard allows it).
 
     Performance: exactly 2 DB queries (children fetch + bulk UPDATE).
     """
-    # MPTT query: get immediate children of the mastered topic
     child_ids: list[int] = list(
-        topic.get_children().values_list("id", flat=True)
+        Topic.objects.filter(parent=topic).values_list("id", flat=True)
     )
 
     if not child_ids:

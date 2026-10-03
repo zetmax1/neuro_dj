@@ -9,13 +9,14 @@ from django.core.management.base import CommandError
 
 from assessments.models import AssessmentAttempt
 from curriculum.models import Topic
+from curriculum.testing import make_node
 
 User = get_user_model()
 
 
 @pytest.mark.django_db
 def test_seed_data_requires_explicit_confirmation():
-    Topic.objects.create(name="Keep", slug="keep")
+    make_node("Keep", slug="keep")
     with pytest.raises(CommandError, match="--yes-delete-all"):
         call_command("seed_data", stdout=StringIO())
     assert Topic.objects.filter(slug="keep").exists()
@@ -24,7 +25,7 @@ def test_seed_data_requires_explicit_confirmation():
 @pytest.mark.django_db
 def test_seed_data_refuses_when_real_users_exist():
     User.objects.create_user(email="real.student@example.org", password=None)
-    Topic.objects.create(name="Keep", slug="keep")
+    make_node("Keep", slug="keep")
     with pytest.raises(CommandError, match="non-demo user"):
         call_command("seed_data", "--yes-delete-all", stdout=StringIO())
     assert Topic.objects.filter(slug="keep").exists()
@@ -33,7 +34,7 @@ def test_seed_data_refuses_when_real_users_exist():
 @pytest.mark.django_db
 def test_simulator_clear_only_removes_simulated_accounts():
     real = User.objects.create_user(email="real.student@example.org", password=None)
-    keep = Topic.objects.create(name="Real curriculum", slug="real-curriculum")
+    keep = make_node("Real curriculum", slug="real-curriculum")
 
     call_command("simulate_bkt_data", "--students", "2", stdout=StringIO())
     simulated = User.all_objects.filter(is_simulated=True)

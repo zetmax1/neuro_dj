@@ -20,6 +20,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from curriculum.models import Topic
+from curriculum.services.graph import get_snapshot
 
 from assessments.models import (
     AttemptSource,
@@ -260,6 +261,7 @@ class TestsListView(APIView):
 
     def get(self, request: Request) -> Response:
         topics = Topic.objects.filter(is_archived=False)
+        snapshot = get_snapshot()
         result = []
         user = request.user
 
@@ -269,11 +271,7 @@ class TestsListView(APIView):
         }
 
         for topic in topics:
-            descendant_ids = list(
-                topic.get_descendants(include_self=True)
-                .filter(is_archived=False)
-                .values_list("id", flat=True)
-            )
+            descendant_ids = sorted(snapshot.leaves_of(topic.pk))
             questions = Question.objects.filter(topic_id__in=descendant_ids, is_active=True)
             q_count = questions.count()
 
@@ -348,12 +346,7 @@ class NextQuestionView(APIView):
             )
 
         if question is None:
-            topic = Topic.objects.get(pk=topic_id)
-            topic_ids = list(
-                topic.get_descendants(include_self=True)
-                .filter(is_archived=False)
-                .values_list("id", flat=True)
-            )
+            topic_ids = sorted(get_snapshot().leaves_of(topic_id))
             has_questions = Question.objects.filter(topic_id__in=topic_ids, is_active=True).exists()
 
             if not has_questions:

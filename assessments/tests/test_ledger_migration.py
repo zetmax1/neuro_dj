@@ -14,7 +14,7 @@ from django.utils import timezone
 
 BEFORE = [
     ("assessments", "0005_add_irt_fields_and_userability"),
-    ("curriculum", "0009_topic_is_archived"),
+    ("curriculum", "0012_kb_enforce"),
     ("accounts", "0004_user_is_simulated"),
 ]
 
@@ -37,14 +37,13 @@ def test_legacy_rows_are_numbered_and_labelled():
     Choice = old.get_model("assessments", "Choice")
     Attempt = old.get_model("assessments", "AssessmentAttempt")
 
-    def topic(slug, parent=None, lft=1, rght=2, level=0):
-        return Topic.objects.create(
-            name=slug, slug=slug, parent=parent, tree_id=1, lft=lft, rght=rght, level=level,
-        )
+    def topic(slug, parent=None, kind="topic"):
+        # Historical models carry no KB guard.
+        return Topic.objects.create(name=slug, slug=slug, parent=parent, kind=kind)
 
-    course = topic("course", lft=1, rght=6)
-    section = topic("section", course, lft=2, rght=5, level=1)
-    leaf = topic("leaf", section, lft=3, rght=4, level=2)
+    course = topic("course", kind="course")
+    section = topic("section", course, kind="section")
+    leaf = topic("leaf", section)
     alice = User.objects.create(email="alice@example.org", password="!")
     bob = User.objects.create(email="bob@example.org", password="!")
     q_leaf = Question.objects.create(topic=leaf, text="leaf q")

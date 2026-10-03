@@ -4,7 +4,8 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils.text import slugify
 from django.utils.timezone import now
 from django.db import transaction
-from curriculum.models import Topic, TopicResource
+from curriculum.models import Topic, TopicKind, TopicResource
+from curriculum.services import kb
 from assessments.models import (
     AssessmentAttempt,
     AttemptSource,
@@ -60,12 +61,14 @@ class Command(BaseCommand):
             Choice.objects.all().delete()
             Question.objects.all().delete()
             TopicResource.objects.all().delete()
-            Topic.objects.all().delete()
+            for root in list(Topic.objects.filter(parent=None).values_list("pk", flat=True)):
+                kb.delete_node(root)  # whole tree, through the KB service
 
             # 2. Create Curriculum Tree
             self.stdout.write("Creating topics...")
             
-            cs = Topic.objects.create(
+            cs = kb.create_node(
+                kind=TopicKind.COURSE,
                 name="Computer Science",
                 slug="computer-science",
                 description="The foundational study of computation, information theory, and programming paradigms.",
@@ -73,7 +76,8 @@ class Command(BaseCommand):
                 is_unlocked=True
             )
 
-            ds = Topic.objects.create(
+            ds = kb.create_node(
+                kind=TopicKind.SECTION,
                 name="Data Structures",
                 slug="data-structures",
                 description="Core structures for organizing, managing, and storing data efficiently.",
@@ -82,7 +86,8 @@ class Command(BaseCommand):
                 is_unlocked=True
             )
 
-            algo = Topic.objects.create(
+            algo = kb.create_node(
+                kind=TopicKind.SECTION,
                 name="Algorithms",
                 slug="algorithms",
                 description="Step-by-step computational procedures for solving complex mathematical and logical problems.",
@@ -91,7 +96,8 @@ class Command(BaseCommand):
                 is_unlocked=True
             )
 
-            binary_trees = Topic.objects.create(
+            binary_trees = kb.create_node(
+                kind=TopicKind.TOPIC,
                 name="Binary Trees",
                 slug="binary-trees",
                 description="Hierarchical tree structures where each node has at most two children.",
@@ -100,7 +106,8 @@ class Command(BaseCommand):
                 is_unlocked=True
             )
 
-            hash_maps = Topic.objects.create(
+            hash_maps = kb.create_node(
+                kind=TopicKind.TOPIC,
                 name="Hash Maps",
                 slug="hash-maps",
                 description="Key-value mapping data structures utilizing hashing functions for constant-time lookup.",
@@ -109,7 +116,8 @@ class Command(BaseCommand):
                 is_unlocked=True
             )
 
-            sorting = Topic.objects.create(
+            sorting = kb.create_node(
+                kind=TopicKind.TOPIC,
                 name="Sorting",
                 slug="sorting",
                 description="Algorithms for rearranging elements of a list in a specified ordering (numerical or lexicographical).",
@@ -118,7 +126,8 @@ class Command(BaseCommand):
                 is_unlocked=True
             )
 
-            graphs = Topic.objects.create(
+            graphs = kb.create_node(
+                kind=TopicKind.TOPIC,
                 name="Graph Traversals",
                 slug="graph-traversals",
                 description="Techniques for visiting all nodes in graph network configurations (BFS and DFS).",

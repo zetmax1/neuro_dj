@@ -27,6 +27,7 @@ from assessments.services.engines.bayesian import BayesianKnowledgeTracingEngine
 from assessments.services.engines.irt import IRTEngine, probability_correct
 from assessments.services.engines.hybrid_bkt_irt import HybridBKTIRTEngine
 from assessments.services.question_selection import get_next_question
+from curriculum.testing import make_topic
 
 User = get_user_model()
 
@@ -60,7 +61,7 @@ class TestIRTEngineAbilityUpdate(TestCase):
             email="irt_test@test.com",
             password=None,
         )
-        self.topic = Topic.objects.create(name="Algebra", slug="algebra")
+        self.topic = make_topic("Algebra", slug="algebra")
         self.question = Question.objects.create(
             topic=self.topic,
             text="Solve x + 2 = 5",
@@ -97,7 +98,7 @@ class TestHybridBKTIRTVSPlainBKT(TestCase):
             email="hybrid_test@test.com",
             password=None,
         )
-        self.topic = Topic.objects.create(name="Calculus", slug="calculus")
+        self.topic = make_topic("Calculus", slug="calculus")
         self.question = Question.objects.create(
             topic=self.topic,
             text="Derive x^2",
@@ -151,7 +152,7 @@ class TestAdaptiveQuestionSelectionIRT(TestCase):
             email="select_test@test.com",
             password=None,
         )
-        self.topic = Topic.objects.create(name="Geometry", slug="geometry")
+        self.topic = make_topic("Geometry", slug="geometry")
 
         self.q_easy = Question.objects.create(
             topic=self.topic,

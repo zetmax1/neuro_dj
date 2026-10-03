@@ -20,6 +20,7 @@ from assessments.models import (
     UserKnowledgeState,
 )
 from assessments.services import get_stratified_test_questions
+from curriculum.testing import make_topic
 
 User = get_user_model()
 
@@ -33,8 +34,8 @@ class TestStratifiedTestSession(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-        self.topic = Topic.objects.create(
-            name="Algorithms",
+        self.topic = make_topic(
+            "Algorithms",
             slug="algorithms",
             pass_mark_percentage=60.0,
             test_question_count=10,

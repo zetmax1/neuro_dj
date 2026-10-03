@@ -52,5 +52,5 @@ def get_learning_path_queryset(*, user) -> QuerySet[Topic]:
                 output_field=IntegerField(),
             ),
         )
-        .order_by('tree_id', 'lft')
+        .order_by('position', 'id')
     )

@@ -17,7 +17,9 @@ from rest_framework.test import APIClient
 
 from assessments.models import AssessmentAttempt, Choice, Question
 from assessments.services.orchestrator import process_submission
-from curriculum.models import Topic
+from curriculum.kb_guard import KBWriteError, kb_write
+from curriculum.models import KnowledgeBaseVersion, Topic
+from curriculum.testing import make_course, make_section, make_topic
 
 User = get_user_model()
 
@@ -42,10 +44,10 @@ def client_for(user):
 
 @pytest.fixture
 def tree():
-    course = Topic.objects.create(name="Course", slug="course")
-    section = Topic.objects.create(name="Section", slug="section", parent=course)
-    answered = Topic.objects.create(name="Answered", slug="answered", parent=section)
-    untouched = Topic.objects.create(name="Untouched", slug="untouched", parent=section)
+    course = make_course("Course", slug="course")
+    section = make_section("Section", course, slug="section")
+    answered = make_topic("Answered", section, slug="answered")
+    untouched = make_topic("Untouched", section, slug="untouched")
     return course, section, answered, untouched
 
 
@@ -75,6 +77,7 @@ def test_deleting_an_answered_subtree_archives_it(teacher, student, tree):
     _, right, _ = _question(answered)
     _answer(student, right)
     attempts_before = list(AssessmentAttempt.objects.values_list("pk", "topic_id", "question_id"))
+    version_before = KnowledgeBaseVersion.current()
 
     response = client_for(teacher).delete(f"/api/curriculum/instructor/topics/{section.pk}/")
 
@@ -85,9 +88,8 @@ def test_deleting_an_answered_subtree_archives_it(teacher, student, tree):
     }
     assert not Topic.objects.get(pk=course.pk).is_archived
     assert list(AssessmentAttempt.objects.values_list("pk", "topic_id", "question_id")) == attempts_before
-    # MPTT fields were not shifted by the refused delete.
-    course.refresh_from_db()
-    assert (course.lft, course.rght) == (1, 8)
+    # The refused delete rolled back; the archive is one KB change.
+    assert KnowledgeBaseVersion.current() == version_before + 1
 
 
 @pytest.mark.django_db
@@ -133,7 +135,12 @@ def test_orm_refuses_to_drop_answers(student, tree):
     course, _, answered, _ = tree
     q, right, _ = _question(answered)
     _answer(student, right)
-    for obj in (Topic.objects.get(pk=answered.pk), Topic.objects.get(pk=course.pk), q, right):
+    for obj in (Topic.objects.get(pk=answered.pk), Topic.objects.get(pk=course.pk)):
+        with pytest.raises(KBWriteError):
+            obj.delete()  # outside the KB service
+        with kb_write(), pytest.raises(ProtectedError):
+            obj.delete()  # inside it, PROTECT still refuses (D11)
+    for obj in (q, right):
         with pytest.raises(ProtectedError):
             obj.delete()
     assert AssessmentAttempt.objects.count() == 1

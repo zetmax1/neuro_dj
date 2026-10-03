@@ -9,7 +9,12 @@ from rest_framework.routers import DefaultRouter
 
 from curriculum.views.topic import LearningPathTreeView
 from curriculum.views.graph import PrerequisiteGraphView
-from curriculum.views.instructor import InstructorTopicViewSet, InstructorResourceViewSet
+from curriculum.views.instructor import (
+    InstructorPrerequisiteViewSet,
+    InstructorResourceViewSet,
+    InstructorTopicViewSet,
+    KBWarningsView,
+)
 from curriculum.views.student import StudentTopicDetailView, StudentTopicResourceListView
 
 app_name = "curriculum"
@@ -17,6 +22,7 @@ app_name = "curriculum"
 router = DefaultRouter()
 router.register(r"instructor/topics", InstructorTopicViewSet, basename="instructor-topic")
 router.register(r"instructor/resources", InstructorResourceViewSet, basename="instructor-resource")
+router.register(r"instructor/prerequisites", InstructorPrerequisiteViewSet, basename="instructor-prerequisite")
 
 urlpatterns = [
     # GET — Full hierarchical topic tree with user mastery annotations
@@ -46,5 +52,10 @@ urlpatterns = [
     ),
 
     # Instructor APIs
+    path(
+        "curriculum/instructor/kb/warnings/",
+        KBWarningsView.as_view(),
+        name="kb_warnings",
+    ),
     path("curriculum/", include(router.urls)),
 ]

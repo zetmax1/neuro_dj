@@ -5,7 +5,8 @@ Management command to seed/reset the database to a clean, presentable demo state
 for thesis defense.
 
 Includes:
-  - Clean MPTT curriculum hierarchy & multi-branch DAG prerequisite convergence.
+  - Clean curriculum hierarchy (course → section → topic) & multi-branch DAG
+    prerequisite convergence, written through curriculum.services.kb.
   - Topic resources with clean educational titles.
   - Realistic 15-20 answer attempt history per demo student executed through the real
     BKT/IRT engine pipeline (process_submission), populating UserKnowledgeHistory,
@@ -27,7 +28,8 @@ from django.db import transaction
 from django.utils.timezone import now
 
 from accounts.demo import DEMO_EMAILS, DemoPassword
-from curriculum.models import Topic, TopicPrerequisite
+from curriculum.models import TopicKind
+from curriculum.services import kb
 from curriculum.services.graph import is_unlocked_dag
 from assessments.models import (
     AssessmentAttempt,
@@ -96,131 +98,45 @@ class Command(BaseCommand):
         demo_password = DemoPassword(self.stdout)
 
         with transaction.atomic():
-            # 2. Build Curriculum Topics (MPTT Hierarchy)
+            # 2. Build Curriculum Topics
             self.stdout.write("Setting up curriculum topic hierarchy...")
 
-            cs, _ = Topic.objects.get_or_create(
-                slug="computer-science",
-                defaults={
-                    "name": "Computer Science",
-                    "description": "Foundational computation, theory, and software principles.",
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
+            # Created through the KB service (idempotent by slug): kinds,
+            # positions, Y1–Y3 and the KB version are handled there.
+            def node(slug, name, parent=None, kind=None, position=None, description=""):
+                return kb.ensure_node(
+                    slug=slug, name=name, parent=parent, kind=kind,
+                    position=position, description=description, is_unlocked=True,
+                )
 
-            ds, _ = Topic.objects.get_or_create(
-                slug="data-structures",
-                defaults={
-                    "name": "Data Structures",
-                    "description": "Core structures for organizing and managing memory efficiently.",
-                    "parent": cs,
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
-
-            algo, _ = Topic.objects.get_or_create(
-                slug="algorithms",
-                defaults={
-                    "name": "Algorithms",
-                    "description": "Computational procedures for solving logical problems.",
-                    "parent": cs,
-                    "position": 2,
-                    "is_unlocked": True,
-                },
-            )
-
-            binary_trees, _ = Topic.objects.get_or_create(
-                slug="binary-trees",
-                defaults={
-                    "name": "Binary Trees",
-                    "description": "Hierarchical structures where each node has at most two children.",
-                    "parent": ds,
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
-
-            hash_maps, _ = Topic.objects.get_or_create(
-                slug="hash-maps",
-                defaults={
-                    "name": "Hash Maps",
-                    "description": "Key-value mapping data structures utilizing hash functions.",
-                    "parent": ds,
-                    "position": 2,
-                    "is_unlocked": True,
-                },
-            )
-
-            sorting, _ = Topic.objects.get_or_create(
-                slug="sorting",
-                defaults={
-                    "name": "Sorting",
-                    "description": "Algorithms for ordering elements (QuickSort, MergeSort).",
-                    "parent": algo,
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
-
-            graphs, _ = Topic.objects.get_or_create(
-                slug="graph-traversals",
-                defaults={
-                    "name": "Graph Traversals",
-                    "description": "Techniques for visiting nodes in network graphs (BFS/DFS).",
-                    "parent": algo,
-                    "position": 2,
-                    "is_unlocked": True,
-                },
-            )
-
-            se, _ = Topic.objects.get_or_create(
-                slug="software-engineering",
-                defaults={
-                    "name": "Software engineering",
-                    "description": "System architecture, lifecycle models, and engineering practices.",
-                    "position": 2,
-                    "is_unlocked": True,
-                },
-            )
-
-            events, _ = Topic.objects.get_or_create(
-                slug="event-management",
-                defaults={
-                    "name": "event management",
-                    "description": "Event-driven architecture and asynchronous event loops.",
-                    "parent": se,
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
-
-            demo_topic, _ = Topic.objects.get_or_create(
-                slug="demo-topic",
-                defaults={
-                    "name": "Demo Topic",
-                    "description": "Advanced capstone module integrating tree and graph algorithms.",
-                    "position": 3,
-                    "is_unlocked": True,
-                },
-            )
-
-            # Rebuild MPTT tree pointers
-            Topic.objects.rebuild()
+            cs = node("computer-science", "Computer Science", position=1,
+                      description="Foundational computation, theory, and software principles.")
+            ds = node("data-structures", "Data Structures", cs, TopicKind.SECTION, 1,
+                      "Core structures for organizing and managing memory efficiently.")
+            algo = node("algorithms", "Algorithms", cs, TopicKind.SECTION, 2,
+                        "Computational procedures for solving logical problems.")
+            binary_trees = node("binary-trees", "Binary Trees", ds, TopicKind.TOPIC, 1,
+                                "Hierarchical structures where each node has at most two children.")
+            hash_maps = node("hash-maps", "Hash Maps", ds, TopicKind.TOPIC, 2)
+            sorting = node("sorting", "Sorting", algo, TopicKind.TOPIC, 1)
+            graphs = node("graph-traversals", "Graph Traversals", algo, TopicKind.TOPIC, 2)
+            se = node("software-engineering", "Software engineering", position=2)
+            node("event-management", "event management", se, TopicKind.TOPIC, 1)
+            # A topic of the CS course that converges two branches of the DAG.
+            demo_topic = node("demo-topic", "Demo Topic", cs, TopicKind.TOPIC, 3)
 
             # 3. Setup Cross-Branch DAG Prerequisite Convergence
             self.stdout.write("Configuring multi-branch DAG prerequisite edges...")
 
             # Algorithms requires Data Structures
-            TopicPrerequisite.objects.get_or_create(topic=algo, prerequisite=ds)
+            kb.ensure_prerequisite(topic=algo, prerequisite=ds)
 
             # Software engineering requires Hash Maps
-            TopicPrerequisite.objects.get_or_create(topic=se, prerequisite=hash_maps)
+            kb.ensure_prerequisite(topic=se, prerequisite=hash_maps)
 
             # Demo Topic requires BOTH Binary Trees (DS branch) AND Graph Traversals (Algorithms branch)
-            TopicPrerequisite.objects.get_or_create(topic=demo_topic, prerequisite=binary_trees)
-            TopicPrerequisite.objects.get_or_create(topic=demo_topic, prerequisite=graphs)
+            kb.ensure_prerequisite(topic=demo_topic, prerequisite=binary_trees)
+            kb.ensure_prerequisite(topic=demo_topic, prerequisite=graphs)
 
             # 4. Clean Resource Titles
             self.stdout.write("Sanitizing resource titles...")
@@ -349,7 +265,7 @@ class Command(BaseCommand):
                     "email": "alex@neuro.learn",
                     "first_name": "Alex",
                     "last_name": "Rivera",
-                    "target_topics": [cs, ds, hash_maps],
+                    "target_topics": [binary_trees, hash_maps],
                     "target_accuracy": 0.30,
                 },
             ]

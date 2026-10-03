@@ -23,6 +23,14 @@ class InstructorQuestionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["is_active"]
 
+    def validate_topic(self, topic):
+        """Y4: questions belong to exactly one active topic (a leaf of kind 'topic')."""
+        if topic.kind != "topic" or topic.is_archived:
+            raise serializers.ValidationError(
+                f"'{topic.name}' is a {topic.kind}; questions can only belong to an active topic (Y4)."
+            )
+        return topic
+
     def validate_choices(self, value):
         """Enforce a strict maximum of 4 answer choices per question."""
         if len(value) > 4:
