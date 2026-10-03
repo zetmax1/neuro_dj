@@ -32,8 +32,6 @@ from curriculum.serializers.topic import TopicTreeSerializer
 from curriculum.services import get_learning_path_queryset
 from curriculum.services.graph import get_snapshot
 
-from assessments.services import readiness
-
 logger = logging.getLogger(__name__)
 
 
@@ -83,7 +81,12 @@ class LearningPathTreeView(generics.ListAPIView):
              from the context dict.
         """
         # Step 1: readiness first, so the annotations below read counters that
-        # belong to the current KB version.
+        # belong to the current KB version. Imported here, not at module
+        # level: curriculum does not depend on assessments (see
+        # curriculum/models.py), and the state is resolved lazily the same way
+        # curriculum.services.path resolves the model.
+        from assessments.services import readiness
+
         snapshot = get_snapshot()
         readiness.states_for(user=request.user, snapshot=snapshot)
 

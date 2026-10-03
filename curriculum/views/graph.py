@@ -18,8 +18,6 @@ from curriculum.models import Topic, TopicKind
 from curriculum.serializers.graph import PrerequisiteGraphSerializer
 from curriculum.services.graph import get_snapshot
 from curriculum.views.instructor import leaf_edges_payload, warnings_payload
-
-from assessments.services import readiness
 from neuro_model import readiness as r
 
 
@@ -57,7 +55,11 @@ class PrerequisiteGraphView(APIView):
         user = request.user if request.user and request.user.is_authenticated else None
 
         # The one readiness service owns the learner's state; sections and
-        # courses hold no state of their own, so they report the defaults.
+        # courses hold no state of their own (D22), so they report the
+        # defaults. Imported here, not at module level: curriculum does not
+        # depend on assessments (see curriculum/models.py).
+        from assessments.services import readiness
+
         states = readiness.states_for(user=user, snapshot=snapshot) if user else {}
 
         nodes = []

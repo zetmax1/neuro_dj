@@ -475,6 +475,7 @@ Uchtasi B2.1 dan qolgan va o‘sha bo‘limda asoslangan. Qolgan to‘rttasi —
 - **Prerekvizit o‘zlashtirilmagan bo‘lsa, unga javob berib bo‘lmaydi — shuning uchun P(L0) dagi “javob berilmagan prerekvizit” tarmog‘i endpoint orqali yetib bo‘lmaydigan bo‘ldi.** U hamon jonli: `rebuild_student_states` va seed buyruqlari mavzularga o‘z tartibida javob beradi. Shu sababli bu tarmoq dvigatelga to‘g‘ridan-to‘g‘ri chaqiruv bilan test qilinadi va buning sababi testda yozilgan.
 - **`submit_test_session` P(L) ni o‘zgartirmaydi.** D7: baho imtihon natijasi. Endi u faqat `attempts`/`correct`/`accuracy` ni siljitadi va hech narsani ochmaydi. Test javoblarini model orqali o‘tkazish — 5-bosqich.
 - **Diskret `MasteryLevel` olib tashlandi** (`docs/THESIS_MAPPING.md` F2 farqi yopildi).
+- **Bog‘liqlik qoidasi saqlandi.** `curriculum/models.py` dagi “curriculum NEVER imports from assessments” qoidasi bo‘yicha daraxt va DAG ko‘rinishlarida `readiness` importi modul darajasida emas, metod ichida qilinadi — xuddi `curriculum/services/path.py` modelni `apps.get_model` bilan kech aniqlagani kabi. `curriculum/management/commands/` dagi buyruqlar avvaldan ikkala appni birlashtiradi, ular o‘zgartirilmadi.
 
 ### Foydalanuvchi bajarishi kerak bo‘lgan ishlar
 
