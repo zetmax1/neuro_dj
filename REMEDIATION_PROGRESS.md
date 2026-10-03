@@ -20,7 +20,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 2.1 — Tekshiruvdagi FAIL'larni tuzatish (D30–D32, D37, D38) | **Bajarildi** | `cb41a67` | — |
 | 3 — Talaba modeli | **Bajarildi** | `b1d3a08` | — |
 | 4 — Tayyorlik va holatlar | **Bajarildi** | `0b15802` | — |
-| 5 — Test sessiyasi modeldan o‘tadi | Kutilmoqda | — | — |
+| 5 — Test sessiyasi modeldan o‘tadi | **Bajarildi** | `620d4e1` | — |
 | 6 — Trayektoriya va API | Kutilmoqda | — | — |
 | 7 — Frontend | Kutilmoqda | — | — |
 | 8 — Eksperimentlar va rozilik | Kutilmoqda | — | — |
@@ -484,6 +484,54 @@ Uchtasi B2.1 dan qolgan va o‘sha bo‘limda asoslangan. Qolgan to‘rttasi —
 - **Frontend.** API shakli o‘zgardi (yuqoridagi jadval). Moslashtirish 7-bosqichda, D20–D29 bo‘yicha.
 ---
 
+## 5-bosqich hisoboti (test sessiyasi modeldan o‘tadi)
+
+Qamradi: P0-1 (backend qismi), D7; audit 2.6 (`SubmitTestSessionView` atomar emas va read-modify-write), 7.1 (`test_test_session.py:140` dagi 100.0), 7.4 (`TestsListView` va `SubmitTestSession` N+1).
+
+### Nima qilindi
+
+- **Bitta javob yo‘li ikkala endpoint uchun.** `orchestrator.apply_one_answer` ajratib olindi: u D25 tasnifini, javob berilgan paytdagi tayyorlikni, Algoritm 2.4 ni, Algoritm 2.3 ni, ledger'ni va tarixni bajaradi. `submit_answer` ham, test sessiyasi ham aynan shu funksiyani chaqiradi. Ya’ni test javobi “xuddi shunday” emas, balki **bir xil kod** orqali model kuzatuviga aylanadi (D7).
+- **`assessments/services/test_session.py`.** View'dan butun mantiq ko‘chirildi. Servis `@transaction.atomic`, barcha tegishli mavzular uchun advisory lock bir marta va tartiblangan holda olinadi (`process_submission` bilan bir xil tartib, shuning uchun ikkisi o‘zaro deadlock bo‘lmaydi). Read-modify-write (`state.total_attempts += len(...)`) olib tashlandi — hisoblagichlar har bir javobda `readiness.apply_answer` orqali `select_for_update` bilan siljiydi.
+- **Baho va model ajratildi.** `grade_paper` — sof funksiya: vaznli ball (oson 1, o‘rta 2, qiyin 3), foiz, o‘tdi/o‘tmadi, taqsimot. U faqat `TestSessionResult` ga yoziladi. `p_mastery`, M va tayyorlik esa javoblarning o‘zidan keladi. Javob berilmagan satr ham `total_points` ga qo‘shiladi (imtihonda bo‘sh qoldirilgan savol — xato javob), lekin ledger'ga yozilmaydi.
+- **N+1 yopildi.**
+  - `resolve_paper` butun varaqni **2 so‘rovda** yuklaydi (savollar va variantlar), varaq uzunligidan qat’i nazar. Ilgari har bir javob uchun 3 so‘rov ketardi. Buni `assertNumQueries(2)` bilan test tasdiqlaydi — 1 satr uchun ham, 4 satr uchun ham, 20 ta mavjud bo‘lmagan satr uchun ham.
+  - `TestsListView` har bir mavzu uchun ~4 so‘rov yuborardi. Endi savol soni va qiyinlik yig‘indisi bitta agregat so‘rovda olinadi, ota tugun `select_related("parent")` bilan, qolgani xotirada yig‘iladi. Test har bir qo‘shimcha mavzuga **1 dan kam** so‘rov tushishini tasdiqlaydi.
+  - `readiness.apply_answer` endi `states` ni parametr sifatida qabul qiladi, shuning uchun test sessiyasi har bir javobda holatlarni qayta o‘qimaydi.
+- **Ortiqcha `atomic` olib tashlandi.** `analytics/views/dashboard.py` faqat o‘qiydi (audit 2.6).
+- **Yopiq mavzu imtihon ham bo‘lmaydi.** `submit_test_session` ham `TopicClosed` → **403** `{missing: [...]}` qaytaradi, `test_session` GET'i kabi.
+- **Javob shakli.** `submit_test_session` endi bahodan tashqari holatni ham qaytaradi: `p_mastery`, `accuracy`, `status`, `mastered`, `opened_topics`. `answers_summary` har bir satr uchun `source` ni ham beradi (`test_session`, `review_repeat` yoki javob berilmagan bo‘lsa `null`).
+
+### Audit 7.1 — shkala xatosi testdan chiqarildi
+
+Eski test `mastery_percentage == 100.0` ni tasdiqlardi, ya’ni bahoni o‘zlashtirish ehtimoli deb qotirib qo‘ygan edi. Endi test spetsifikatsiya talab qilganini tekshiradi:
+
+- `p_mastery` ∈ [0, 1];
+- `p_mastery` bahodan (`grade_percentage`) **farq qiladi** — ular turli shkalalar;
+- `p_mastery` `rebuild_student_states` qayta o‘ynash natijasiga **1e-12 aniqlikda teng** — ya’ni test javoblari haqiqatan shu Algoritm 2.4 dan o‘tgan.
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| `venv/bin/pytest` (prototip) | **645 passed**, 13 subtests (5-bosqichdan oldin 627) |
+| `venv/bin/python manage.py check` | toza (0 silenced) |
+| `venv/bin/python manage.py makemigrations --check --dry-run` | No changes detected |
+| `venv/bin/pytest --ds=verification.settings verification/tests -q` | **686 passed, 8 failed** |
+
+Migratsiya talab qilinmadi: 5-bosqich sxemani o‘zgartirmaydi.
+
+### Tekshiruvdagi FAIL'lar
+
+Uchtasi B2.1 dan (asoslangan), beshtasi `test_na.py` ning o‘z signali: `test_pending_stages[3]`, `[4]`, `[5]`, `test_na_group_a_student_model_is_not_implemented` va `test_na_group_c_and_d_readiness_and_trajectory_are_not_implemented`.
+
+### Ataylab qilingan tanlovlar
+
+- **Sessiya davomiyligi o‘ylab topilmadi.** Bosqich tavsifida `TestSessionResult` uchun “vaqtlar” deyilgan. Hozir modelda `submitted_at` bor, har bir javobning vaqti esa ledger'da (`answered_at`). “Talaba qancha vaqt sarfladi” degan son uchun klient varaqni qachon ochganini aytishi kerak — bu 7-bosqich ishi. Server tomonidagi insert vaqtlaridan davomiylik chiqarish mumkin edi, lekin ular bitta tranzaksiyada yozilgani uchun natija millisekundlar bo‘lardi va soxta son bo‘lib qolardi (D8/D23 ruhi). Shuning uchun qo‘shilmadi.
+- **Baho barcha javoblar bo‘yicha hisoblanadi, ledger esa faqat javob berilganlarni oladi.** `review_repeat` bo‘lgan javob ham bahoga kiradi (bu imtihon), lekin modelni siljitmaydi (D25). Ikkinchi marta bir xil varaqni topshirganda baho yana hisoblanadi va saqlanadi, P(L) esa o‘zgarmaydi — buni test tasdiqlaydi.
+- **Boshqa savolga tegishli `choice_id`** savolni saqlab, javob berilmagan deb hisoblanadi va ledger'ga yozilmaydi; 400 qaytarilmaydi, chunki imtihon varag‘ining bitta satri xato bo‘lsa ham qolganlari baholanishi kerak.
+- **Har bir javobga tushadigan so‘rovlar soni chiziqli qoladi** — bu Algoritm 2.4 ning har javobda bir marta bajarilishi, ya’ni tabiiy narx. Test varaqni **qayta yuklash** yo‘qligini tekshiradi, umumiy so‘rov sonini emas.
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -544,7 +592,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| #1 Test oqimi BKT'ni chetlab o‘tadi, 0–100 shkala | P0-1 (B5, B7) | Kutilmoqda (B5, B7) | — |
+| #1 Test oqimi BKT'ni chetlab o‘tadi, 0–100 shkala | P0-1 (B5, B7) | Qisman | Backend bajarildi: har bir test javobi `apply_one_answer` orqali Algoritm 2.4 dan o‘tadi, baho esa 0–100 shkalada faqat `TestSessionResult` da. UI — B7 |
 | #2 KB modeli: MPTT, G_L yo‘q, Y2/Y3, qulf yo‘q | P0-4, P1-6, P1-7 (B2) | Bajarildi | `curriculum/services/kb.py`, `neuro_model/graph.py`, `5e5cb09`, `79b907c`; testlar `test_kb.py`, `test_kb_concurrency.py` |
 | #3 Talaba modeli II bobga zid | P0-5 (B3) | Bajarildi | `neuro_model/` (bkt, irt, elo, init, student), `assessments/services/student_model.py`; testlar `neuro_model/tests/test_student.py`, `assessments/tests/test_student_model.py` |
 | #4 Unlock 4 xil, global `is_unlocked`, cascade | P0-3, P0-6 (B4), P0-2 (B1) | Qisman | Cascade olib tashlandi (`888a96f`, test `test_mastering_a_section_does_not_touch_descendants`); unlock — B4 |
@@ -582,8 +630,8 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 2.5 JWT blacklist ishlamaydi | D16 | Bajarildi | `config/settings.py:86`; test `test_rotated_refresh_token_is_blacklisted` |
 | 2.5 Rollar nomuvofiq (`Instructor` va `is_staff`) | D15, P2-5 | Qisman | Backend: `accounts/permissions.py`, `f620171`; frontend `AdminRoute` — B7 |
 | 2.6 Advisory lock yo‘q | BB9 (B2) | Bajarildi | `pg_advisory_xact_lock(KB_LOCK_KEY)` — `curriculum/services/kb.py:_lock`, `79b907c`; mutatsion tekshiruvli poyga testi |
-| 2.6 `SubmitTestSessionView` atomar emas | B5 | Qisman | B1: yozuvlar `transaction.atomic` ichida, holat qatori `select_for_update` bilan (`assessments/views/assessment.py`, `888a96f`). Servisga ko‘chirish — B5 |
-| 2.6 `dashboard.py:66` ortiqcha `atomic` | B5 | Kutilmoqda (B5) | — |
+| 2.6 `SubmitTestSessionView` atomar emas | B5 | Bajarildi | Mantiq `assessments/services/test_session.py` ga ko‘chirildi, `@transaction.atomic`; read-modify-write olib tashlandi — hisoblagichlar `readiness.apply_answer` orqali `select_for_update` bilan siljiydi |
+| 2.6 `dashboard.py:66` ortiqcha `atomic` | B5 | Bajarildi | Faqat o‘qiydigan endpoint'dan `@transaction.atomic` olib tashlandi (`analytics/views/dashboard.py`) |
 | 2.6 SQLite `FOR UPDATE` ni e’tiborsiz qoldiradi | D1 | Bajarildi | Testlar PostgreSQL'da ishlaydi (`pytest.ini`, CI) |
 
 ### 3-bo‘lim (frontend)
@@ -600,7 +648,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 3.4 Bir tugun — ikki xil son | D5 (B4, B7) | Kutilmoqda (B4, B7) | — |
 | 3.4 Yopiq tugunda umumiy toast | TY4 (B4, B7) | Kutilmoqda (B4, B7) | — |
 | 3.4 Tavsiya sabablari frontend'da qattiq yozilgan | TR3 (B6, B7) | Kutilmoqda (B6, B7) | — |
-| 3.4 “0.8%” / “100%” shkala xatosi | D5, P0-1 (B5, B7) | Kutilmoqda (B5, B7) | — |
+| 3.4 “0.8%” / “100%” shkala xatosi | D5, P0-1 (B5, B7) | Qisman | Backend: `p_mastery` ehtimollik, `grade_percentage` foiz — ikkisi alohida maydon va test ularning teng bo‘lmasligini tekshiradi. UI — B7 |
 | 3.4 `useAdaptiveQuiz` ulanmagan | P0-1 (B7) | Kutilmoqda (B7) | — |
 
 ### 4-bo‘lim (algoritmlar)
@@ -623,7 +671,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 4.3 Chegara 3 joyda har xil | TY1, D6 (B4) | Qisman | D6 konstantalari bir joyda (`config/settings.py:266-285`); eski chegaralar B4 da olib tashlanadi |
 | 4.4 BKT parametrlari global | TM1 (B3) | Bajarildi | `TopicModelParams` (P0, PT, G0, S0, `source`); qatori yo‘q mavzu `settings.THESIS_MODEL` standartlarini oladi |
 | 4.4 `_retrieve_prior` `algorithm_used` ni filtrlamaydi | B1 | Bajarildi | `_retrieve_prior` o‘chirildi, prior holatdan: `assessments/services/engines/bayesian.py:prior_from_state`, `888a96f`; test `test_hybrid_trace_is_stored_and_prior_comes_from_state` |
-| 4.4 Test sessiyasi tarixga yozmaydi | D7 (B5) | Kutilmoqda (B5) | B1: javoblar ledger'da `session` FK bilan, baho `TestSessionResult` da (`888a96f`) |
+| 4.4 Test sessiyasi tarixga yozmaydi | D7 (B5) | Bajarildi | Har bir test javobi `UserKnowledgeHistory` yozadi va `AssessmentAttempt.session` orqali sessiyaga bog‘lanadi |
 | 4.4 Tarix attempt'ga FK'siz | B1 | Bajarildi | `UserKnowledgeHistory.attempt` (OneToOne), `888a96f`; eski qatorlar bog‘lanmagan (Q1-10) |
 | 4.5 Chiziqli G/S | TM2, ES4 (B3) | Bajarildi | `neuro_model/irt.py` — P(G)=G_MAX·σ(γ_G+a(θ−b)), P(S)=S_MAX·σ(γ_S−a(θ−b)); chiziqli modifier'lar olib tashlandi |
 | 4.5 P(G) 0.5 gacha chiqadi | TM2 (B3) | Bajarildi | P(G) < `G_MAX`=0.30 har qanday kirishda; test `test_guess_and_slip_never_exceed_their_bounds` |
@@ -708,7 +756,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 |---|---|---|---|
 | Logda `topic`, `attempt_no`, p̂ yo‘q | P1-1 (B1) | Bajarildi | `assessments/models.py` (`AssessmentAttempt`), migratsiyalar `0006`–`0008`, `888a96f`; test `test_legacy_rows_are_numbered_and_labelled` |
 | Easy-skip yozuvlari belgilanmagan | D8, D10 (B1) | Bajarildi | Mavjud qatorlar `source=legacy` (eksperimentdan chiqariladi), yangi sun’iy yozuvlar yo‘q (`888a96f`) |
-| Test sessiyasi yozuvlarida tarix yo‘q | D7 (B5) | Kutilmoqda (B5) | B1: `source=test_session`, `session` FK (`888a96f`) |
+| Test sessiyasi yozuvlarida tarix yo‘q | D7 (B5) | Bajarildi | `apply_one_answer` moslashuvchan yo‘l bilan bir xil: trace, tarix va `session` FK |
 | Seed vaqt tamg‘alarini qayta yozadi | B1 | Bajarildi | `seed_thesis_demo.py`, `seed_data.py` vaqtni yaratishda beradi, `update()` yo‘q; ledger `update` ni bloklaydi (`888a96f`); test `test_seed_thesis_demo_writes_seed_rows_and_leaves_others_alone` |
 | Tugun o‘chirilsa javoblar CASCADE bilan o‘chadi | D11 (B1) | Bajarildi | `960ba2c`; `test_archive.py` |
 | Foydalanuvchi hard-delete javoblarni o‘chiradi | D11 (B8) | Kutilmoqda (B8) | — |
@@ -728,7 +776,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| 7.1 `test_test_session.py:140` 100.0 ni tasdiqlaydi | B5 | Qisman | B1: baho `TestSessionResult` da, `mastery_percentage` o‘zgarmasligi tekshiriladi (`888a96f`); qayta o‘ynash bilan tenglik — B5 |
+| 7.1 `test_test_session.py:140` 100.0 ni tasdiqlaydi | B5 | Bajarildi | Test endi `p_mastery` ∈ [0,1] ni, bahodan farqli bo‘lishini va `rebuild_student_states` natijasiga teng bo‘lishini tekshiradi |
 | 7.1 Parallellik testi `OperationalError` ni yutadi | B10 | Qisman | `test_bayesian.py::test_concurrent_answer_submissions` endi xatoni yutmaydi; yangi `test_parallel_*` testlari (`888a96f`); to‘liq to‘plam — B10 |
 | 7.1 `accounts` testlari yo‘q | B10 | Qisman | `accounts/tests/test_permissions.py`, `test_security_settings.py` (`f620171`) |
 | 7.1 Frontend testi trivial | B7 | Qisman | 9 ta yangi vitest testi (`apiError`, delete natijalari, tutor flag), `2fa1d99`, `7b549fd`; 7-bosqich testlari — B7 |
@@ -748,10 +796,10 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 7.3 Talaba o‘qituvchi endpoint'larini o‘qiydi | D15 | Bajarildi | test `test_student_cannot_read_instructor_endpoints` |
 | 7.3 Talaba yopiq mavzuga javob beradi | D9 (B4) | Bajarildi | 403 `{missing: [...]}` uchta endpoint'da; servis `TopicClosed` beradi |
 | 7.3 `arms_cache` git'da | B0 | Bajarildi | frontend `a751538` |
-| 7.4 `TestsListView` N+1 | P2-4 (B5) | Kutilmoqda (B5) | — |
+| 7.4 `TestsListView` N+1 | P2-4 (B5) | Bajarildi | Bitta agregat so‘rov (`Count`, `Sum` mavzu bo‘yicha) + `select_related("parent")`; test `TestsListQueryBudget` har bir qo‘shimcha mavzuga <1 so‘rov ekanini tasdiqlaydi |
 | 7.4 Sikl DFS N+1 | P2-4 (B2) | Bajarildi | Tekshiruv xotiradagi snapshot ustida, `5e5cb09`, `79b907c` |
 | 7.4 Easy-skip N+1 | D8 (B1) | Bajarildi | Funksiya o‘chirildi (`888a96f`) |
-| 7.4 `SubmitTestSession` N+1 | P2-4 (B5) | Kutilmoqda (B5) | — |
+| 7.4 `SubmitTestSession` N+1 | P2-4 (B5) | Bajarildi | `resolve_paper` butun varaqni 2 so‘rovda yuklaydi; test `test_loading_the_paper_is_two_queries_whatever_its_length` |
 | 7.4 Keshlanmagan qayta hisoblashlar | GR1 (B2) | Bajarildi | Versiya kaliti bilan kesh, `79b907c` |
 | 7.4 Bir javobga 12–20 SQL | B10 (byudjet ≤ 12) | Kutilmoqda (B10) | B1 dan keyin o‘lchandi: 25 (birinchi), 20 (keyingi), 15 (`review_repeat`); Q1-14 |
 
@@ -759,7 +807,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| P0-1 Test sessiyasi BKT'ni chetlab o‘tadi | B5, B7 | Qisman | B1: baho endi `mastery_percentage` ga yozilmaydi, `TestSessionResult` ga yoziladi (`888a96f`); model orqali o‘tish — B5, UI — B7 |
+| P0-1 Test sessiyasi BKT'ni chetlab o‘tadi | B5, B7 | Qisman | Backend bajarildi (D7: javoblar model orqali, baho alohida). UI — B7 |
 | P0-2 Cascade va easy-skip | B1 | Bajarildi | `888a96f`; `test_ledger.py` |
 | P0-3 Talabaga xos tayyorlik | B4 | Bajarildi | `StudentTopicState` (user, topic) va `assessments/services/readiness.py` |
 | P0-4 G_L, Y2, Y3, qulf | B2 | Bajarildi | `5e5cb09`, `79b907c` |
