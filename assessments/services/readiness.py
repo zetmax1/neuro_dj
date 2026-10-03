@@ -256,6 +256,7 @@ def apply_answer(
     is_correct: bool,
     snapshot: KBSnapshot | None = None,
     answered_at=None,
+    states: dict[int, StudentTopicState] | None = None,
 ) -> Applied:
     """
     Algorithm 2.3 after one answer.
@@ -268,13 +269,18 @@ def apply_answer(
 
     Must run inside the caller's transaction. The answered topic's row is
     locked here; the successors are updated in one bulk write.
+
+    ``states`` lets a caller that already holds the learner's states pass them
+    in — a test session applies many answers in a row and must not re-read
+    them once per answer. The dict is updated in place.
     """
     if not transaction.get_connection().in_atomic_block:
         raise RuntimeError("apply_answer must run inside transaction.atomic().")
 
     snapshot = snapshot or get_snapshot()
     tau, delta = thresholds()
-    states = states_for(user=user, snapshot=snapshot)
+    if states is None:
+        states = states_for(user=user, snapshot=snapshot)
 
     state = StudentTopicState.objects.select_for_update().get(user=user, topic_id=topic_id)
     previous_flag = state.mastered_flag

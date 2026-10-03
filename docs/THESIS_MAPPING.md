@@ -60,16 +60,26 @@ qatlami faqat holatni yuklaydi, chaqiradi va saqlaydi.
 | Yopiq mavzuga 403 `{missing: [...]}` | `readiness.check_open`, `orchestrator.TopicClosed`, `assessments/views/assessment.py` | `test_readiness.py::test_*_refuses_a_closed_topic` |
 | Bir xil `p_mastery` / `accuracy` / `status` barcha API'larda | `curriculum/services/path.py`, daraxt/graf/dashboard/testlar serializerlari | `test_readiness.py::test_every_student_endpoint_reports_the_same_state` |
 
-## 4. Keyingi bosqichlar
+## 4. Test sessiyasi (D7)
+
+| II bob / qaror | Kod | Test |
+|---|---|---|
+| Har bir javob Algoritm 2.4 orqali, ketma-ket | `assessments/services/orchestrator.py` (`apply_one_answer`) — moslashuvchan endpoint ham, test sessiyasi ham shu yagona yo‘ldan o‘tadi | `assessments/tests/test_test_session.py::TestSessionGoesThroughTheModel::test_the_rows_are_a_chain_in_submission_order` |
+| `source=test_session`, `session` FK | `assessments/services/test_session.py` (`submit`) | `test_the_rows_are_a_chain_in_submission_order` |
+| Imtihon bahosi alohida: vaznli ball, o‘tdi/o‘tmadi | `assessments/services/test_session.py` (`grade_paper`, sof), `TestSessionResult` | `TestSessionGrading` (5 ta test) |
+| Baho `p_mastery` ga yozilmaydi va tayyorlikka ta’sir qilmaydi | Baho faqat `TestSessionResult` ga; holat `readiness.apply_answer` dan keladi | `test_submit_test_session_weighted_grading` (p_mastery ∈ [0,1], bahodan farqli, qayta o‘ynash natijasiga teng) |
+| Atomarlik va qulflar | `submit` `@transaction.atomic`; barcha mavzular uchun advisory lock bir marta, tartiblangan holda | `test_the_whole_submission_is_atomic` |
+| Yopiq mavzuga 403 | `submit` `TopicClosed` beradi | `TestSessionRespectsReadiness` |
+
+## 5. Keyingi bosqichlar
 
 | II bob | Bosqich |
 |---|---|
 | 3.5 Trayektoriya, Need(g) | 6 |
-| Test sessiyasi modeldan o‘tadi | 5 |
 
 ---
 
-## 5. Farqlar — koddagi, II bobda yo‘q narsalar
+## 6. Farqlar — koddagi, II bobda yo‘q narsalar
 
 Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
 

@@ -24,7 +24,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
-from django.db import transaction
 from django.db.models import Avg, Count, Q, Sum
 from django.db.models.functions import Coalesce
 
@@ -57,7 +56,9 @@ class DashboardOverviewView(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
-    @transaction.atomic
+    # No transaction here: the endpoint only reads (audit 2.6 flagged the
+    # wrapper as redundant). The readiness sync below opens its own where it
+    # needs one.
     def get(self, request: Request) -> Response:
         user = request.user
 

@@ -54,6 +54,7 @@ from assessments.models import (
     StudentTopicState,
     UserKnowledgeHistory,
 )
+from assessments.models import AssessmentAttempt
 from assessments.services import ledger, readiness, student_model
 from assessments.services.question_selection import get_next_question
 
@@ -110,6 +111,119 @@ class SubmissionResult:
     attempt_no: int
 
 
+@dataclass(frozen=True)
+class AnswerOutcome:
+    """One recorded answer and what it changed."""
+    attempt: AssessmentAttempt
+    source: str
+    is_correct: bool
+    state: StudentTopicState
+    opened: tuple[int, ...]
+
+    @property
+    def counted(self) -> bool:
+        """False for a ``review_repeat``, which is logged but changes nothing."""
+        return self.source != AttemptSource.REVIEW_REPEAT
+
+
+def apply_one_answer(
+    *,
+    user,
+    choice: Choice,
+    requested_source: str,
+    snapshot,
+    states: dict[int, StudentTopicState],
+    session=None,
+    answered_at: datetime | None = None,
+) -> AnswerOutcome:
+    """
+    One answer through Algorithm 2.4, then Algorithm 2.3, then the ledger.
+
+    This is the single path every answer takes, whichever endpoint it arrived
+    through: the adaptive one and the test session share it, so a test answer
+    is a model observation on exactly the same terms (D7).
+
+    The caller holds the transaction, has taken the advisory locks for the
+    topics it touches, and has already refused a closed topic. ``states`` is
+    the learner's readiness state as ``readiness.states_for`` returned it.
+    """
+    question: Question = choice.question
+    topic: Topic = question.topic
+
+    source = ledger.classify_source(user=user, question=question, requested=requested_source)
+    if source == AttemptSource.REVIEW_REPEAT:
+        # D25: logged, but not an observation — no trace, no state movement.
+        attempt = ledger.record_attempt(
+            user=user, choice=choice, source=source, session=session,
+            answered_at=answered_at,
+        )
+        return AnswerOutcome(
+            attempt=attempt,
+            source=attempt.source,
+            is_correct=choice.is_correct,
+            state=states[topic.pk],
+            opened=(),
+        )
+
+    # Readiness as it stood when the question was answered.
+    was = readiness.readiness_at(topic_id=topic.pk, states=states, snapshot=snapshot)
+
+    applied = student_model.apply_answer(
+        user=user,
+        topic=topic,
+        course_id=snapshot.root_of(topic.pk),
+        question=question,
+        is_correct=choice.is_correct,
+        snapshot=snapshot,
+    )
+    readiness_result = readiness.apply_answer(
+        user=user,
+        topic_id=topic.pk,
+        p_mastery=applied.mastery,
+        is_correct=choice.is_correct,
+        snapshot=snapshot,
+        answered_at=answered_at,
+        states=states,
+    )
+    states[topic.pk] = readiness_result.state
+
+    attempt = ledger.record_attempt(
+        user=user,
+        choice=choice,
+        source=source,
+        session=session,
+        trace=replace(
+            applied.trace,
+            kb_version=snapshot.version,
+            readiness_score=was.score,
+            was_ready=was.was_ready,
+        ),
+        answered_at=answered_at,
+    )
+    UserKnowledgeHistory.objects.create(
+        user=user,
+        topic=topic,
+        calculated_mastery=applied.mastery,
+        algorithm_used=AlgorithmChoice.THESIS_HYBRID,
+        attempt=attempt,
+        created_at=attempt.answered_at,
+    )
+
+    if readiness_result.opened:
+        logger.info(
+            "Learner %s mastered topic %s; opened %s",
+            user.pk, topic.pk, readiness_result.opened,
+        )
+
+    return AnswerOutcome(
+        attempt=attempt,
+        source=attempt.source,
+        is_correct=choice.is_correct,
+        state=readiness_result.state,
+        opened=readiness_result.opened,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -163,77 +277,16 @@ def process_submission(
     if blocked is not None:
         raise TopicClosed(blocked)
 
-    # --- Step 4: D25 — a repeat within the review window updates nothing ---
-    source = ledger.classify_source(user=user, question=question, requested=source)
-    if source == AttemptSource.REVIEW_REPEAT:
-        attempt = ledger.record_attempt(user=user, choice=choice, source=source)
-        state = states[topic.pk]
-        return SubmissionResult(
-            is_correct=is_correct,
-            explanation=question.explanation,
-            p_mastery=state.p_mastery,
-            status=state.status,
-            mastered=state.mastered_flag,
-            accuracy=state.accuracy,
-            attempts=state.attempts,
-            opened_topics=(),
-            next_question=get_next_question(user=user, topic_id=topic.pk),
-            source=attempt.source,
-            attempt_id=attempt.pk,
-            attempt_no=attempt.attempt_no,
-        )
-
-    # --- Step 5: readiness as it stood when the question was answered ------
-    was = readiness.readiness_at(topic_id=topic.pk, states=states, snapshot=snapshot)
-
-    # --- Step 6: Algorithm 2.4 ---------------------------------------------
-    applied = student_model.apply_answer(
-        user=user,
-        topic=topic,
-        course_id=snapshot.root_of(topic.pk),
-        question=question,
-        is_correct=is_correct,
-        snapshot=snapshot,
-    )
-
-    # --- Step 7: Algorithm 2.3 ---------------------------------------------
-    readiness_result = readiness.apply_answer(
-        user=user,
-        topic_id=topic.pk,
-        p_mastery=applied.mastery,
-        is_correct=is_correct,
-        snapshot=snapshot,
-        answered_at=answered_at,
-    )
-    state = readiness_result.state
-
-    # --- Step 8: Append to the ledger and the history ----------------------
-    attempt = ledger.record_attempt(
+    # --- Steps 4-8: the shared per-answer core -----------------------------
+    outcome = apply_one_answer(
         user=user,
         choice=choice,
-        source=source,
-        trace=replace(
-            applied.trace,
-            kb_version=snapshot.version,
-            readiness_score=was.score,
-            was_ready=was.was_ready,
-        ),
+        requested_source=source,
+        snapshot=snapshot,
+        states=states,
         answered_at=answered_at,
     )
-    UserKnowledgeHistory.objects.create(
-        user=user,
-        topic=topic,
-        calculated_mastery=applied.mastery,
-        algorithm_used=AlgorithmChoice.THESIS_HYBRID,
-        attempt=attempt,
-        created_at=attempt.answered_at,
-    )
-
-    if readiness_result.opened:
-        logger.info(
-            "Learner %s mastered topic %s; opened %s",
-            user.pk, topic.pk, readiness_result.opened,
-        )
+    state = outcome.state
 
     # --- Step 9: Pick next question (read-only) ----------------------------
     next_question = get_next_question(user=user, topic_id=topic.pk)
@@ -246,11 +299,11 @@ def process_submission(
         mastered=state.mastered_flag,
         accuracy=state.accuracy,
         attempts=state.attempts,
-        opened_topics=readiness_result.opened,
+        opened_topics=outcome.opened,
         next_question=next_question,
-        source=attempt.source,
-        attempt_id=attempt.pk,
-        attempt_no=attempt.attempt_no,
+        source=outcome.source,
+        attempt_id=outcome.attempt.pk,
+        attempt_no=outcome.attempt.attempt_no,
     )
 
 
