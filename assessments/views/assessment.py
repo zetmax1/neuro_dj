@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 
+from django.db import transaction
 from rest_framework import permissions, status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -20,13 +21,21 @@ from rest_framework.views import APIView
 
 from curriculum.models import Topic
 
-from assessments.models import Choice, DifficultyLevel, MasteryLevel, Question, UserKnowledgeState, AssessmentAttempt
+from assessments.models import (
+    AttemptSource,
+    Choice,
+    DifficultyLevel,
+    MasteryLevel,
+    Question,
+    TestSessionResult,
+    UserKnowledgeState,
+)
 from assessments.serializers.assessment import (
     QuestionSerializer,
     SubmissionResultSerializer,
     SubmitAnswerSerializer,
 )
-from assessments.services import get_next_question, get_stratified_test_questions, process_submission
+from assessments.services import get_next_question, get_stratified_test_questions, ledger, process_submission
 from drf_spectacular.utils import extend_schema
 
 logger = logging.getLogger(__name__)
@@ -50,7 +59,7 @@ class TestSessionView(APIView):
             )
 
         try:
-            topic = Topic.objects.get(pk=topic_id)
+            topic = Topic.objects.get(pk=topic_id, is_archived=False)
         except Topic.DoesNotExist:
             return Response(
                 {"detail": f"Topic with id {topic_id} does not exist."},
@@ -78,7 +87,12 @@ class SubmitTestSessionView(APIView):
     """
     POST /api/assessments/submit_test_session/
     Evaluates the full test session with difficulty-weighted grading (Easy=1pt, Medium=2pt, Hard=3pt).
-    Calculates final grade %, compares against topic.pass_mark_percentage, records attempts, and updates mastery.
+    Calculates final grade %, compares against topic.pass_mark_percentage and stores the grade
+    as a TestSessionResult. Every answer is appended to the ledger (source=test_session, or
+    review_repeat under D25) and linked to that result.
+
+    D7: the grade is an exam score and is never written to the mastery probability.
+    Running the answers through the student model is stage 5.
     """
     permission_classes = [permissions.IsAuthenticated]
 
@@ -93,7 +107,7 @@ class SubmitTestSessionView(APIView):
             )
 
         try:
-            topic = Topic.objects.get(pk=topic_id)
+            topic = Topic.objects.get(pk=topic_id, is_archived=False)
         except Topic.DoesNotExist:
             return Response(
                 {"detail": f"Topic with id {topic_id} does not exist."},
@@ -116,13 +130,14 @@ class SubmitTestSessionView(APIView):
         }
 
         answers_summary = []
+        answered_choices: list[Choice] = []
 
         for item in answers:
             q_id = item.get("question_id")
             c_id = item.get("choice_id")
 
             try:
-                question = Question.objects.get(pk=q_id)
+                question = Question.objects.select_related("topic").get(pk=q_id)
             except Question.DoesNotExist:
                 continue
 
@@ -141,7 +156,9 @@ class SubmitTestSessionView(APIView):
 
             if c_id:
                 try:
-                    selected_choice_obj = Choice.objects.get(pk=c_id, question=question)
+                    selected_choice_obj = Choice.objects.select_related("question__topic").get(
+                        pk=c_id, question=question,
+                    )
                     is_correct = selected_choice_obj.is_correct
                 except Choice.DoesNotExist:
                     is_correct = False
@@ -151,14 +168,8 @@ class SubmitTestSessionView(APIView):
                 breakdown[diff_key]["correct"] += 1
                 breakdown[diff_key]["points"] += weight
 
-            # Record AssessmentAttempt
             if selected_choice_obj:
-                AssessmentAttempt.objects.create(
-                    user=request.user,
-                    question=question,
-                    selected_choice=selected_choice_obj,
-                    is_correct=is_correct,
-                )
+                answered_choices.append(selected_choice_obj)
 
             answers_summary.append(
                 {
@@ -175,29 +186,55 @@ class SubmitTestSessionView(APIView):
         grade_percentage = round((earned_points / total_points * 100), 1) if total_points > 0 else 0.0
         is_passed = grade_percentage >= topic.pass_mark_percentage
 
-        # Update User Knowledge State
-        state, _ = UserKnowledgeState.objects.get_or_create(
-            user=request.user,
-            topic=topic,
-        )
-        state.total_attempts += len(answers)
-        state.correct_attempts += sum(1 for a in answers_summary if a["is_correct"])
+        with transaction.atomic():
+            session = TestSessionResult.objects.create(
+                user=request.user,
+                topic=topic,
+                total_questions=len(answers_summary),
+                earned_points=earned_points,
+                total_points=total_points,
+                score_percentage=grade_percentage,
+                pass_mark_percentage=topic.pass_mark_percentage,
+                passed=is_passed,
+            )
 
-        # Update mastery percentage continuously
-        new_mastery = max(state.mastery_percentage, grade_percentage)
-        state.mastery_percentage = new_mastery
-        if is_passed and grade_percentage >= 70.0:
-            state.mastery_level = MasteryLevel.MASTERED
-        elif is_passed:
-            state.mastery_level = MasteryLevel.ADVANCED
-        state.save()
+            # Advisory locks for every touched topic first (sorted), then the
+            # state row: the same order as process_submission.
+            ledger.lock_learner_topics(
+                request.user.pk,
+                {topic.pk, *(c.question.topic_id for c in answered_choices)},
+            )
+            for choice in answered_choices:
+                source = ledger.classify_source(
+                    user=request.user,
+                    question=choice.question,
+                    requested=AttemptSource.TEST_SESSION,
+                )
+                ledger.record_attempt(
+                    user=request.user, choice=choice, source=source, session=session,
+                )
 
-        # Unlock dependent child topics if passed
-        if is_passed:
-            topic.children.filter(is_unlocked=False).update(is_unlocked=True)
+            state, _ = UserKnowledgeState.objects.select_for_update().get_or_create(
+                user=request.user,
+                topic=topic,
+            )
+            state.total_attempts += len(answers_summary)
+            state.correct_attempts += sum(1 for a in answers_summary if a["is_correct"])
+
+            # Legacy discrete level and global unlock flag; both are replaced by
+            # the readiness service in stage 4 and the model path in stage 5.
+            if is_passed and grade_percentage >= 70.0:
+                state.mastery_level = MasteryLevel.MASTERED
+            elif is_passed:
+                state.mastery_level = MasteryLevel.ADVANCED
+            state.save()
+
+            if is_passed:
+                topic.children.filter(is_unlocked=False).update(is_unlocked=True)
 
         return Response(
             {
+                "session_id": session.pk,
                 "topic_id": topic.id,
                 "topic_name": topic.name,
                 "total_questions": len(answers_summary),
@@ -222,7 +259,7 @@ class TestsListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request: Request) -> Response:
-        topics = Topic.objects.all()
+        topics = Topic.objects.filter(is_archived=False)
         result = []
         user = request.user
 
@@ -232,7 +269,11 @@ class TestsListView(APIView):
         }
 
         for topic in topics:
-            descendant_ids = list(topic.get_descendants(include_self=True).values_list("id", flat=True))
+            descendant_ids = list(
+                topic.get_descendants(include_self=True)
+                .filter(is_archived=False)
+                .values_list("id", flat=True)
+            )
             questions = Question.objects.filter(topic_id__in=descendant_ids, is_active=True)
             q_count = questions.count()
 
@@ -308,7 +349,11 @@ class NextQuestionView(APIView):
 
         if question is None:
             topic = Topic.objects.get(pk=topic_id)
-            topic_ids = list(topic.get_descendants(include_self=True).values_list("id", flat=True))
+            topic_ids = list(
+                topic.get_descendants(include_self=True)
+                .filter(is_archived=False)
+                .values_list("id", flat=True)
+            )
             has_questions = Question.objects.filter(topic_id__in=topic_ids, is_active=True).exists()
 
             if not has_questions:

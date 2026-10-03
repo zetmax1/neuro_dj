@@ -47,6 +47,8 @@ class StreakEstimationEngine(BaseStudentModel):
     in-memory (the orchestrator persists these changes transactionally).
     """
 
+    version = "streak/0"
+
     def calculate_new_mastery(
         self,
         user,

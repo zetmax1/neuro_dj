@@ -9,9 +9,23 @@ from assessments.models import (
     AssessmentAttempt,
     Choice,
     Question,
+    TestSessionResult,
     UserKnowledgeHistory,
     UserKnowledgeState,
 )
+
+
+class ReadOnlyLedgerAdmin(ModelAdmin):
+    """Ledger rows are written by assessments.services.ledger only (D10)."""
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class ChoiceInline(TabularInline):
@@ -51,10 +65,20 @@ class UserKnowledgeStateAdmin(ModelAdmin):
 
 
 @admin.register(AssessmentAttempt)
-class AssessmentAttemptAdmin(ModelAdmin):
-    list_display = ["user", "question", "is_correct", "answered_at"]
-    list_filter = ["is_correct"]
+class AssessmentAttemptAdmin(ReadOnlyLedgerAdmin):
+    list_display = [
+        "user", "topic", "attempt_no", "question", "source",
+        "is_correct", "p_before", "p_after", "answered_at",
+    ]
+    list_filter = ["source", "is_correct"]
     search_fields = ["user__email"]
+
+
+@admin.register(TestSessionResult)
+class TestSessionResultAdmin(ReadOnlyLedgerAdmin):
+    list_display = ["user", "topic", "score_percentage", "passed", "submitted_at"]
+    list_filter = ["passed"]
+    search_fields = ["user__email", "topic__name"]
 
 
 @admin.register(UserKnowledgeHistory)

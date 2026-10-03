@@ -115,3 +115,7 @@ class SubmissionResultSerializer(serializers.Serializer):
     mastery_percentage = serializers.FloatField()
     streak = serializers.IntegerField()
     next_question = QuestionSerializer(allow_null=True)
+    source = serializers.CharField(
+        help_text="Ledger source of this answer; 'review_repeat' answers do not change P(L).",
+    )
+    attempt_no = serializers.IntegerField()

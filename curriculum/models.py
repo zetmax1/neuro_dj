@@ -74,6 +74,14 @@ class Topic(MPTTModel):
         ),
     )
 
+    # D11: a topic with recorded answers is never deleted; DELETE archives it
+    # (and its subtree) so the answer ledger keeps valid foreign keys.
+    is_archived: bool = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Hidden from learners and instructors; kept because answers reference it.",
+    )
+
     # Test Session Settings (Configured by Teacher/Instructor)
     pass_mark_percentage: float = models.FloatField(
         default=60.0,

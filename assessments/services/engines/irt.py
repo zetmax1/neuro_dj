@@ -60,6 +60,8 @@ class IRTEngine(BaseStudentModel):
     online after each attempt.
     """
 
+    version = "irt/0"
+
     def __init__(self, k_factor: float = DEFAULT_K_LEARNING_RATE) -> None:
         self.k_factor: float = k_factor
 
@@ -72,6 +74,10 @@ class IRTEngine(BaseStudentModel):
 
         Persists the updated theta to the UserAbility table and returns it.
         """
+        return self.update_ability_pair(user, question, is_correct)[1]
+
+    def update_ability_pair(self, user, question: Question, is_correct: bool) -> tuple[float, float]:
+        """Same as ``update_ability`` but returns ``(theta_old, theta_new)``."""
         topic = question.topic
         ability_obj, _ = UserAbility.objects.get_or_create(
             user=user,
@@ -105,7 +111,7 @@ class IRTEngine(BaseStudentModel):
             p_hat,
         )
 
-        return theta_new
+        return theta_old, theta_new
 
     def calculate_new_mastery(
         self,

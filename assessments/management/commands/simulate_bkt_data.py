@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from faker import Faker
 
-from assessments.models import Choice, DifficultyLevel, Question
+from assessments.models import AttemptSource, Choice, DifficultyLevel, Question
 from assessments.services.orchestrator import process_submission
 from curriculum.models import Topic
 
@@ -172,13 +172,12 @@ class Command(BaseCommand):
                         wrong_choices = [c for c in question.choices.all() if not c.is_correct]
                         choice = random.choice(wrong_choices)
                         
-                    # Pass through the exact same API orchestrator
-                    # Note: We aren't testing 'is_unlocked' gating rigorously for this script, 
-                    # but the orchestrator will update it for parents if they meet mastery threshold.
+                    # Same orchestrator as the API, labelled source=simulated (D13)
                     process_submission(
                         user=user,
                         question_id=question.id,
-                        choice_id=choice.id
+                        choice_id=choice.id,
+                        source=AttemptSource.SIMULATED,
                     )
                     
                     total_interactions += 1

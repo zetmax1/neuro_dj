@@ -9,8 +9,9 @@ from __future__ import annotations
 from typing import Optional
 
 from django.conf import settings
-from django.db.models import F, QuerySet
+from django.db.models import Exists, F, OuterRef, QuerySet
 from django.db.models.functions import Abs
+from django.utils import timezone
 
 from curriculum.models import Topic
 
@@ -23,6 +24,7 @@ from assessments.models import (
     UserAbility,
     UserKnowledgeState,
 )
+from assessments.services.ledger import review_window
 
 MASTERY_TO_DIFFICULTY: dict[int, int] = {
     MasteryLevel.NOT_STARTED: DifficultyLevel.EASY,
@@ -40,9 +42,17 @@ def get_next_question(*, user, topic_id: int) -> Optional[Question]:
     If the active engine is 'irt' or 'hybrid_bkt_irt', selects the question whose
     `irt_difficulty` is closest to the user's current `theta` (maximizing IRT information).
     Otherwise, falls back to discrete 3-bucket difficulty matching.
+
+    Questions the learner answered within the review window come last: a
+    repeat is logged as review_repeat and does not update P(L) (D25), so it is
+    served only when nothing else is left. Archived topics are not answerable.
     """
-    topic: Topic = Topic.objects.get(pk=topic_id)
-    topic_ids: list[int] = list(topic.get_descendants(include_self=True).values_list("id", flat=True))
+    topic: Topic = Topic.objects.get(pk=topic_id, is_archived=False)
+    topic_ids: list[int] = list(
+        topic.get_descendants(include_self=True)
+        .filter(is_archived=False)
+        .values_list("id", flat=True)
+    )
 
     answered_correctly_ids: QuerySet = (
         AssessmentAttempt.objects
@@ -50,10 +60,17 @@ def get_next_question(*, user, topic_id: int) -> Optional[Question]:
         .values_list("question_id", flat=True)
     )
 
+    answered_recently = AssessmentAttempt.objects.filter(
+        user=user,
+        question=OuterRef("pk"),
+        answered_at__gte=timezone.now() - review_window(),
+    )
+
     base_qs: QuerySet[Question] = (
         Question.objects
         .filter(topic_id__in=topic_ids, is_active=True)
         .exclude(pk__in=answered_correctly_ids)
+        .annotate(answered_recently=Exists(answered_recently))
         .select_related("topic")
         .prefetch_related("choices")
     )
@@ -68,7 +85,7 @@ def get_next_question(*, user, topic_id: int) -> Optional[Question]:
 
         candidate = (
             base_qs.annotate(diff_dist=Abs(F("irt_difficulty") - theta))
-            .order_by("diff_dist")
+            .order_by("answered_recently", "diff_dist", "id")
             .first()
         )
         if candidate:
@@ -86,7 +103,7 @@ def get_next_question(*, user, topic_id: int) -> Optional[Question]:
         mastery_level, DifficultyLevel.EASY
     )
 
-    return base_qs.order_by("difficulty").first()
+    return base_qs.order_by("answered_recently", "difficulty", "id").first()
 
 
 def get_stratified_test_questions(*, topic_id: int) -> list[Question]:
@@ -100,8 +117,12 @@ def get_stratified_test_questions(*, topic_id: int) -> list[Question]:
     """
     import random
 
-    topic = Topic.objects.get(pk=topic_id)
-    topic_ids = list(topic.get_descendants(include_self=True).values_list("id", flat=True))
+    topic = Topic.objects.get(pk=topic_id, is_archived=False)
+    topic_ids = list(
+        topic.get_descendants(include_self=True)
+        .filter(is_archived=False)
+        .values_list("id", flat=True)
+    )
 
     target_total = topic.test_question_count or 10
 

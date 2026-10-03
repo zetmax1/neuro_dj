@@ -278,6 +278,9 @@ _THESIS_DEFAULTS = {
     "DEFAULT_PT": 0.20,
     "DEFAULT_G0": 0.20,
     "DEFAULT_S0": 0.05,
+    # D25 data policy, not part of chapter II: a question answered again within
+    # this many hours is logged as review_repeat and does not update P(L).
+    "REVIEW_REPEAT_HOURS": 24.0,
 }
 THESIS_MODEL = {
     name: env.float(f"THESIS_{name}", default=default)

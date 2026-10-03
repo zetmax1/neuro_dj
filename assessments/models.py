@@ -2,8 +2,8 @@
 assessments/models.py — The Adaptive Testing & Tracking Engine.
 
 This app owns all interactive assessment mechanics and user state tracking.
-It contains Question, Choice, UserKnowledgeState, AssessmentAttempt,
-and UserKnowledgeHistory.
+It contains Question, Choice, UserKnowledgeState, the AssessmentAttempt
+answer ledger, TestSessionResult and UserKnowledgeHistory.
 
 Dependency rule: assessments depends on curriculum (one-way).
 All cross-app references use string-based foreign keys ('curriculum.Topic')
@@ -15,6 +15,8 @@ from __future__ import annotations
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
+from django.utils import timezone
 
 
 # ---------------------------------------------------------------------------
@@ -224,12 +226,112 @@ class UserKnowledgeState(models.Model):
 # 4. Assessment Attempt Log
 # ---------------------------------------------------------------------------
 
+class AttemptSource(models.TextChoices):
+    """Where a ledger row came from (D10, D13, D25)."""
+    ADAPTIVE = "adaptive", "Adaptive practice"
+    TEST_SESSION = "test_session", "Test session"
+    REVIEW_REPEAT = "review_repeat", "Same question repeated within the review window"
+    SEED = "seed", "Demo seed"
+    SIMULATED = "simulated", "Simulated learner"
+    LEGACY = "legacy", "Recorded before the ledger existed"
+
+
+# Answers that are genuine observations of a real learner. Only these feed
+# calibration and the experiments; review_repeat is excluded because a memorised
+# question inflates P(L) (D25), legacy because it mixes in easy-skip rows (D10).
+EXPERIMENT_SOURCES: frozenset[str] = frozenset({
+    AttemptSource.ADAPTIVE,
+    AttemptSource.TEST_SESSION,
+})
+
+
+class TestSessionResult(models.Model):
+    """
+    Grade of one stratified test session (D7).
+
+    The weighted grade is an exam score: it is never written to the mastery
+    probability and never affects readiness. The individual answers are ledger
+    rows that point back here through ``AssessmentAttempt.session``.
+    """
+
+    __test__ = False  # not a pytest test class despite the name
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="test_sessions",
+    )
+    topic = models.ForeignKey(
+        "curriculum.Topic",
+        on_delete=models.PROTECT,
+        related_name="test_sessions",
+    )
+    total_questions = models.PositiveIntegerField()
+    earned_points = models.PositiveIntegerField()
+    total_points = models.PositiveIntegerField()
+    score_percentage = models.FloatField(help_text="Difficulty-weighted grade, 0–100.")
+    pass_mark_percentage = models.FloatField(help_text="Pass mark of the topic when the test was taken.")
+    passed = models.BooleanField()
+    submitted_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-submitted_at"]
+        indexes = [
+            models.Index(
+                fields=["user", "topic", "submitted_at"],
+                name="idx_session_user_topic_ts",
+            ),
+        ]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(score_percentage__gte=0) & Q(score_percentage__lte=100),
+                name="session_score_in_range",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user} | {self.topic} — {self.score_percentage:.1f}%"
+
+
+class ImmutableLedgerError(RuntimeError):
+    """Raised when code tries to rewrite or bulk-insert answer ledger rows."""
+
+
+class AssessmentAttemptQuerySet(models.QuerySet):
+    """
+    Ledger rows are append-only. New rows go through
+    ``assessments.services.ledger.record_attempt``; nothing rewrites them.
+    """
+
+    def update(self, **kwargs):
+        raise ImmutableLedgerError("AssessmentAttempt rows are immutable.")
+
+    def bulk_update(self, objs, fields, batch_size=None):
+        raise ImmutableLedgerError("AssessmentAttempt rows are immutable.")
+
+    def bulk_create(self, objs, *args, **kwargs):
+        raise ImmutableLedgerError(
+            "Use assessments.services.ledger.record_attempt to append answers."
+        )
+
+
+def _probability_check(field: str) -> models.CheckConstraint:
+    return models.CheckConstraint(
+        condition=Q(**{f"{field}__isnull": True})
+        | (Q(**{f"{field}__gte": 0}) & Q(**{f"{field}__lte": 1})),
+        name=f"attempt_{field}_is_probability",
+    )
+
+
 class AssessmentAttempt(models.Model):
     """
-    Immutable log of every answer submission.
+    Append-only answer ledger (D10). One row per submitted answer.
 
-    Used for analytics and to prevent the adaptive engine from re-asking
-    recently answered questions.
+    ``topic`` and ``course`` are snapshots taken when the answer was given, so
+    moving a question or a topic later does not rewrite history. The model
+    columns (``p_*``, ``guess_used``, ``theta_*`` …) hold exactly the values the
+    engine used for this answer; they stay NULL for rows the engine did not
+    process (legacy, review_repeat, test sessions until stage 5).
     """
 
     user = models.ForeignKey(
@@ -240,16 +342,58 @@ class AssessmentAttempt(models.Model):
     )
     question = models.ForeignKey(
         Question,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="attempts",
     )
     selected_choice = models.ForeignKey(
         Choice,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="selections",
     )
     is_correct: bool = models.BooleanField()
-    answered_at = models.DateTimeField(auto_now_add=True)
+    answered_at = models.DateTimeField(default=timezone.now)
+
+    topic = models.ForeignKey(
+        "curriculum.Topic",
+        on_delete=models.PROTECT,
+        related_name="attempts",
+        help_text="Topic of the question at answer time.",
+    )
+    course = models.ForeignKey(
+        "curriculum.Topic",
+        on_delete=models.PROTECT,
+        related_name="course_attempts",
+        help_text="Root of the topic's tree at answer time.",
+    )
+    attempt_no = models.PositiveIntegerField(
+        help_text="1, 2, 3, … per (user, topic), in recording order.",
+    )
+    source = models.CharField(max_length=20, choices=AttemptSource.choices, db_index=True)
+    session = models.ForeignKey(
+        TestSessionResult,
+        # RESTRICT, not PROTECT: deleting a user cascades to both the session and
+        # its answers, which RESTRICT allows; deleting a session alone is refused.
+        on_delete=models.RESTRICT,
+        null=True,
+        blank=True,
+        related_name="attempts",
+    )
+
+    p_before = models.FloatField(null=True, blank=True, help_text="P(L) before the update.")
+    p_hat = models.FloatField(null=True, blank=True, help_text="Predicted P(correct).")
+    p_after = models.FloatField(null=True, blank=True, help_text="P(L) after the update.")
+    guess_used = models.FloatField(null=True, blank=True)
+    slip_used = models.FloatField(null=True, blank=True)
+    theta_before = models.FloatField(null=True, blank=True)
+    theta_after = models.FloatField(null=True, blank=True)
+    b_before = models.FloatField(null=True, blank=True)
+    b_after = models.FloatField(null=True, blank=True)
+    readiness_score = models.FloatField(null=True, blank=True, help_text="r_s(w) at answer time.")
+    was_ready = models.BooleanField(null=True, blank=True)
+    engine_version = models.CharField(max_length=64, blank=True, default="")
+    kb_version = models.PositiveIntegerField(null=True, blank=True)
+
+    objects = AssessmentAttemptQuerySet.as_manager()
 
     class Meta:
         ordering = ["-answered_at"]
@@ -259,10 +403,36 @@ class AssessmentAttempt(models.Model):
                 name="idx_attempt_user_question",
             ),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "topic", "attempt_no"],
+                name="uniq_attempt_user_topic_no",
+            ),
+            models.CheckConstraint(
+                condition=Q(attempt_no__gte=1),
+                name="attempt_no_starts_at_one",
+            ),
+            models.CheckConstraint(
+                condition=Q(source__in=AttemptSource.values),
+                name="attempt_source_valid",
+            ),
+            *(
+                _probability_check(field)
+                for field in (
+                    "p_before", "p_hat", "p_after",
+                    "guess_used", "slip_used", "readiness_score",
+                )
+            ),
+        ]
+
+    def save(self, *args, **kwargs) -> None:
+        if not self._state.adding:
+            raise ImmutableLedgerError("AssessmentAttempt rows are immutable.")
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         status = "✓" if self.is_correct else "✗"
-        return f"[{status}] {self.user} → Q{self.question_id}"
+        return f"[{status}] {self.user} → Q{self.question_id} #{self.attempt_no} ({self.source})"
 
 
 class UserAbility(models.Model):
@@ -353,7 +523,15 @@ class UserKnowledgeHistory(models.Model):
         choices=AlgorithmChoice.choices,
         help_text="Which estimation engine produced this data point.",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
+    attempt = models.OneToOneField(
+        AssessmentAttempt,
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="history_entry",
+        help_text="Answer that produced this value (NULL for rows written before the ledger).",
+    )
+    created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         ordering = ["-created_at"]

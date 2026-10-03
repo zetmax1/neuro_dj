@@ -2,49 +2,52 @@
 assessments/services/orchestrator.py — Execution Orchestrator.
 
 Coordinates the full answer-submission lifecycle inside a single
-@transaction.atomic block with row-level locking:
+@transaction.atomic block:
 
-    1. Validate question + choice.
-    2. Record the immutable AssessmentAttempt.
-    3. Lock UserKnowledgeState via select_for_update().
-    4. Delegate mastery calculation to the active engine (strategy pattern).
+    1. Validate question + choice (archived topics are not answerable).
+    2. Lock the learner's (user, topic) ledger key, then the state row.
+    3. Classify the answer: a repeat of a question answered within the
+       review window is logged as ``review_repeat`` and changes nothing (D25).
+    4. Delegate the mastery calculation to the active engine (strategy pattern).
     5. Persist mastery_percentage + discrete mastery_level on the state row.
-    6. Append an immutable UserKnowledgeHistory ledger entry.
-    7. If mastery threshold reached, unlock child topics and cascade.
+    6. Append the answer to the ledger (``ledger.record_attempt``) together
+       with the quantities the engine used, and link the history entry to it.
+    7. If the legacy threshold is reached, set the global unlock flag of the
+       child topics (removed with the readiness service in stage 4).
     8. Select the next adaptive question.
 
-Engine resolution:
-    The active engine is determined by ``settings.STUDENT_MODEL_ENGINE``
-    (defaults to ``"streak"``). Change this setting to swap algorithms
-    without touching any orchestration code.
+The orchestrator never writes anything for topics or questions the learner
+did not answer (D8): the descendant cascade and the easy-question skip that
+fabricated answers were removed in stage 1.
 
-Tree propagation:
-    When mastery_percentage >= MASTERY_THRESHOLD (70%), the orchestrator
-    uses django-mptt's ``get_children()`` (lft/rght range query) to fetch
-    immediate child topics and bulk-updates their ``is_unlocked`` flag to True.
+Engine resolution:
+    The active engine is determined by ``settings.STUDENT_MODEL_ENGINE``.
+    Change this setting to swap algorithms without touching any
+    orchestration code.
 """
 
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime
 from typing import Optional
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import QuerySet
 
 from curriculum.models import Topic
 
 from assessments.models import (
     AlgorithmChoice,
-    AssessmentAttempt,
+    AttemptSource,
     Choice,
     MasteryLevel,
     Question,
     UserKnowledgeHistory,
     UserKnowledgeState,
 )
+from assessments.services import ledger
 from assessments.services.engines import get_engine
 from assessments.services.question_selection import get_next_question
 
@@ -54,16 +57,18 @@ logger = logging.getLogger(__name__)
 # Constants
 # ---------------------------------------------------------------------------
 
-# Mastery threshold as an integer percentage (0–100).
-# When mastery_percentage * 100 >= this value, the topic is marked MASTERED
-# and its immediate child topics are unlocked.
+# Legacy mastery threshold as an integer percentage (0–100), replaced by
+# τ/δ hysteresis in stage 4. When mastery_percentage * 100 >= this value,
+# the topic is marked MASTERED and its child topics are unlocked.
 MASTERY_THRESHOLD: int = 70
 
-# Minimum accuracy on Medium+Hard questions to trigger easy-question bypass.
-# If a student scores >= this percentage on higher-difficulty questions,
-# all Easy questions for the topic are marked as bypassed.
-ADAPTIVE_SKIP_ACCURACY: int = 70
-ADAPTIVE_SKIP_MIN_ATTEMPTS: int = 3  # Minimum M+H attempts before skip kicks in
+# Sources ``process_submission`` accepts. Seeds and the simulator go through
+# the same engine path but are labelled so experiments can exclude them (D13).
+SUBMISSION_SOURCES: frozenset[str] = frozenset({
+    AttemptSource.ADAPTIVE,
+    AttemptSource.SEED,
+    AttemptSource.SIMULATED,
+})
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +85,9 @@ class SubmissionResult:
     mastery_percentage: float
     streak: int
     next_question: Optional[Question]
+    source: str
+    attempt_id: int
+    attempt_no: int
 
 
 # ---------------------------------------------------------------------------
@@ -122,42 +130,57 @@ def process_submission(
     user,
     question_id: int,
     choice_id: int,
+    source: str = AttemptSource.ADAPTIVE,
+    answered_at: datetime | None = None,
 ) -> SubmissionResult:
     """
-    Process a user's quiz answer submission.
+    Process one answer and return a SubmissionResult DTO for the view.
 
-    The entire mutation is wrapped in @transaction.atomic:
-      1. Validate question + choice exist and belong together.
-      2. Record the immutable AssessmentAttempt.
-      3. Lock and update the UserKnowledgeState (select_for_update).
-      4. Delegate to the active estimation engine.
-      5. Persist mastery_percentage and discrete mastery_level.
-      6. Log to the immutable UserKnowledgeHistory ledger.
-      7. If mastery threshold reached, unlock child topics + cascade.
-      8. Select the next adaptive question (read-only).
-
-    Returns a SubmissionResult DTO for the view to serialize.
+    ``source`` is ``adaptive`` for learners; seed and simulator commands pass
+    ``seed``/``simulated`` (and may back-date with ``answered_at``).
+    Everything runs in one transaction: the ledger row, the state update and
+    the history entry commit or roll back together.
     """
+    if source not in SUBMISSION_SOURCES:
+        raise ValueError(f"process_submission does not accept source={source!r}.")
+
     # --- Step 1: Fetch & validate (single query with select_related) -------
     choice: Choice = (
         Choice.objects
         .select_related("question", "question__topic")
-        .get(pk=choice_id, question_id=question_id)
+        .get(pk=choice_id, question_id=question_id, question__topic__is_archived=False)
     )
     question: Question = choice.question
     topic: Topic = question.topic
     is_correct: bool = choice.is_correct
 
-    # --- Step 2: Log the attempt (INSERT — immutable, never updated) -------
-    AssessmentAttempt.objects.create(
-        user=user,
-        question=question,
-        selected_choice=choice,
-        is_correct=is_correct,
-    )
+    # --- Step 2: Serialise this learner's answers on this topic ------------
+    # The advisory lock is taken before the state row lock (same order as the
+    # test-session path), so classification, attempt_no and the state update
+    # all see one consistent ledger.
+    ledger.lock_learner_topics(user.pk, [topic.pk])
 
-    # --- Step 3: Lock & load user knowledge state --------------------------
-    # select_for_update prevents race conditions from concurrent submissions
+    # --- Step 3: D25 — a repeat within the review window updates nothing ---
+    source = ledger.classify_source(user=user, question=question, requested=source)
+    if source == AttemptSource.REVIEW_REPEAT:
+        attempt = ledger.record_attempt(user=user, choice=choice, source=source)
+        state = UserKnowledgeState.objects.filter(user=user, topic=topic).first()
+        return SubmissionResult(
+            is_correct=is_correct,
+            explanation=question.explanation,
+            mastery_level=state.mastery_level if state else MasteryLevel.NOT_STARTED,
+            mastery_display=(
+                state.get_mastery_level_display() if state else MasteryLevel.NOT_STARTED.label
+            ),
+            mastery_percentage=state.mastery_percentage if state else 0.0,
+            streak=state.streak if state else 0,
+            next_question=get_next_question(user=user, topic_id=topic.pk),
+            source=attempt.source,
+            attempt_id=attempt.pk,
+            attempt_no=attempt.attempt_no,
+        )
+
+    # --- Step 4: Lock & load user knowledge state --------------------------
     state, _created = (
         UserKnowledgeState.objects
         .select_for_update()
@@ -175,25 +198,27 @@ def process_submission(
         )
     )
 
-    state.total_attempts += 1
-    if is_correct:
-        state.correct_attempts += 1
-
-    # --- Step 4: Resolve and invoke the active engine ----------------------
+    # --- Step 5: Resolve and invoke the active engine ----------------------
+    # The engine reads its prior from the state *before* the counters below
+    # are incremented.
     algorithm_key: str = getattr(
         settings, "STUDENT_MODEL_ENGINE", AlgorithmChoice.STREAK,
     )
     engine = get_engine(algorithm_key)
-
-    mastery_float: float = engine.calculate_new_mastery(
+    update = engine.update(
         user=user,
         topic=topic,
         current_state=state,
         question=question,
         is_correct=is_correct,
     )
+    mastery_float: float = update.mastery
 
-    # --- Step 5: Persist mastery state -------------------------------------
+    # --- Step 6: Persist mastery state -------------------------------------
+    state.total_attempts += 1
+    if is_correct:
+        state.correct_attempts += 1
+
     # Map the engine output to a discrete MasteryLevel for backward compat
     state.mastery_level = _mastery_float_to_level(
         mastery_float, algorithm_key,
@@ -216,15 +241,24 @@ def process_submission(
         "total_attempts", "correct_attempts", "streak", "updated_at",
     ])
 
-    # --- Step 6: Append to immutable history ledger ------------------------
+    # --- Step 7: Append to the ledger and the history ----------------------
+    attempt = ledger.record_attempt(
+        user=user,
+        choice=choice,
+        source=source,
+        trace=replace(update.trace, engine_version=engine.version),
+        answered_at=answered_at,
+    )
     UserKnowledgeHistory.objects.create(
         user=user,
         topic=topic,
         calculated_mastery=mastery_float,
         algorithm_used=algorithm_key,
+        attempt=attempt,
+        created_at=attempt.answered_at,
     )
 
-    # --- Step 7: Mastery threshold check + child topic unlocking -----------
+    # --- Step 8: Legacy threshold → global unlock of child topics ----------
     mastery_pct_int: int = round(state.mastery_percentage * 100)
 
     if mastery_pct_int >= MASTERY_THRESHOLD:
@@ -233,17 +267,9 @@ def process_submission(
             state.mastery_level = MasteryLevel.MASTERED
             state.save(update_fields=["mastery_level", "updated_at"])
 
-        # Unlock immediate child topics via CTE-based tree query
         _unlock_child_topics(topic=topic)
 
-        # Cascade mastery state to all descendants for the user
-        _cascade_mastery_to_descendants(user=user, topic=topic)
-
-    # --- Step 7b: Adaptive difficulty skip ---------------------------------
-    # If the student performs well on Medium+Hard, skip remaining Easy Qs
-    _maybe_skip_easy_questions(user=user, topic=topic)
-
-    # --- Step 8: Pick next question (read-only) ----------------------------
+    # --- Step 9: Pick next question (read-only) ----------------------------
     next_question = get_next_question(user=user, topic_id=topic.pk)
 
     return SubmissionResult(
@@ -254,6 +280,9 @@ def process_submission(
         mastery_percentage=state.mastery_percentage,
         streak=state.streak,
         next_question=next_question,
+        source=attempt.source,
+        attempt_id=attempt.pk,
+        attempt_no=attempt.attempt_no,
     )
 
 
@@ -290,135 +319,4 @@ def _unlock_child_topics(*, topic: Topic) -> None:
         logger.info(
             "Unlocked %d child topic(s) of topic %s (pk=%d)",
             updated_count, topic.name, topic.pk,
-        )
-
-
-@transaction.atomic
-def _cascade_mastery_to_descendants(*, user, topic: Topic) -> None:
-    """
-    When a user masters a topic, mark ALL descendant topics as MASTERED.
-
-    Uses django-mptt's get_descendants() for tree traversal
-    (single lft/rght range query) and bulk_create with update_conflicts
-    for the upsert (single INSERT ... ON CONFLICT).
-
-    Wrapped in @transaction.atomic as a nested savepoint for safety.
-
-    Performance: exactly 2 DB queries regardless of tree depth.
-    """
-    # Query 1: Get all descendant topic IDs via MPTT lft/rght range
-    descendant_ids: list[int] = list(
-        topic.get_descendants().values_list("id", flat=True)
-    )
-    if not descendant_ids:
-        return
-
-    # Build state objects for bulk upsert
-    states_to_upsert: list[UserKnowledgeState] = [
-        UserKnowledgeState(
-            user=user,
-            topic_id=tid,
-            mastery_level=MasteryLevel.MASTERED,
-            mastery_percentage=1.0,
-            score=100,
-            streak=0,
-            total_attempts=0,
-            correct_attempts=0,
-        )
-        for tid in descendant_ids
-    ]
-
-    # Query 2: Bulk upsert — INSERT new rows or UPDATE existing ones
-    UserKnowledgeState.objects.bulk_create(
-        states_to_upsert,
-        update_conflicts=True,
-        unique_fields=["user", "topic"],
-        update_fields=["mastery_level", "mastery_percentage", "score"],
-    )
-
-    logger.info(
-        "Cascaded MASTERED to %d descendants of topic %s for user %s",
-        len(descendant_ids), topic.pk, user.pk,
-    )
-
-
-def _maybe_skip_easy_questions(*, user, topic: Topic) -> None:
-    """
-    Adaptive difficulty skip: if a student achieves >= ADAPTIVE_SKIP_ACCURACY%
-    on Medium and Hard questions (with at least ADAPTIVE_SKIP_MIN_ATTEMPTS),
-    mark all remaining Easy questions for this topic as "answered correctly"
-    by creating synthetic AssessmentAttempt records.
-
-    This saves advanced students from tedious Easy questions they've proven
-    they don't need. The bypass is recorded in the attempt log for audit.
-
-    Performance: 2-3 DB queries.
-    """
-    from assessments.models import DifficultyLevel
-
-    # Count M+H attempts for this user on this topic
-    medium_hard_attempts = (
-        AssessmentAttempt.objects
-        .filter(
-            user=user,
-            question__topic=topic,
-            question__difficulty__in=[
-                DifficultyLevel.MEDIUM,
-                DifficultyLevel.HARD,
-            ],
-        )
-    )
-
-    total_mh = medium_hard_attempts.count()
-    if total_mh < ADAPTIVE_SKIP_MIN_ATTEMPTS:
-        return  # Not enough data to decide
-
-    correct_mh = medium_hard_attempts.filter(is_correct=True).count()
-    accuracy = round((correct_mh / total_mh) * 100)
-
-    if accuracy < ADAPTIVE_SKIP_ACCURACY:
-        return  # Student hasn't demonstrated sufficient M+H competency
-
-    # Find unanswered Easy questions for this topic
-    already_answered_ids = (
-        AssessmentAttempt.objects
-        .filter(user=user, question__topic=topic)
-        .values_list("question_id", flat=True)
-    )
-
-    easy_questions_to_skip = (
-        Question.objects
-        .filter(
-            topic=topic,
-            is_active=True,
-            difficulty=DifficultyLevel.EASY,
-        )
-        .exclude(pk__in=already_answered_ids)
-        .select_related("topic")
-        .prefetch_related("choices")
-    )
-
-    if not easy_questions_to_skip.exists():
-        return
-
-    # Create synthetic "correct" attempts for bypassed Easy questions
-    bypass_attempts = []
-    for question in easy_questions_to_skip:
-        correct_choice = question.choices.filter(is_correct=True).first()
-        if correct_choice:
-            bypass_attempts.append(
-                AssessmentAttempt(
-                    user=user,
-                    question=question,
-                    selected_choice=correct_choice,
-                    is_correct=True,
-                )
-            )
-
-    if bypass_attempts:
-        AssessmentAttempt.objects.bulk_create(bypass_attempts)
-        logger.info(
-            "Adaptive skip: bypassed %d Easy question(s) for user %s on topic %s "
-            "(M+H accuracy: %d%%)",
-            len(bypass_attempts), user.pk, topic.pk, accuracy,
         )

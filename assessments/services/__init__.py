@@ -8,6 +8,7 @@ Internal architecture:
     services/
     ├── __init__.py              ← You are here (public re-exports)
     ├── base.py                  ← BaseStudentModel abstract interface
+    ├── ledger.py                ← Only writer of the AssessmentAttempt answer ledger
     ├── orchestrator.py          ← Transactional orchestration + engine resolution
     ├── question_selection.py    ← Adaptive next-question logic
     └── engines/

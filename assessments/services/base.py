@@ -20,10 +20,20 @@ engines should contain ONLY pure estimation logic.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
+
+from assessments.services.ledger import ModelTrace
 
 if TYPE_CHECKING:
     from assessments.models import Question, UserKnowledgeState
+
+
+@dataclass(frozen=True)
+class EngineUpdate:
+    """New mastery estimate plus the quantities used to compute it (for the ledger)."""
+    mastery: float
+    trace: ModelTrace = field(default_factory=ModelTrace)
 
 
 class BaseStudentModel(ABC):
@@ -43,6 +53,34 @@ class BaseStudentModel(ABC):
     The orchestrator logs this value in UserKnowledgeHistory and maps
     it back to a MasteryLevel integer for UserKnowledgeState.
     """
+
+    # Recorded as AssessmentAttempt.engine_version. "/0" marks the engines that
+    # predate the chapter II model (replaced in stage 3).
+    version: str = ""
+
+    def update(
+        self,
+        *,
+        user,
+        topic,
+        current_state: UserKnowledgeState,
+        question: Question,
+        is_correct: bool,
+    ) -> EngineUpdate:
+        """
+        Same as ``calculate_new_mastery`` but also returns the intermediate
+        quantities for the answer ledger. Engines that do not override it
+        report only the new estimate.
+        """
+        return EngineUpdate(
+            mastery=self.calculate_new_mastery(
+                user=user,
+                topic=topic,
+                current_state=current_state,
+                question=question,
+                is_correct=is_correct,
+            ),
+        )
 
     @abstractmethod
     def calculate_new_mastery(

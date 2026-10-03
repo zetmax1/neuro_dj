@@ -10,7 +10,15 @@ from rest_framework.test import APIClient
 from rest_framework import status
 
 from curriculum.models import Topic
-from assessments.models import Question, Choice, DifficultyLevel, UserKnowledgeState
+from assessments.models import (
+    AssessmentAttempt,
+    AttemptSource,
+    Choice,
+    DifficultyLevel,
+    Question,
+    TestSessionResult,
+    UserKnowledgeState,
+)
 from assessments.services import get_stratified_test_questions
 
 User = get_user_model()
@@ -135,6 +143,28 @@ class TestStratifiedTestSession(TestCase):
         self.assertTrue(data["is_passed"])
         self.assertAlmostEqual(data["grade_percentage"], 100.0, places=1)
 
-        # Check knowledge state updated in DB
+        # D7: the grade is stored as a test result, never as the mastery
+        # probability (stage 5 runs the answers through the model instead).
         state = UserKnowledgeState.objects.get(user=self.user, topic=self.topic)
-        self.assertAlmostEqual(state.mastery_percentage, 100.0)
+        self.assertEqual(state.mastery_percentage, 0.0)
+
+        first, second = TestSessionResult.objects.filter(user=self.user).order_by("submitted_at", "id")
+        self.assertEqual(data["session_id"], second.pk)
+        self.assertAlmostEqual(first.score_percentage, 52.6, places=1)
+        self.assertFalse(first.passed)
+        self.assertAlmostEqual(second.score_percentage, 100.0, places=1)
+        self.assertTrue(second.passed)
+
+        # Every answer is in the ledger and linked to its session. The second
+        # paper repeats the first within the review window, so D25 marks it.
+        self.assertEqual(
+            set(first.attempts.values_list("source", flat=True)), {AttemptSource.TEST_SESSION},
+        )
+        self.assertEqual(
+            set(second.attempts.values_list("source", flat=True)), {AttemptSource.REVIEW_REPEAT},
+        )
+        self.assertEqual(AssessmentAttempt.objects.filter(user=self.user).count(), 20)
+        self.assertEqual(
+            sorted(AssessmentAttempt.objects.filter(user=self.user).values_list("attempt_no", flat=True)),
+            list(range(1, 21)),
+        )

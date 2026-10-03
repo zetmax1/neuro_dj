@@ -22,18 +22,20 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.timezone import now
 
-from accounts.demo import DemoPassword
+from accounts.demo import DEMO_EMAILS, DemoPassword
 from curriculum.models import Topic, TopicPrerequisite
 from curriculum.services.graph import is_unlocked_dag
 from assessments.models import (
     AssessmentAttempt,
+    AttemptSource,
     Choice,
     DifficultyLevel,
     Question,
+    TestSessionResult,
     UserAbility,
     UserKnowledgeHistory,
     UserKnowledgeState,
@@ -48,10 +50,31 @@ class Command(BaseCommand):
     help = (
         "Resets and seeds the database with a clean curriculum DAG topology, "
         "prerequisite convergence, and realistic student BKT/IRT learning curves "
-        "for thesis defense."
+        "for thesis defense. Demo accounts that hold answers from other sources "
+        "(adaptive, test sessions, legacy) are only reset with --reset-demo-answers."
     )
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--reset-demo-answers",
+            action="store_true",
+            help="Also delete answers of the demo accounts that were not written by this seed.",
+        )
+
     def handle(self, *args: Any, **options: Any) -> None:
+        foreign = (
+            AssessmentAttempt.objects
+            .filter(user__email__in=DEMO_EMAILS)
+            .exclude(source=AttemptSource.SEED)
+            .count()
+        )
+        if foreign and not options["reset_demo_answers"]:
+            raise CommandError(
+                f"The demo accounts hold {foreign} answer(s) that this seed did not write "
+                "(adaptive, test-session or legacy). Re-run with --reset-demo-answers to "
+                "delete them, or keep them and skip the reset."
+            )
+
         self.stdout.write(
             self.style.MIGRATE_HEADING("=== Starting Thesis Demo Database Seeding ===")
         )
@@ -306,6 +329,7 @@ class Command(BaseCommand):
             # 6. Seed Demo Student Users and Simulate Algorithmic Attempts
             self.stdout.write("Simulating student learning curves through algorithmic engine pipeline...")
 
+            # Every account here must be listed in accounts.demo.DEMO_EMAILS.
             demo_students_info = [
                 {
                     "email": "hybrid_demo@test.com",
@@ -346,8 +370,10 @@ class Command(BaseCommand):
                     user.set_password(demo_password.value)
                     user.save()
 
-                # Idempotent cleanup for this demo user
+                # Idempotent cleanup for this demo user. Answers go first: they
+                # RESTRICT their test sessions and carry the linked history rows.
                 AssessmentAttempt.objects.filter(user=user).delete()
+                TestSessionResult.objects.filter(user=user).delete()
                 UserKnowledgeState.objects.filter(user=user).delete()
                 UserKnowledgeHistory.objects.filter(user=user).delete()
                 UserAbility.objects.filter(user=user).delete()
@@ -378,26 +404,22 @@ class Command(BaseCommand):
                         if not selected_choice:
                             continue
 
-                        # Execute submission through real orchestrator (calculates BKT/IRT & writes history)
-                        res = process_submission(
-                            user=user,
-                            question_id=q.id,
-                            choice_id=selected_choice.id,
-                        )
-
                         attempt_count += 1
 
-                        # Spread attempt timestamps backward slightly over the past 3 days for line chart
-                        latest_attempt = AssessmentAttempt.objects.filter(user=user).order_by("-id").first()
-                        latest_history = UserKnowledgeHistory.objects.filter(user=user, topic=topic).order_by("-id").first()
-
+                        # Spread answers over the past 3 days for the line chart. The
+                        # time is set when the seed row is written, so no other row
+                        # is ever re-timed (D10).
                         offset_days = 3 - (attempt_count * 0.15)
                         simulated_time = now_ts - timedelta(days=max(0.1, offset_days))
 
-                        if latest_attempt:
-                            AssessmentAttempt.objects.filter(pk=latest_attempt.pk).update(answered_at=simulated_time)
-                        if latest_history:
-                            UserKnowledgeHistory.objects.filter(pk=latest_history.pk).update(created_at=simulated_time)
+                        # Execute submission through real orchestrator (calculates BKT/IRT & writes history)
+                        process_submission(
+                            user=user,
+                            question_id=q.id,
+                            choice_id=selected_choice.id,
+                            source=AttemptSource.SEED,
+                            answered_at=simulated_time,
+                        )
 
                 self.stdout.write(
                     f"  Seeded {attempt_count} attempts for {user.email} (BKT/IRT history populated)."

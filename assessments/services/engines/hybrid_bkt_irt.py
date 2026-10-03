@@ -35,13 +35,15 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-from assessments.models import UserAbility
-from assessments.services.base import BaseStudentModel
+from assessments.services.base import BaseStudentModel, EngineUpdate
 from assessments.services.engines.bayesian import (
     DIFFICULTY_MODIFIER_SCALE,
     BayesianKnowledgeTracingEngine,
+    bkt_step,
+    prior_from_state,
 )
 from assessments.services.engines.irt import IRTEngine
+from assessments.services.ledger import ModelTrace
 
 if TYPE_CHECKING:
     from curriculum.models import Topic
@@ -58,6 +60,8 @@ class HybridBKTIRTEngine(BaseStudentModel):
     estimation for fine-grained difficulty adjustments.
     """
 
+    version = "hybrid_bkt_irt/0"
+
     def __init__(self) -> None:
         self.bkt_engine = BayesianKnowledgeTracingEngine()
         self.irt_engine = IRTEngine()
@@ -73,11 +77,30 @@ class HybridBKTIRTEngine(BaseStudentModel):
         """
         Calculate updated BKT mastery probability with continuous IRT-based difficulty adjustment.
         """
-        # Step 1: Update IRT latent ability theta
-        theta_new = self.irt_engine.update_ability(user, question, is_correct)
+        return self.update(
+            user=user,
+            topic=topic,
+            current_state=current_state,
+            question=question,
+            is_correct=is_correct,
+        ).mastery
 
-        # Step 2: Retrieve prior BKT P(L)
-        p_learned_prior = self.bkt_engine._retrieve_prior(user, topic)
+    def update(
+        self,
+        *,
+        user,
+        topic: Topic,
+        current_state: UserKnowledgeState,
+        question: Question,
+        is_correct: bool,
+    ) -> EngineUpdate:
+        # Step 1: Update IRT latent ability theta. This pre-thesis engine updates
+        # theta *before* computing P(G)/P(S); stage 3 restores the order of
+        # Algorithm 2.4 (TM6). The ledger records what was actually used.
+        theta_old, theta_new = self.irt_engine.update_ability_pair(user, question, is_correct)
+
+        # Step 2: Prior P(L) from the learner's current state
+        p_learned_prior = prior_from_state(current_state, self.bkt_engine.p_init)
 
         # Step 3: Compute continuous difficulty modifier using (irt_difficulty - theta)
         b = question.irt_difficulty
@@ -87,37 +110,15 @@ class HybridBKTIRTEngine(BaseStudentModel):
         p_slip_adj = max(0.01, min(0.40, self.bkt_engine.p_slip + modifier))
         p_guess_adj = max(0.05, min(0.50, self.bkt_engine.p_guess - modifier))
 
-        # Step 4: Bayesian update given observation
-        if is_correct:
-            numerator = p_learned_prior * (1.0 - p_slip_adj)
-            denominator = (
-                p_learned_prior * (1.0 - p_slip_adj)
-                + (1.0 - p_learned_prior) * p_guess_adj
-            )
-        else:
-            numerator = p_learned_prior * p_slip_adj
-            denominator = (
-                p_learned_prior * p_slip_adj
-                + (1.0 - p_learned_prior) * (1.0 - p_guess_adj)
-            )
-
-        if denominator < 1e-12:
-            p_learned_posterior = p_learned_prior
-        else:
-            p_learned_posterior = numerator / denominator
-
-        # Step 5: Learning transition
-        p_learned_updated = (
-            p_learned_posterior
-            + (1.0 - p_learned_posterior) * self.bkt_engine.p_transit
+        # Steps 4-5: Bayesian update and learning transition
+        p_hat, p_learned_clamped = bkt_step(
+            p_learned_prior, p_guess_adj, p_slip_adj, self.bkt_engine.p_transit, is_correct,
         )
-
-        p_learned_clamped = max(0.0, min(1.0, p_learned_updated))
 
         logger.info(
             "Hybrid BKT-IRT update: user=%s topic=%s correct=%s | "
             "theta=%.3f b=%.2f delta=%.2f → P(S)=%.3f P(G)=%.3f | "
-            "prior=%.4f → mastery=%.4f",
+            "prior=%.4f p_hat=%.4f → mastery=%.4f",
             user.pk,
             topic.pk,
             is_correct,
@@ -127,7 +128,22 @@ class HybridBKTIRTEngine(BaseStudentModel):
             p_slip_adj,
             p_guess_adj,
             p_learned_prior,
+            p_hat,
             p_learned_clamped,
         )
 
-        return p_learned_clamped
+        return EngineUpdate(
+            mastery=p_learned_clamped,
+            trace=ModelTrace(
+                p_before=p_learned_prior,
+                p_hat=p_hat,
+                p_after=p_learned_clamped,
+                guess_used=p_guess_adj,
+                slip_used=p_slip_adj,
+                theta_before=theta_old,
+                theta_after=theta_new,
+                # b_q is not updated before stage 3 (TM4).
+                b_before=b,
+                b_after=b,
+            ),
+        )

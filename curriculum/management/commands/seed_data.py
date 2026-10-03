@@ -6,14 +6,17 @@ from django.utils.timezone import now
 from django.db import transaction
 from curriculum.models import Topic, TopicResource
 from assessments.models import (
-    Question, 
-    Choice, 
-    UserKnowledgeState, 
-    UserKnowledgeHistory, 
-    AssessmentAttempt, 
-    DifficultyLevel, 
-    MasteryLevel
+    AssessmentAttempt,
+    AttemptSource,
+    Choice,
+    DifficultyLevel,
+    MasteryLevel,
+    Question,
+    TestSessionResult,
+    UserKnowledgeHistory,
+    UserKnowledgeState,
 )
+from assessments.services.ledger import record_attempt
 from accounts.demo import DemoPassword, non_demo_users
 from accounts.models import CustomUser
 
@@ -47,13 +50,15 @@ class Command(BaseCommand):
         self.stdout.write("Starting database seeding...")
 
         with transaction.atomic():
-            # 1. Clear existing data
+            # 1. Clear existing data. Answers go first: they PROTECT the
+            # questions, choices and topics they point to (D11).
             self.stdout.write("Clearing existing curriculum and assessment data...")
+            AssessmentAttempt.objects.all().delete()
+            TestSessionResult.objects.all().delete()
+            UserKnowledgeHistory.objects.all().delete()
+            UserKnowledgeState.objects.all().delete()
             Choice.objects.all().delete()
             Question.objects.all().delete()
-            AssessmentAttempt.objects.all().delete()
-            UserKnowledgeState.objects.all().delete()
-            UserKnowledgeHistory.objects.all().delete()
             TopicResource.objects.all().delete()
             Topic.objects.all().delete()
 
@@ -432,14 +437,15 @@ class Command(BaseCommand):
                     
                     is_correct = random.random() < 0.8  # 80% correct probability
                     selected = correct_choice if is_correct else incorrect_choice
+                    if selected is None:
+                        continue
 
-                    attempt = AssessmentAttempt.objects.create(
+                    # Seed rows are labelled and dated at insert time (D10, D13).
+                    record_attempt(
                         user=user,
-                        question=question,
-                        selected_choice=selected,
-                        is_correct=is_correct
+                        choice=selected,
+                        source=AttemptSource.SEED,
+                        answered_at=attempt_date,
                     )
-                    # Hack back-date created/answered field
-                    AssessmentAttempt.objects.filter(pk=attempt.pk).update(answered_at=attempt_date)
 
         self.stdout.write(self.style.SUCCESS("Database seeded successfully!"))
