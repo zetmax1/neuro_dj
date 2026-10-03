@@ -63,11 +63,32 @@ DEMO_PASSWORD=<choose-one> python manage.py seed_thesis_demo
 Without `DEMO_PASSWORD` a random password is generated and printed once for
 newly created demo accounts. Passwords are never stored in the repository.
 
+`seed_thesis_demo` resets only the demo accounts. If they hold answers the seed
+did not write (adaptive practice, test sessions, legacy rows), it stops; pass
+`--reset-demo-answers` to delete those answers too.
+
 `seed_data` deletes all curriculum and assessment data. It requires
 `--yes-delete-all` and refuses to run when non-demo user accounts exist.
 `simulate_bkt_data` creates accounts marked `is_simulated=True`; its `--clear`
 option removes only those accounts. Simulated data is for testing the
 pipeline only, never for thesis results.
+
+## Answer ledger
+
+Every answer is one immutable `AssessmentAttempt` row written by
+`assessments.services.ledger.record_attempt`, numbered `attempt_no` = 1, 2, 3, …
+per (learner, topic). Its `source` says where it came from:
+
+| `source` | Meaning | Used in experiments |
+|---|---|---|
+| `adaptive` | Adaptive practice | yes |
+| `test_session` | Stratified test (`session` points to the `TestSessionResult`) | yes |
+| `review_repeat` | Same question answered again within `THESIS_REVIEW_REPEAT_HOURS` (24 h); does not change P(L) | no |
+| `seed` / `simulated` | Demo seed / simulator | no |
+| `legacy` | Recorded before the ledger existed (may contain synthetic easy-skip rows) | no |
+
+Topics and questions that answers refer to are never deleted: the instructor
+API archives the topic subtree or deactivates the question instead.
 
 ## Importing the legacy SQLite database
 
