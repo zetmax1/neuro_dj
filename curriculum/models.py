@@ -146,16 +146,6 @@ class Topic(TreeNode):
     # Ordering within siblings (lower = first), ties broken by id
     position: int = models.PositiveIntegerField(default=0, db_index=True)
 
-    # Legacy global unlock flag (D9): replaced by per-learner readiness in stage 4.
-    is_unlocked: bool = models.BooleanField(
-        default=True,
-        db_index=True,
-        help_text=(
-            "Whether this topic is accessible to students. "
-            "Automatically set to True when the parent topic is mastered."
-        ),
-    )
-
     # D11: a topic with recorded answers is never deleted; DELETE archives it
     # (and its subtree) so the answer ledger keeps valid foreign keys.
     is_archived: bool = models.BooleanField(

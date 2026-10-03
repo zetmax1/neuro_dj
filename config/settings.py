@@ -255,8 +255,8 @@ SPECTACULAR_SETTINGS = {
 
 # One engine only (D34): the removed bayesian / irt / hybrid_bkt_irt / streak
 # strategies are reproduced by the ablation flags below, so there is no engine
-# setting to pick any more.
-MASTERY_THRESHOLD = 0.70
+# setting to pick any more. MASTERY_THRESHOLD went with stage 4: mastery is
+# the M flag of 3.4, which is τ/δ hysteresis and not a single threshold.
 
 
 # ---------------------------------------------------------------------------

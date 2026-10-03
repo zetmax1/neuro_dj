@@ -30,9 +30,9 @@ from assessments.models import (
     Question,
     UserAbility,
     UserKnowledgeHistory,
-    UserKnowledgeState,
+    StudentTopicState,
 )
-from assessments.services import ledger
+from assessments.services import ledger, readiness
 from assessments.services.orchestrator import process_submission
 from curriculum.models import KnowledgeBaseVersion, Topic
 from curriculum.testing import make_course, make_section, make_topic
@@ -142,8 +142,11 @@ def test_mastering_a_topic_writes_nothing_for_other_nodes(student, course_tree):
         q, right, _ = _question(leaf_a, f"S{i}")
         _submit(student, q, right)
 
-    assert UserKnowledgeState.objects.get(user=student, topic=leaf_a).mastery_percentage >= 0.70
-    assert not UserKnowledgeState.objects.filter(user=student).exclude(topic=leaf_a).exists()
+    answered = StudentTopicState.objects.get(user=student, topic=leaf_a)
+    assert answered.p_mastery >= 0.70 and answered.attempts == 4
+    # Every topic now has a state row — the readiness service materialises
+    # them — but only the answered one has attempts (D8).
+    assert not StudentTopicState.objects.filter(user=student, attempts__gt=0).exclude(topic=leaf_a).exists()
     assert AssessmentAttempt.objects.filter(user=student).count() == 4
 
 
@@ -203,7 +206,7 @@ def test_hybrid_trace_is_stored_and_prior_comes_from_state(student, course_tree)
 
     course = course_tree[0]
     first, second = AssessmentAttempt.objects.filter(user=student).order_by("attempt_no")
-    state = UserKnowledgeState.objects.get(user=student, topic=leaf)
+    state = StudentTopicState.objects.get(user=student, topic=leaf)
     for row in (first, second):
         assert row.source == AttemptSource.ADAPTIVE
         assert row.engine_version == "thesis_hybrid/1"
@@ -215,14 +218,16 @@ def test_hybrid_trace_is_stored_and_prior_comes_from_state(student, course_tree)
         assert row.history_entry.calculated_mastery == pytest.approx(row.p_after)
         assert row.history_entry.algorithm_used == "thesis_hybrid"
         assert row.history_entry.created_at == row.answered_at
-        # The KB version is recorded since stage 2; readiness comes in stage 4.
+        # The KB version is recorded since stage 2, readiness since stage 4.
         assert row.kb_version == KnowledgeBaseVersion.current()
-        assert row.readiness_score is None and row.was_ready is None
+        # This leaf has no prerequisites, so r = 1 and R = True.
+        assert row.readiness_score == pytest.approx(1.0)
+        assert row.was_ready is True
 
     assert first.p_before == pytest.approx(DEFAULT_P0)
     assert second.p_before == pytest.approx(first.p_after)
     assert second.theta_before == pytest.approx(first.theta_after)
-    assert state.mastery_percentage == pytest.approx(second.p_after)
+    assert state.p_mastery == pytest.approx(second.p_after)
 
     # θ is held per course (D33) and counts both answers.
     ability = UserAbility.objects.get(user=student, course=course)
@@ -235,14 +240,34 @@ def test_hybrid_trace_is_stored_and_prior_comes_from_state(student, course_tree)
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("stored", [0.0, 100.0, 80.0])
-def test_state_without_engine_estimate_falls_back_to_p0(student, course_tree, stored):
-    """Legacy rows: 0-100 test grades, or counters bumped by a test session only."""
+def test_a_first_attempt_starts_from_p0_whatever_the_state_row_says(student, course_tree):
+    """
+    The prior comes from the ledger, not from the state row, so a state value
+    written by anything else cannot be mistaken for P(L).
+    """
     _, _, leaf, _ = course_tree
-    UserKnowledgeState.objects.create(user=student, topic=leaf, mastery_percentage=stored, total_attempts=5)
+    readiness.states_for(user=student)
+    StudentTopicState.objects.filter(user=student, topic=leaf).update(p_mastery=0.9, attempts=5)
+
     q, right, _ = _question(leaf, "Q")
     _submit(student, q, right)
+
     assert AssessmentAttempt.objects.get(user=student).p_before == pytest.approx(DEFAULT_P0)
+
+
+@pytest.mark.django_db
+def test_the_state_row_cannot_hold_a_grade_any_more(student, course_tree):
+    """
+    Stage 4 closed the mixed scale structurally: ``p_mastery`` is a
+    probability and the database refuses a 0-100 grade in it.
+    """
+    from django.db import IntegrityError, transaction
+
+    _, _, leaf, _ = course_tree
+    readiness.states_for(user=student)
+    for grade in (80.0, 100.0, -0.5):
+        with pytest.raises(IntegrityError), transaction.atomic():
+            StudentTopicState.objects.filter(user=student, topic=leaf).update(p_mastery=grade)
 
 
 @pytest.mark.django_db
@@ -269,7 +294,7 @@ def test_repeat_within_window_is_logged_but_changes_nothing(student, course_tree
     course, _, leaf, _ = course_tree
     q, right, wrong = _question(leaf, "Q")
     _submit(student, q, wrong)
-    before = UserKnowledgeState.objects.get(user=student, topic=leaf)
+    before = StudentTopicState.objects.get(user=student, topic=leaf)
     ability_before = UserAbility.objects.get(user=student, course=course)
     b_before = Question.objects.get(pk=q.pk).irt_difficulty
 
@@ -277,10 +302,10 @@ def test_repeat_within_window_is_logged_but_changes_nothing(student, course_tree
 
     assert result.source == AttemptSource.REVIEW_REPEAT
     assert result.attempt_no == 2
-    assert result.mastery_percentage == pytest.approx(before.mastery_percentage)
-    after = UserKnowledgeState.objects.get(user=student, topic=leaf)
-    assert (after.mastery_percentage, after.total_attempts, after.correct_attempts) == (
-        before.mastery_percentage, before.total_attempts, before.correct_attempts,
+    assert result.p_mastery == pytest.approx(before.p_mastery)
+    after = StudentTopicState.objects.get(user=student, topic=leaf)
+    assert (after.p_mastery, after.attempts, after.correct) == (
+        before.p_mastery, before.attempts, before.correct,
     )
     # review_repeat moves neither θ, nor b_q, nor either answer counter (D25).
     ability_after = UserAbility.objects.get(user=student, course=course)
@@ -428,9 +453,9 @@ def test_parallel_answers_get_gapless_numbers_and_chain():
     for prev, row in zip(rows, rows[1:]):
         assert row.p_before == pytest.approx(prev.p_after)
         assert row.theta_before == pytest.approx(prev.theta_after)
-    state = UserKnowledgeState.objects.get(user=user, topic=topic)
-    assert state.total_attempts == 10
-    assert state.mastery_percentage == pytest.approx(rows[-1].p_after)
+    state = StudentTopicState.objects.get(user=user, topic=topic)
+    assert state.attempts == 10
+    assert state.p_mastery == pytest.approx(rows[-1].p_after)
 
 
 @pytest.mark.django_db(transaction=True)

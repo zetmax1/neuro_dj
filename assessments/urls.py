@@ -14,7 +14,7 @@ from assessments.views.assessment import (
     TestSessionView,
     SubmitTestSessionView,
 )
-from assessments.views.knowledge import UserKnowledgeStateListView
+from assessments.views.knowledge import StudentTopicStateListView
 from assessments.views.instructor import (
     InstructorQuestionViewSet,
     ImportQuestionsView,
@@ -62,7 +62,7 @@ urlpatterns = [
     # GET — All mastery states for the authenticated user
     path(
         "knowledge_states/",
-        UserKnowledgeStateListView.as_view(),
+        StudentTopicStateListView.as_view(),
         name="knowledge_states",
     ),
     

@@ -12,7 +12,7 @@ class StudentTopicSerializer(serializers.ModelSerializer):
         model = Topic
         fields = [
             "id", "name", "slug", "parent", "kind", "description", "position",
-            "is_unlocked", "pass_mark_percentage", "test_question_count",
+            "pass_mark_percentage", "test_question_count",
             "total_duration_minutes",
         ]
         read_only_fields = fields

@@ -5,25 +5,28 @@ Coordinates the full answer-submission lifecycle inside a single
 @transaction.atomic block:
 
     1. Validate question + choice (archived topics are not answerable).
-    2. Lock the learner's (user, topic) ledger key, then the state row.
-    3. Classify the answer: a repeat of a question answered within the
+    2. Lock the learner's (user, topic) ledger key.
+    3. Refuse a closed topic (TY1-TY4): the readiness service is the only
+       authority on that, and the view turns the refusal into a 403.
+    4. Classify the answer: a repeat of a question answered within the
        review window is logged as ``review_repeat`` and changes nothing (D25).
-    4. Run Algorithm 2.4 (``student_model.apply_answer``), which locks the
+    5. Record readiness as it stood at answer time — r_s(w) and R_s(w).
+    6. Run Algorithm 2.4 (``student_model.apply_answer``), which locks the
        ability row and the question row and moves P(L), θ and b_q.
-    5. Persist mastery_percentage + discrete mastery_level on the state row.
-    6. Append the answer to the ledger (``ledger.record_attempt``) together
-       with the quantities the engine used, and link the history entry to it.
-    7. If the legacy threshold is reached, set the global unlock flag of the
-       child topics (removed with the readiness service in stage 4).
-    8. Select the next adaptive question.
+    7. Run Algorithm 2.3 (``readiness.apply_answer``): recompute M, and when
+       it changed, move the counters of the immediate successors.
+    8. Append the answer to the ledger with everything the model used, and
+       link the history entry to it.
+    9. Select the next adaptive question.
 
-The order inside step 4 is fixed by 3.3 and is the engine's own concern: P(G)
-and P(S) come from the θ and b in force when the question was asked, p̂ is
-recorded as predicted, and Elo moves θ and b only afterwards.
+The order inside step 6 is fixed by 3.3: P(G) and P(S) come from the θ and b
+in force when the question was asked, p̂ is recorded as predicted, and Elo
+moves θ and b only afterwards. Step 7 is step 7 of Algorithm 2.4.
 
 The orchestrator never writes anything for topics or questions the learner
 did not answer (D8): the descendant cascade and the easy-question skip that
-fabricated answers were removed in stage 1.
+fabricated answers were removed in stage 1, and the global unlock cascade
+was removed in stage 4 along with ``Topic.is_unlocked``.
 
 Engine:
     ``thesis_hybrid`` is the only engine (D34). The classical variants are
@@ -47,24 +50,14 @@ from assessments.models import (
     AlgorithmChoice,
     AttemptSource,
     Choice,
-    MasteryLevel,
     Question,
+    StudentTopicState,
     UserKnowledgeHistory,
-    UserKnowledgeState,
 )
-from assessments.services import ledger, student_model
+from assessments.services import ledger, readiness, student_model
 from assessments.services.question_selection import get_next_question
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-# Legacy mastery threshold as an integer percentage (0–100), replaced by
-# τ/δ hysteresis in stage 4. When mastery_percentage * 100 >= this value,
-# the topic is marked MASTERED and its child topics are unlocked.
-MASTERY_THRESHOLD: int = 70
 
 # Sources ``process_submission`` accepts. Seeds and the simulator go through
 # the same engine path but are labelled so experiments can exclude them (D13).
@@ -75,19 +68,42 @@ SUBMISSION_SOURCES: frozenset[str] = frozenset({
 })
 
 
+class TopicClosed(Exception):
+    """
+    The learner has unmet prerequisites for this topic (TY1-TY4).
+
+    ``payload`` is the 403 body: ``{"missing": [{topic_id, name, p_mastery}]}``.
+    """
+
+    def __init__(self, blocked: readiness.Blocked) -> None:
+        super().__init__(f"Topic {blocked.topic_id} is closed for this learner.")
+        self.blocked = blocked
+
+    def payload(self) -> dict:
+        return self.blocked.payload()
+
+
 # ---------------------------------------------------------------------------
 # Data Transfer Object
 # ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class SubmissionResult:
-    """Returned to the view layer after processing an answer."""
+    """
+    Returned to the view layer after processing an answer.
+
+    The names are the ones every student-facing endpoint uses: ``p_mastery``,
+    ``accuracy`` and ``status`` (3.4). The mixed-scale ``mastery_percentage``
+    and the discrete ``mastery_level`` are gone.
+    """
     is_correct: bool
     explanation: str
-    mastery_level: int
-    mastery_display: str
-    mastery_percentage: float
-    streak: int
+    p_mastery: float
+    status: str
+    mastered: bool
+    accuracy: float
+    attempts: int
+    opened_topics: tuple[int, ...]
     next_question: Optional[Question]
     source: str
     attempt_id: int
@@ -112,8 +128,10 @@ def process_submission(
 
     ``source`` is ``adaptive`` for learners; seed and simulator commands pass
     ``seed``/``simulated`` (and may back-date with ``answered_at``).
-    Everything runs in one transaction: the ledger row, the state update and
-    the history entry commit or roll back together.
+    Everything runs in one transaction: the ledger row, the state update, the
+    readiness propagation and the history entry commit or roll back together.
+
+    Raises ``TopicClosed`` when the learner has unmet prerequisites.
     """
     if source not in SUBMISSION_SOURCES:
         raise ValueError(f"process_submission does not accept source={source!r}.")
@@ -129,8 +147,8 @@ def process_submission(
     is_correct: bool = choice.is_correct
 
     # One snapshot for the whole submission: the course of the ability row, the
-    # prerequisites of P(L0) and the ledger's kb_version all come from it, so
-    # they cannot disagree with each other.
+    # prerequisites of P(L0), the readiness counters and the ledger's
+    # kb_version all come from it, so they cannot disagree with each other.
     snapshot = get_snapshot()
 
     # --- Step 2: Serialise this learner's answers on this topic ------------
@@ -139,47 +157,36 @@ def process_submission(
     # all see one consistent ledger.
     ledger.lock_learner_topics(user.pk, [topic.pk])
 
-    # --- Step 3: D25 — a repeat within the review window updates nothing ---
+    # --- Step 3: a closed topic is not answerable --------------------------
+    states = readiness.states_for(user=user, snapshot=snapshot)
+    blocked = readiness.check_open(user=user, topic_id=topic.pk, snapshot=snapshot)
+    if blocked is not None:
+        raise TopicClosed(blocked)
+
+    # --- Step 4: D25 — a repeat within the review window updates nothing ---
     source = ledger.classify_source(user=user, question=question, requested=source)
     if source == AttemptSource.REVIEW_REPEAT:
         attempt = ledger.record_attempt(user=user, choice=choice, source=source)
-        state = UserKnowledgeState.objects.filter(user=user, topic=topic).first()
+        state = states[topic.pk]
         return SubmissionResult(
             is_correct=is_correct,
             explanation=question.explanation,
-            mastery_level=state.mastery_level if state else MasteryLevel.NOT_STARTED,
-            mastery_display=(
-                state.get_mastery_level_display() if state else MasteryLevel.NOT_STARTED.label
-            ),
-            mastery_percentage=state.mastery_percentage if state else 0.0,
-            streak=state.streak if state else 0,
+            p_mastery=state.p_mastery,
+            status=state.status,
+            mastered=state.mastered_flag,
+            accuracy=state.accuracy,
+            attempts=state.attempts,
+            opened_topics=(),
             next_question=get_next_question(user=user, topic_id=topic.pk),
             source=attempt.source,
             attempt_id=attempt.pk,
             attempt_no=attempt.attempt_no,
         )
 
-    # --- Step 4: Lock & load user knowledge state --------------------------
-    state, _created = (
-        UserKnowledgeState.objects
-        .select_for_update()
-        .get_or_create(
-            user=user,
-            topic=topic,
-            defaults={
-                "mastery_level": MasteryLevel.NOT_STARTED,
-                "mastery_percentage": 0.0,
-                "score": 0,
-                "total_attempts": 0,
-                "correct_attempts": 0,
-                "streak": 0,
-            },
-        )
-    )
+    # --- Step 5: readiness as it stood when the question was answered ------
+    was = readiness.readiness_at(topic_id=topic.pk, states=states, snapshot=snapshot)
 
-    # --- Step 5: Algorithm 2.4 ---------------------------------------------
-    # The engine reads P(L), θ and b_q as they stand now and writes the new θ
-    # and b_q itself; the counters below move only afterwards.
+    # --- Step 6: Algorithm 2.4 ---------------------------------------------
     applied = student_model.apply_answer(
         user=user,
         topic=topic,
@@ -188,56 +195,45 @@ def process_submission(
         is_correct=is_correct,
         snapshot=snapshot,
     )
-    mastery_float: float = applied.mastery
 
-    # --- Step 6: Persist mastery state -------------------------------------
-    state.total_attempts += 1
-    if is_correct:
-        state.correct_attempts += 1
-        state.streak += 1
-    else:
-        state.streak = 0
-
-    state.mastery_level = student_model.mastery_level_for(mastery_float)
-    state.mastery_percentage = mastery_float
-
-    # Recalculate running accuracy
-    state.score = round(
-        (state.correct_attempts / state.total_attempts) * 100
+    # --- Step 7: Algorithm 2.3 ---------------------------------------------
+    readiness_result = readiness.apply_answer(
+        user=user,
+        topic_id=topic.pk,
+        p_mastery=applied.mastery,
+        is_correct=is_correct,
+        snapshot=snapshot,
+        answered_at=answered_at,
     )
+    state = readiness_result.state
 
-    state.save(update_fields=[
-        "mastery_level", "mastery_percentage", "score",
-        "total_attempts", "correct_attempts", "streak", "updated_at",
-    ])
-
-    # --- Step 7: Append to the ledger and the history ----------------------
+    # --- Step 8: Append to the ledger and the history ----------------------
     attempt = ledger.record_attempt(
         user=user,
         choice=choice,
         source=source,
-        trace=replace(applied.trace, kb_version=snapshot.version),
+        trace=replace(
+            applied.trace,
+            kb_version=snapshot.version,
+            readiness_score=was.score,
+            was_ready=was.was_ready,
+        ),
         answered_at=answered_at,
     )
     UserKnowledgeHistory.objects.create(
         user=user,
         topic=topic,
-        calculated_mastery=mastery_float,
+        calculated_mastery=applied.mastery,
         algorithm_used=AlgorithmChoice.THESIS_HYBRID,
         attempt=attempt,
         created_at=attempt.answered_at,
     )
 
-    # --- Step 8: Legacy threshold → global unlock of child topics ----------
-    mastery_pct_int: int = round(state.mastery_percentage * 100)
-
-    if mastery_pct_int >= MASTERY_THRESHOLD:
-        # Ensure the discrete level reflects MASTERED when threshold met
-        if state.mastery_level < MasteryLevel.MASTERED:
-            state.mastery_level = MasteryLevel.MASTERED
-            state.save(update_fields=["mastery_level", "updated_at"])
-
-        _unlock_child_topics(topic=topic)
+    if readiness_result.opened:
+        logger.info(
+            "Learner %s mastered topic %s; opened %s",
+            user.pk, topic.pk, readiness_result.opened,
+        )
 
     # --- Step 9: Pick next question (read-only) ----------------------------
     next_question = get_next_question(user=user, topic_id=topic.pk)
@@ -245,10 +241,12 @@ def process_submission(
     return SubmissionResult(
         is_correct=is_correct,
         explanation=question.explanation,
-        mastery_level=state.mastery_level,
-        mastery_display=state.get_mastery_level_display(),
-        mastery_percentage=state.mastery_percentage,
-        streak=state.streak,
+        p_mastery=state.p_mastery,
+        status=state.status,
+        mastered=state.mastered_flag,
+        accuracy=state.accuracy,
+        attempts=state.attempts,
+        opened_topics=readiness_result.opened,
         next_question=next_question,
         source=attempt.source,
         attempt_id=attempt.pk,
@@ -256,35 +254,6 @@ def process_submission(
     )
 
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-def _unlock_child_topics(*, topic: Topic) -> None:
-    """
-    Bulk-unlock all immediate child topics of a mastered topic.
-
-    One query for the children and one bulk UPDATE of the legacy global
-    flag (not a structural field, so the KB guard allows it).
-
-    Performance: exactly 2 DB queries (children fetch + bulk UPDATE).
-    """
-    child_ids: list[int] = list(
-        Topic.objects.filter(parent=topic).values_list("id", flat=True)
-    )
-
-    if not child_ids:
-        return
-
-    # Bulk UPDATE — single query, no loops
-    updated_count: int = (
-        Topic.objects
-        .filter(pk__in=child_ids, is_unlocked=False)
-        .update(is_unlocked=True)
-    )
-
-    if updated_count > 0:
-        logger.info(
-            "Unlocked %d child topic(s) of topic %s (pk=%d)",
-            updated_count, topic.name, topic.pk,
-        )
+def state_of(*, user, topic_id: int) -> StudentTopicState:
+    """The learner's state on one topic, materialised if it does not exist."""
+    return readiness.states_for(user=user)[topic_id]

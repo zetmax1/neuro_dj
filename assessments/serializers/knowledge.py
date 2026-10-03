@@ -1,39 +1,44 @@
 """
-assessments/serializers/knowledge.py — Serializer for user knowledge state.
+assessments/serializers/knowledge.py — the learner's topic states (3.4).
 """
 
 from __future__ import annotations
 
 from rest_framework import serializers
 
-from assessments.models import UserKnowledgeState
+from assessments.models import StudentTopicState
 
 
-class UserKnowledgeStateSerializer(serializers.ModelSerializer):
+class StudentTopicStateSerializer(serializers.ModelSerializer):
     """
-    Read-only representation of a user's mastery on a single topic.
+    Read-only view of one learner's state on one topic.
 
-    Requires select_related('topic') on the queryset to avoid N+1
-    on the nested topic_name field.
+    The field names are the ones every other endpoint uses as well
+    (``p_mastery``, ``accuracy``, ``status``), so the tree, the graph, the
+    dashboard and this list cannot disagree about the same topic.
+
+    Requires select_related('topic') on the queryset to avoid N+1 on
+    ``topic_name``.
     """
 
     topic_name = serializers.CharField(source="topic.name", read_only=True)
-    mastery_display = serializers.CharField(
-        source="get_mastery_level_display", read_only=True,
-    )
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
 
     class Meta:
-        model = UserKnowledgeState
+        model = StudentTopicState
         fields = [
             "id",
             "topic",
             "topic_name",
-            "mastery_level",
-            "mastery_display",
-            "score",
-            "total_attempts",
-            "correct_attempts",
-            "streak",
+            "status",
+            "status_display",
+            "p_mastery",
+            "mastered_flag",
+            "missing_count",
+            "accuracy",
+            "attempts",
+            "correct",
+            "started_at",
             "updated_at",
         ]
         read_only_fields = fields

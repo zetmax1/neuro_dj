@@ -1,9 +1,15 @@
 """
 assessments/management/commands/rebuild_student_states.py — D35.
 
-Rebuilds P(L), θ and b_q by replaying the answer ledger in chronological
-order through the same Algorithm 2.4 the live path uses. Readiness and the
-discrete statuses arrive in stage 4.
+Rebuilds P(L), θ, b_q and — since stage 4 — the readiness state (M, status,
+``missing_count``) by replaying the answer ledger in chronological order
+through the same Algorithm 2.4 and Algorithm 2.3 the live path uses.
+
+Algorithm 2.3 is replayed rather than recomputed at the end, because the
+statuses are path-dependent: ``mastered → review`` is distinguishable from
+``open → in_progress`` only by what came before, and M itself carries
+hysteresis, so it depends on the order of the answers and not just on the
+final P(L).
 
 What is replayed. By default only ``adaptive`` and ``test_session`` rows:
 ``legacy`` rows were written by the removed engines, ``seed`` and
@@ -15,8 +21,9 @@ Where the replay starts. The ledger carries the state each answer was scored
 against, so the starting point is taken from it: for every (learner, course)
 the ``theta_before`` of its earliest replayed row, and for every question the
 ``b_before`` of its earliest replayed row. The answer counters restart at
-zero, so K(n) shrinks over exactly the replayed answers. On a database whose
-answers are all in scope this reproduces the live state exactly.
+zero, so K(n) shrinks over exactly the replayed answers. Readiness starts
+from the initial state of a new learner: ``missing_count`` = |Pre(w)| and the
+status that follows.
 
 P(L0) is recomputed from the knowledge base as it stands now, using the
 learner's replayed P(L) of the prerequisites at that point in the sequence —
@@ -34,7 +41,7 @@ is derived from it.
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -45,10 +52,13 @@ from assessments.models import (
     AssessmentAttempt,
     AttemptSource,
     Question,
+    StudentTopicState,
+    TopicStatus,
     UserAbility,
-    UserKnowledgeState,
 )
+from assessments.services import readiness as readiness_service
 from assessments.services import student_model
+from neuro_model import readiness as r
 from neuro_model import student
 from neuro_model.init import Prerequisite
 
@@ -66,6 +76,17 @@ EXTRA_SOURCES: frozenset[str] = frozenset({
 
 
 @dataclass
+class LearnerReadiness:
+    """One learner's replayed readiness state across the whole knowledge base."""
+    counters: dict[int, int]
+    statuses: dict[int, str]
+    flags: dict[int, bool] = field(default_factory=dict)
+    started: dict[int, object] = field(default_factory=dict)
+    attempts: dict[int, int] = field(default_factory=lambda: defaultdict(int))
+    correct: dict[int, int] = field(default_factory=lambda: defaultdict(int))
+
+
+@dataclass
 class Counters:
     """What the replay touched, for the report."""
     rows: int = 0
@@ -76,7 +97,7 @@ class Counters:
 
 
 class Command(BaseCommand):
-    help = "Replay the answer ledger to rebuild P(L), θ and b_q (D35)."
+    help = "Replay the answer ledger to rebuild P(L), θ, b_q and readiness (D35)."
 
     def add_arguments(self, parser) -> None:
         parser.add_argument(
@@ -108,7 +129,7 @@ class Command(BaseCommand):
         replayed = list(
             rows.order_by("answered_at", "id").values_list(
                 "id", "user_id", "topic_id", "course_id", "question_id",
-                "is_correct", "theta_before", "b_before",
+                "is_correct", "theta_before", "b_before", "answered_at",
             )
         )
         self.stdout.write(
@@ -126,6 +147,14 @@ class Command(BaseCommand):
         snapshot = get_snapshot()
         constants = student_model.constants()
         flags = student_model.flags()
+        tau, delta = readiness_service.thresholds()
+
+        predecessors = {topic: snapshot.pre.get(topic, ()) for topic in snapshot.topics}
+        initial_counters = r.recompute_counters(predecessors=predecessors, flags={})
+        initial_statuses = {
+            topic: TopicStatus.OPEN if missing == 0 else TopicStatus.CLOSED
+            for topic, missing in initial_counters.items()
+        }
 
         # In-memory state, keyed exactly as the live rows are.
         p_l: dict[tuple[int, int], float] = {}
@@ -133,7 +162,7 @@ class Command(BaseCommand):
         n_student: dict[tuple[int, int], int] = defaultdict(int)
         b_q: dict[int, float] = {}
         n_question: dict[int, int] = defaultdict(int)
-        attempts: dict[tuple[int, int], list[bool]] = defaultdict(list)
+        learners: dict[int, LearnerReadiness] = {}
 
         topic_ids = {row[2] for row in replayed}
         prereq_ids = {
@@ -144,7 +173,7 @@ class Command(BaseCommand):
 
         for (
             _row_id, user_id, topic_id, course_id, question_id,
-            is_correct, row_theta_before, row_b_before,
+            is_correct, row_theta_before, row_b_before, answered_at,
         ) in replayed:
             if topic_id not in snapshot:
                 # The topic was archived after the answer; it is no longer part
@@ -154,6 +183,11 @@ class Command(BaseCommand):
 
             learner_course = (user_id, course_id)
             learner_topic = (user_id, topic_id)
+            if user_id not in learners:
+                learners[user_id] = LearnerReadiness(
+                    counters=dict(initial_counters), statuses=dict(initial_statuses),
+                )
+            state = learners[user_id]
 
             # The starting point comes from the earliest replayed row.
             if learner_course not in theta:
@@ -193,16 +227,53 @@ class Command(BaseCommand):
             b_q[question_id] = result.b_after
             n_student[learner_course] += 1
             n_question[question_id] += 1
-            attempts[learner_topic].append(is_correct)
             counters.rows += 1
+
+            # --- Algorithm 2.3, replayed in the same order ------------------
+            previous_flag = state.flags.get(topic_id, False)
+            new_flag = r.mastered_flag(
+                p_mastery=result.p_after, tau=tau, delta=delta, previous=previous_flag,
+            )
+            state.flags[topic_id] = new_flag
+            state.attempts[topic_id] += 1
+            if is_correct:
+                state.correct[topic_id] += 1
+            state.started.setdefault(topic_id, answered_at)
+            state.statuses[topic_id] = r.next_status(
+                current=state.statuses.get(topic_id, TopicStatus.CLOSED),
+                mastered=new_flag,
+                started=True,
+                missing=state.counters.get(topic_id, 0),
+            )
+
+            if new_flag != previous_flag:
+                propagation = r.propagate(
+                    became_mastered=new_flag,
+                    successors=snapshot.succ.get(topic_id, ()),
+                    counters=state.counters,
+                    statuses=state.statuses,
+                )
+                for successor, missing in propagation.counters.items():
+                    state.counters[successor] = missing
+                    state.statuses[successor] = r.next_status(
+                        current=state.statuses.get(successor, TopicStatus.CLOSED),
+                        mastered=state.flags.get(successor, False),
+                        started=successor in state.started,
+                        missing=missing,
+                    )
 
         if dry_run:
             self.stdout.write(self.style.WARNING("--dry-run: nothing was written."))
-            self._report(counters, states=len(p_l), abilities=len(theta), questions=len(b_q))
+            self._report(
+                counters,
+                states=sum(len(s.statuses) for s in learners.values()),
+                abilities=len(theta),
+                questions=len(b_q),
+            )
             return
 
         with transaction.atomic():
-            counters.states = self._write_states(p_l, attempts)
+            counters.states = self._write_states(learners, p_l, snapshot.version)
             counters.abilities = self._write_abilities(theta, n_student)
             counters.questions = self._write_questions(b_q, n_question)
 
@@ -217,24 +288,47 @@ class Command(BaseCommand):
     # Writers
     # -----------------------------------------------------------------------
 
-    def _write_states(self, p_l, attempts) -> int:
+    def _write_states(self, learners, p_l, kb_version: int) -> int:
         written = 0
-        for (user_id, topic_id), value in p_l.items():
-            answers = attempts[(user_id, topic_id)]
-            correct = sum(1 for a in answers if a)
-            UserKnowledgeState.objects.update_or_create(
-                user_id=user_id,
-                topic_id=topic_id,
-                defaults={
-                    "mastery_percentage": value,
-                    "mastery_level": student_model.mastery_level_for(value),
-                    "total_attempts": len(answers),
-                    "correct_attempts": correct,
-                    "score": round(correct / len(answers) * 100) if answers else 0,
-                    "streak": _trailing_streak(answers),
-                },
-            )
-            written += 1
+        for user_id, state in learners.items():
+            existing = {
+                row.topic_id: row
+                for row in StudentTopicState.objects.filter(
+                    user_id=user_id, topic_id__in=state.statuses.keys(),
+                )
+            }
+            to_create: list[StudentTopicState] = []
+            to_update: list[StudentTopicState] = []
+
+            for topic_id, status in state.statuses.items():
+                attempts = state.attempts.get(topic_id, 0)
+                correct = state.correct.get(topic_id, 0)
+                values = {
+                    "p_mastery": p_l.get((user_id, topic_id), 0.0),
+                    "mastered_flag": state.flags.get(topic_id, False),
+                    "status": status,
+                    "missing_count": state.counters.get(topic_id, 0),
+                    "started_at": state.started.get(topic_id),
+                    "kb_version": kb_version,
+                    "attempts": attempts,
+                    "correct": correct,
+                    "accuracy": (correct / attempts) if attempts else 0.0,
+                }
+                row = existing.get(topic_id)
+                if row is None:
+                    to_create.append(
+                        StudentTopicState(user_id=user_id, topic_id=topic_id, **values)
+                    )
+                else:
+                    for name, value in values.items():
+                        setattr(row, name, value)
+                    to_update.append(row)
+
+            if to_create:
+                StudentTopicState.objects.bulk_create(to_create)
+            if to_update:
+                StudentTopicState.objects.bulk_update(to_update, list(values))
+            written += len(to_create) + len(to_update)
         return written
 
     def _write_abilities(self, theta, n_student) -> int:
@@ -266,13 +360,3 @@ class Command(BaseCommand):
             f"States: {states}. Abilities: {abilities}. Questions: {questions}."
         )
         self.stdout.write(self.style.SUCCESS("Rebuild complete."))
-
-
-def _trailing_streak(answers: list[bool]) -> int:
-    """The run of correct answers at the end of the sequence (display only)."""
-    streak = 0
-    for is_correct in reversed(answers):
-        if not is_correct:
-            break
-        streak += 1
-    return streak

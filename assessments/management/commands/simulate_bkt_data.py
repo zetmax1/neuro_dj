@@ -65,11 +65,11 @@ class Command(BaseCommand):
         self.stdout.write("Ensuring simulation curriculum tree...")
 
         with transaction.atomic():
-            cs = kb.ensure_node(slug="sim-computer-science", name="[SIM] Computer Science", is_unlocked=True)
+            cs = kb.ensure_node(slug="sim-computer-science", name="[SIM] Computer Science")
             ds = kb.ensure_node(slug="sim-data-structures", name="[SIM] Data Structures", parent=cs,
-                                kind=TopicKind.SECTION, is_unlocked=False)
+                                kind=TopicKind.SECTION)
             algos = kb.ensure_node(slug="sim-algorithms", name="[SIM] Algorithms", parent=cs,
-                                   kind=TopicKind.SECTION, is_unlocked=False)
+                                   kind=TopicKind.SECTION)
             leaf_specs = [
                 ("sim-binary-trees", "[SIM] Binary Trees", ds),
                 ("sim-hash-maps", "[SIM] Hash Maps", ds),
@@ -80,7 +80,7 @@ class Command(BaseCommand):
             choices_to_create = []
             for slug, name, parent in leaf_specs:
                 created = not Topic.objects.filter(slug=slug).exists()
-                topic = kb.ensure_node(slug=slug, name=name, parent=parent, kind=TopicKind.TOPIC, is_unlocked=False)
+                topic = kb.ensure_node(slug=slug, name=name, parent=parent, kind=TopicKind.TOPIC)
                 leaf_topics.append(topic)
                 if not created:
                     continue

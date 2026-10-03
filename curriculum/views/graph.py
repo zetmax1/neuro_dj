@@ -7,10 +7,6 @@ Endpoint:
 
 from __future__ import annotations
 
-from collections import defaultdict
-
-from django.conf import settings
-
 from rest_framework import permissions, status
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -22,6 +18,9 @@ from curriculum.models import Topic, TopicKind
 from curriculum.serializers.graph import PrerequisiteGraphSerializer
 from curriculum.services.graph import get_snapshot
 from curriculum.views.instructor import leaf_edges_payload, warnings_payload
+
+from assessments.services import readiness
+from neuro_model import readiness as r
 
 
 @extend_schema(
@@ -39,8 +38,10 @@ class PrerequisiteGraphView(APIView):
       produced only by section/course relations, ``via`` the relation ids;
     - ``warnings`` (instructors only): redundant edges and κ.
 
-    ``is_unlocked`` / ``mastery_pct`` are the legacy per-node values; the
-    per-learner states of chapter II replace them in stage 4.
+    Each node also carries the learner's own state (3.4): ``p_mastery``,
+    ``accuracy``, ``status``, ``mastered`` and ``missing_count``. They come
+    from the one readiness service, so this endpoint, the tree and the
+    dashboard report the same numbers for the same topic.
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -55,30 +56,9 @@ class PrerequisiteGraphView(APIView):
 
         user = request.user if request.user and request.user.is_authenticated else None
 
-        # Pre-compute mastery percentages for all topics in one query
-        mastery_map: dict[int, float] = {}
-        mastery_levels: dict[int, int] = {}
-        if user:
-            from assessments.models import UserKnowledgeState
-            for topic_id, pct, level in UserKnowledgeState.objects.filter(user=user).values_list(
-                "topic_id", "mastery_percentage", "mastery_level",
-            ):
-                mastery_map[topic_id] = pct
-                mastery_levels[topic_id] = level
-
-        threshold = getattr(settings, "MASTERY_THRESHOLD", 0.70)
-        prereqs_map: dict[int, list[int]] = defaultdict(list)
-        for rel in snapshot.prerequisites:
-            prereqs_map[rel.target].append(rel.source)
-        mastered_ids: set[int] = {tid for tid, pct in mastery_map.items() if pct >= threshold}
-
-        def is_unlocked(node: int) -> bool:
-            if node in prereqs_map:
-                return all(pid in mastered_ids for pid in prereqs_map[node])
-            parent = snapshot.tree.parent[node]
-            if parent is None:
-                return True
-            return mastery_levels.get(parent, 0) >= 1 or parent in mastered_ids
+        # The one readiness service owns the learner's state; sections and
+        # courses hold no state of their own, so they report the defaults.
+        states = readiness.states_for(user=user, snapshot=snapshot) if user else {}
 
         nodes = []
         for node in node_ids:
@@ -96,8 +76,7 @@ class PrerequisiteGraphView(APIView):
                     "pos": snapshot.pos[node],
                     "depth": snapshot.depth[node],
                     "lev": snapshot.lev.get(node) if kind == TopicKind.TOPIC else None,
-                    "is_unlocked": is_unlocked(node) if user else True,
-                    "mastery_pct": round(mastery_map.get(node, 0.0) * 100),
+                    **_learner_state(states.get(node)),
                 },
             })
 
@@ -126,3 +105,27 @@ class PrerequisiteGraphView(APIView):
         if user is not None and is_instructor(user):
             payload["warnings"] = warnings_payload(snapshot)
         return Response(PrerequisiteGraphSerializer(payload).data, status=status.HTTP_200_OK)
+
+
+def _learner_state(state) -> dict:
+    """
+    One topic's state for the graph payload.
+
+    A node the learner has no row for reads as closed with P(L) = 0, which is
+    what "never seen" means; an anonymous request gets the same defaults.
+    """
+    if state is None:
+        return {
+            "p_mastery": 0.0,
+            "accuracy": 0.0,
+            "status": r.CLOSED,
+            "mastered": False,
+            "missing_count": 0,
+        }
+    return {
+        "p_mastery": state.p_mastery,
+        "accuracy": state.accuracy,
+        "status": state.status,
+        "mastered": state.mastered_flag,
+        "missing_count": state.missing_count,
+    }

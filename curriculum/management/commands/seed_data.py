@@ -1,5 +1,6 @@
 import random
 from datetime import datetime, timedelta
+from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.utils.text import slugify
 from django.utils.timezone import now
@@ -11,11 +12,10 @@ from assessments.models import (
     AttemptSource,
     Choice,
     DifficultyLevel,
-    MasteryLevel,
     Question,
+    StudentTopicState,
     TestSessionResult,
     UserKnowledgeHistory,
-    UserKnowledgeState,
 )
 from assessments.services.ledger import record_attempt
 from accounts.demo import DemoPassword, non_demo_users
@@ -57,7 +57,7 @@ class Command(BaseCommand):
             AssessmentAttempt.objects.all().delete()
             TestSessionResult.objects.all().delete()
             UserKnowledgeHistory.objects.all().delete()
-            UserKnowledgeState.objects.all().delete()
+            StudentTopicState.objects.all().delete()
             Choice.objects.all().delete()
             Question.objects.all().delete()
             TopicResource.objects.all().delete()
@@ -72,8 +72,7 @@ class Command(BaseCommand):
                 name="Computer Science",
                 slug="computer-science",
                 description="The foundational study of computation, information theory, and programming paradigms.",
-                position=1,
-                is_unlocked=True
+                position=1
             )
 
             ds = kb.create_node(
@@ -82,8 +81,7 @@ class Command(BaseCommand):
                 slug="data-structures",
                 description="Core structures for organizing, managing, and storing data efficiently.",
                 parent=cs,
-                position=1,
-                is_unlocked=True
+                position=1
             )
 
             algo = kb.create_node(
@@ -92,8 +90,7 @@ class Command(BaseCommand):
                 slug="algorithms",
                 description="Step-by-step computational procedures for solving complex mathematical and logical problems.",
                 parent=cs,
-                position=2,
-                is_unlocked=True
+                position=2
             )
 
             binary_trees = kb.create_node(
@@ -102,8 +99,7 @@ class Command(BaseCommand):
                 slug="binary-trees",
                 description="Hierarchical tree structures where each node has at most two children.",
                 parent=ds,
-                position=1,
-                is_unlocked=True
+                position=1
             )
 
             hash_maps = kb.create_node(
@@ -112,8 +108,7 @@ class Command(BaseCommand):
                 slug="hash-maps",
                 description="Key-value mapping data structures utilizing hashing functions for constant-time lookup.",
                 parent=ds,
-                position=2,
-                is_unlocked=True
+                position=2
             )
 
             sorting = kb.create_node(
@@ -122,8 +117,7 @@ class Command(BaseCommand):
                 slug="sorting",
                 description="Algorithms for rearranging elements of a list in a specified ordering (numerical or lexicographical).",
                 parent=algo,
-                position=1,
-                is_unlocked=True
+                position=1
             )
 
             graphs = kb.create_node(
@@ -132,8 +126,7 @@ class Command(BaseCommand):
                 slug="graph-traversals",
                 description="Techniques for visiting all nodes in graph network configurations (BFS and DFS).",
                 parent=algo,
-                position=2,
-                is_unlocked=True
+                position=2
             )
 
             all_topics = [cs, ds, algo, binary_trees, hash_maps, sorting, graphs]
@@ -307,8 +300,8 @@ class Command(BaseCommand):
                         is_correct=is_correct
                     )
 
-            # 5. Populate Student States for yuta@gmail.com
-            self.stdout.write("Populating learning analytics and states for user 'yuta@gmail.com'...")
+            # 5. The demo learner
+            self.stdout.write("Creating the demo learner 'yuta@gmail.com'...")
             try:
                 user = CustomUser.objects.get(email="yuta@gmail.com")
             except CustomUser.DoesNotExist:
@@ -319,114 +312,9 @@ class Command(BaseCommand):
                     last_name="Okkotsu"
                 )
 
-            # Assign knowledge states to topics
-            # Computer Science: Mastered
-            UserKnowledgeState.objects.create(
-                user=user,
-                topic=cs,
-                mastery_level=MasteryLevel.MASTERED,
-                mastery_percentage=0.95,
-                score=92,
-                total_attempts=24,
-                correct_attempts=22,
-                streak=8
-            )
-            UserKnowledgeHistory.objects.create(
-                user=user,
-                topic=cs,
-                calculated_mastery=0.95,
-                algorithm_used="bkt"
-            )
-
-            # Data Structures: Intermediate
-            UserKnowledgeState.objects.create(
-                user=user,
-                topic=ds,
-                mastery_level=MasteryLevel.INTERMEDIATE,
-                mastery_percentage=0.68,
-                score=78,
-                total_attempts=15,
-                correct_attempts=12,
-                streak=3
-            )
-            UserKnowledgeHistory.objects.create(
-                user=user,
-                topic=ds,
-                calculated_mastery=0.68,
-                algorithm_used="bkt"
-            )
-
-            # Binary Trees: Beginner
-            UserKnowledgeState.objects.create(
-                user=user,
-                topic=binary_trees,
-                mastery_level=MasteryLevel.BEGINNER,
-                mastery_percentage=0.45,
-                score=60,
-                total_attempts=8,
-                correct_attempts=5,
-                streak=1
-            )
-            UserKnowledgeHistory.objects.create(
-                user=user,
-                topic=binary_trees,
-                calculated_mastery=0.45,
-                algorithm_used="bkt"
-            )
-
-            # Hash Maps: Advanced
-            UserKnowledgeState.objects.create(
-                user=user,
-                topic=hash_maps,
-                mastery_level=MasteryLevel.ADVANCED,
-                mastery_percentage=0.82,
-                score=85,
-                total_attempts=12,
-                correct_attempts=10,
-                streak=5
-            )
-            UserKnowledgeHistory.objects.create(
-                user=user,
-                topic=hash_maps,
-                calculated_mastery=0.82,
-                algorithm_used="bkt"
-            )
-
-            # Algorithms: Not Started
-            UserKnowledgeState.objects.create(
-                user=user,
-                topic=algo,
-                mastery_level=MasteryLevel.NOT_STARTED,
-                mastery_percentage=0.0,
-                score=0,
-                total_attempts=0,
-                correct_attempts=0,
-                streak=0
-            )
-
-            # Sorting: Not Started
-            UserKnowledgeState.objects.create(
-                user=user,
-                topic=sorting,
-                mastery_level=MasteryLevel.NOT_STARTED,
-                mastery_percentage=0.0,
-                score=0,
-                total_attempts=0,
-                correct_attempts=0,
-                streak=0
-            )
-
-            # Graphs: Not Started
-            UserKnowledgeState.objects.create(
-                user=user,
-                topic=graphs,
-                mastery_level=MasteryLevel.NOT_STARTED,
-                mastery_percentage=0.0,
-                score=0,
-                total_attempts=0,
-                correct_attempts=0,
-                streak=0
-            )
+            # No state is fabricated here (D8). States are derived from the
+            # answers below by replaying the ledger, exactly as the live path
+            # would have produced them (D35).
 
             # 6. Generate historical attempts for activity metrics
             self.stdout.write("Creating mock history logs...")
@@ -456,5 +344,10 @@ class Command(BaseCommand):
                         source=AttemptSource.SEED,
                         answered_at=attempt_date,
                     )
+
+        # 7. Derive P(L), θ, b_q and the readiness state from those answers.
+        # --include-legacy because the rows above are labelled ``seed``.
+        self.stdout.write("Rebuilding student states from the seeded answers...")
+        call_command("rebuild_student_states", "--include-legacy", stdout=self.stdout)
 
         self.stdout.write(self.style.SUCCESS("Database seeded successfully!"))

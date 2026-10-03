@@ -10,7 +10,7 @@ Includes:
   - Topic resources with clean educational titles.
   - Realistic 15-20 answer attempt history per demo student executed through the real
     BKT/IRT engine pipeline (process_submission), populating UserKnowledgeHistory,
-    UserAbility (theta), and UserKnowledgeState.
+    UserAbility (theta), and StudentTopicState.
   - Idempotent: Can be run repeatedly to reset the demo environment.
 """
 
@@ -28,10 +28,10 @@ from django.db import transaction
 from django.utils.timezone import now
 
 from accounts.demo import DEMO_EMAILS, DemoPassword
-from assessments.services import student_model
+from assessments.services import readiness, student_model
 from curriculum.models import TopicKind
 from curriculum.services import kb
-from curriculum.services.graph import is_unlocked_dag
+from curriculum.services.graph import get_snapshot
 from assessments.models import (
     AssessmentAttempt,
     AttemptSource,
@@ -41,7 +41,7 @@ from assessments.models import (
     TestSessionResult,
     UserAbility,
     UserKnowledgeHistory,
-    UserKnowledgeState,
+    StudentTopicState,
 )
 from assessments.services.orchestrator import process_submission
 
@@ -105,7 +105,7 @@ class Command(BaseCommand):
             def node(slug, name, parent=None, kind=None, position=None, description=""):
                 return kb.ensure_node(
                     slug=slug, name=name, parent=parent, kind=kind,
-                    position=position, description=description, is_unlocked=True,
+                    position=position, description=description,
                 )
 
             cs = node("computer-science", "Computer Science", position=1,
@@ -289,15 +289,30 @@ class Command(BaseCommand):
                 # RESTRICT their test sessions and carry the linked history rows.
                 AssessmentAttempt.objects.filter(user=user).delete()
                 TestSessionResult.objects.filter(user=user).delete()
-                UserKnowledgeState.objects.filter(user=user).delete()
+                StudentTopicState.objects.filter(user=user).delete()
                 UserKnowledgeHistory.objects.filter(user=user).delete()
                 UserAbility.objects.filter(user=user).delete()
 
                 # Simulate ~15-20 attempts across target topics
                 attempt_count = 0
-                for topic in student_info["target_topics"]:
+                skipped_closed: list[str] = []
+                # Programme order (pos, D4), so a prerequisite is answered —
+                # and can become mastered — before what depends on it. The
+                # demo learner goes through the same readiness gate a real one
+                # does (stage 4), so anything still closed is skipped rather
+                # than forced.
+                snapshot = get_snapshot()
+                ordered_targets = sorted(
+                    student_info["target_topics"],
+                    key=lambda t: snapshot.pos.get(t.pk, 0),
+                )
+                for topic in ordered_targets:
                     topic_questions = list(Question.objects.filter(topic=topic).prefetch_related("choices"))
                     if not topic_questions:
+                        continue
+
+                    if readiness.check_open(user=user, topic_id=topic.pk) is not None:
+                        skipped_closed.append(topic.name)
                         continue
 
                     # Simulate 5-6 attempts per topic
@@ -339,20 +354,30 @@ class Command(BaseCommand):
                 self.stdout.write(
                     f"  Seeded {attempt_count} attempts for {user.email} (BKT/IRT history populated)."
                 )
+                if skipped_closed:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            "  Skipped (prerequisites not mastered): "
+                            + ", ".join(skipped_closed)
+                        )
+                    )
 
-            # Verification of DAG unlock condition for demo student
+            # The readiness service is the only authority on this (stage 4):
+            # the demo topic is reachable when every u ∈ Pre(w) is mastered.
             demo_user = User.objects.get(email="hybrid_demo@test.com")
-            dag_unlocked = is_unlocked_dag(demo_user, demo_topic)
-            if dag_unlocked:
+            blocked = readiness.check_open(user=demo_user, topic_id=demo_topic.pk)
+            if blocked is None:
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"[OK] Demo Topic DAG unlock check PASSED: '{demo_topic.name}' is unlocked for {demo_user.email}."
+                        f"[OK] '{demo_topic.name}' is open for {demo_user.email}."
                     )
                 )
             else:
+                names = ", ".join(item["name"] for item in blocked.missing)
                 self.stdout.write(
-                    self.style.ERROR(
-                        f"[FAIL] Demo Topic DAG unlock check FAILED: '{demo_topic.name}' is NOT unlocked for {demo_user.email}."
+                    self.style.WARNING(
+                        f"[INFO] '{demo_topic.name}' is still closed for {demo_user.email}; "
+                        f"unmastered prerequisites: {names or '—'}."
                     )
                 )
 

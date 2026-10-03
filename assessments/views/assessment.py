@@ -4,9 +4,16 @@ assessments/views/assessment.py — API views for quiz retrieval and evaluation.
 Endpoints:
   - GET  /api/assessments/next_question/?topic_id=<id>
   - POST /api/assessments/submit_answer/
+  - GET  /api/assessments/test_session/?topic_id=<id>
+  - POST /api/assessments/submit_test_session/
+  - GET  /api/assessments/tests/
 
-Both views are intentionally thin — they validate input, delegate to
+The views are intentionally thin — they validate input, delegate to
 assessments.services for all business logic, and serialize the output.
+
+A topic whose prerequisites are unmet answers 403 with the unmet ones:
+``{"missing": [{"topic_id", "name", "p_mastery"}]}``. The decision belongs to
+``assessments.services.readiness`` alone (stage 4); no view computes it.
 """
 
 from __future__ import annotations
@@ -26,20 +33,32 @@ from assessments.models import (
     AttemptSource,
     Choice,
     DifficultyLevel,
-    MasteryLevel,
     Question,
+    StudentTopicState,
     TestSessionResult,
-    UserKnowledgeState,
+    TopicStatus,
 )
 from assessments.serializers.assessment import (
     QuestionSerializer,
     SubmissionResultSerializer,
     SubmitAnswerSerializer,
 )
-from assessments.services import get_next_question, get_stratified_test_questions, ledger, process_submission
+from assessments.services import (
+    get_next_question,
+    get_stratified_test_questions,
+    ledger,
+    process_submission,
+    readiness,
+)
+from assessments.services.orchestrator import TopicClosed
 from drf_spectacular.utils import extend_schema
 
 logger = logging.getLogger(__name__)
+
+
+def _closed_response(blocked: readiness.Blocked) -> Response:
+    """403 for a topic whose prerequisites the learner has not mastered."""
+    return Response(blocked.payload(), status=status.HTTP_403_FORBIDDEN)
 
 
 @extend_schema(tags=["Student Assessments"])
@@ -66,6 +85,10 @@ class TestSessionView(APIView):
                 {"detail": f"Topic with id {topic_id} does not exist."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        blocked = readiness.check_open(user=request.user, topic_id=topic.pk)
+        if blocked is not None:
+            return _closed_response(blocked)
 
         questions = get_stratified_test_questions(topic_id=int(topic_id))
 
@@ -215,23 +238,19 @@ class SubmitTestSessionView(APIView):
                     user=request.user, choice=choice, source=source, session=session,
                 )
 
-            state, _ = UserKnowledgeState.objects.select_for_update().get_or_create(
-                user=request.user,
-                topic=topic,
+            # D7: the grade is an exam score, never a mastery probability, so
+            # only the answer counters move here. Running test answers through
+            # the student model — and with it P(L), M and Algorithm 2.3 — is
+            # stage 5. Nothing unlocks on a passing grade any more: readiness
+            # is decided by the M flags of the prerequisites (3.4).
+            readiness.states_for(user=request.user)
+            state = StudentTopicState.objects.select_for_update().get(
+                user=request.user, topic=topic,
             )
-            state.total_attempts += len(answers_summary)
-            state.correct_attempts += sum(1 for a in answers_summary if a["is_correct"])
-
-            # Legacy discrete level and global unlock flag; both are replaced by
-            # the readiness service in stage 4 and the model path in stage 5.
-            if is_passed and grade_percentage >= 70.0:
-                state.mastery_level = MasteryLevel.MASTERED
-            elif is_passed:
-                state.mastery_level = MasteryLevel.ADVANCED
-            state.save()
-
-            if is_passed:
-                topic.children.filter(is_unlocked=False).update(is_unlocked=True)
+            state.attempts += len(answers_summary)
+            state.correct += sum(1 for a in answers_summary if a["is_correct"])
+            state.accuracy = state.correct / state.attempts if state.attempts else 0.0
+            state.save(update_fields=["attempts", "correct", "accuracy", "updated_at"])
 
         return Response(
             {
@@ -265,10 +284,7 @@ class TestsListView(APIView):
         result = []
         user = request.user
 
-        states = {
-            state.topic_id: state
-            for state in UserKnowledgeState.objects.filter(user=user)
-        }
+        states = readiness.states_for(user=user, snapshot=snapshot)
 
         for topic in topics:
             descendant_ids = sorted(snapshot.leaves_of(topic.pk))
@@ -276,7 +292,6 @@ class TestsListView(APIView):
             q_count = questions.count()
 
             state = states.get(topic.id)
-            mastery_pct = round(state.mastery_percentage, 1) if state else 0.0
 
             if questions.exists():
                 avg_diff = sum(q.difficulty for q in questions) / q_count
@@ -291,8 +306,11 @@ class TestsListView(APIView):
                 "description": topic.description or f"Adaptive test assessment covering {topic.name}.",
                 "parent_name": topic.parent.name if topic.parent else "Core Curriculum",
                 "question_count": q_count,
-                "is_unlocked": topic.is_unlocked,
-                "mastery_percentage": mastery_pct,
+                "p_mastery": state.p_mastery if state else 0.0,
+                "accuracy": state.accuracy if state else 0.0,
+                "status": state.status if state else TopicStatus.CLOSED,
+                "mastered": state.mastered_flag if state else False,
+                "missing_count": state.missing_count if state else 0,
                 "difficulty_level": diff_str,
                 "estimated_minutes": max(5, q_count * 2),
             })
@@ -313,6 +331,7 @@ class NextQuestionView(APIView):
     Response:
       - 200: QuestionSerializer payload (nested choices, no is_correct).
       - 400: Missing or invalid topic_id.
+      - 403: The topic is closed; the body lists the unmet prerequisites.
       - 404: Topic not found, or no more questions available.
     """
 
@@ -335,6 +354,9 @@ class NextQuestionView(APIView):
             )
 
         try:
+            blocked = readiness.check_open(user=request.user, topic_id=topic_id)
+            if blocked is not None:
+                return _closed_response(blocked)
             question: Question | None = get_next_question(
                 user=request.user,
                 topic_id=topic_id,
@@ -377,9 +399,10 @@ class NextQuestionView(APIView):
 class SubmitAnswerView(APIView):
     """
     Accepts the user's quiz answer, delegates to the service layer,
-    and returns the updated mastery state + next adaptive question.
+    and returns the learner's new state + next adaptive question.
 
     Request body: { "question_id": int, "choice_id": int }
+    403 when the topic is closed, with the unmet prerequisites in the body.
 
     The view is thin:
       1. SubmitAnswerSerializer validates the input.
@@ -404,6 +427,8 @@ class SubmitAnswerView(APIView):
                 {"detail": "Invalid question_id or choice_id."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except TopicClosed as closed:
+            return Response(closed.payload(), status=status.HTTP_403_FORBIDDEN)
 
         output_serializer = SubmissionResultSerializer(result)
         return Response(output_serializer.data, status=status.HTTP_200_OK)

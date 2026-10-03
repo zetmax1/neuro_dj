@@ -12,12 +12,12 @@ from assessments.serializers.assessment import (
     SubmitAnswerSerializer,
     SubmissionResultSerializer,
 )
-from assessments.serializers.knowledge import UserKnowledgeStateSerializer
+from assessments.serializers.knowledge import StudentTopicStateSerializer
 
 __all__: list[str] = [
     "ChoiceSerializer",
     "QuestionSerializer",
     "SubmitAnswerSerializer",
     "SubmissionResultSerializer",
-    "UserKnowledgeStateSerializer",
+    "StudentTopicStateSerializer",
 ]

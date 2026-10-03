@@ -18,10 +18,7 @@ import logging
 import threading
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any
 
-from django.apps import apps
-from django.conf import settings
 from django.core.cache import cache
 
 from curriculum.models import KnowledgeBaseVersion, Topic, TopicKind, TopicPrerequisite
@@ -209,53 +206,3 @@ def _build_committed(version: int) -> KBSnapshot:
             return snapshot
         version = after
     return build_snapshot(version)
-
-
-# ---------------------------------------------------------------------------
-# Legacy unlock rule (D9) — replaced by the readiness service in stage 4.
-# ---------------------------------------------------------------------------
-
-def is_unlocked_dag(user: Any, topic: Topic) -> bool:
-    """
-    Legacy node-level unlock check kept until stage 4 (TY1–TY6).
-
-    If the node has direct prerequisite rows, all of them need the legacy
-    mastery threshold; otherwise roots are open and other nodes follow their
-    parent. Not a chapter II rule (no G_L, no hysteresis).
-    """
-    raw_threshold = getattr(settings, "MASTERY_THRESHOLD", 0.70)
-    threshold = raw_threshold / 100.0 if raw_threshold > 1.0 else float(raw_threshold)
-
-    prereq_qs = TopicPrerequisite.objects.filter(topic=topic, prerequisite__is_archived=False)
-    prereq_count = prereq_qs.count()
-
-    if prereq_count > 0:
-        if user is None or not getattr(user, "is_authenticated", False):
-            return False
-
-        UserKnowledgeState = apps.get_model("assessments", "UserKnowledgeState")
-        prereq_ids = list(prereq_qs.values_list("prerequisite_id", flat=True))
-
-        mastered_count = UserKnowledgeState.objects.filter(
-            user=user,
-            topic_id__in=prereq_ids,
-            mastery_percentage__gte=threshold,
-        ).count()
-
-        return mastered_count == prereq_count
-
-    if topic.parent_id is None:
-        return True
-
-    if user is None or not getattr(user, "is_authenticated", False):
-        return True
-
-    UserKnowledgeState = apps.get_model("assessments", "UserKnowledgeState")
-    parent_state = UserKnowledgeState.objects.filter(
-        user=user,
-        topic_id=topic.parent_id,
-    ).first()
-
-    if parent_state:
-        return parent_state.mastery_percentage >= threshold
-    return True

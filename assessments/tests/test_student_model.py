@@ -25,9 +25,9 @@ from assessments.models import (
     Question,
     TopicModelParams,
     UserAbility,
-    UserKnowledgeState,
+    StudentTopicState,
 )
-from assessments.services import student_model
+from assessments.services import readiness, student_model
 from assessments.services.orchestrator import process_submission
 from assessments.services.question_selection import get_next_question
 from curriculum.services import kb
@@ -70,6 +70,39 @@ def _submit(user, question, choice, source=AttemptSource.ADAPTIVE):
     return process_submission(
         user=user, question_id=question.pk, choice_id=choice.pk, source=source,
     )
+
+
+def _master_directly(user, topic, *, p_mastery: float = 0.99) -> None:
+    """
+    Put a topic into the mastered state without answering it.
+
+    Used where the test is about something else and only needs the dependent
+    topic to be open; the arithmetic that actually gets M to 1 is covered by
+    the readiness tests.
+    """
+    from django.utils import timezone
+
+    from assessments.models import StudentTopicState, TopicStatus
+    from curriculum.services.graph import get_snapshot
+
+    readiness.states_for(user=user)
+    StudentTopicState.objects.filter(user=user, topic=topic).update(
+        p_mastery=p_mastery, mastered_flag=True, status=TopicStatus.MASTERED,
+        started_at=timezone.now(), attempts=1, correct=1, accuracy=1.0,
+    )
+    readiness.resync(user=user, snapshot=get_snapshot())
+
+
+def _master_by_answering(user, topic, *, rounds: int = 6) -> float:
+    """Answer correctly until M = 1; returns the P(L) the ledger last recorded."""
+    for index in range(rounds):
+        question, right, _ = _question(topic, f"master-{topic.pk}-{index}")
+        _submit(user, question, right)
+    last = (
+        AssessmentAttempt.objects.filter(user=user, topic=topic)
+        .order_by("-attempt_no").first()
+    )
+    return last.p_after
 
 
 # ---------------------------------------------------------------------------
@@ -131,16 +164,21 @@ def test_the_bkt_sequence_of_four_correct_answers(student, course_tree):
 
 @pytest.mark.django_db
 def test_the_prior_of_a_first_attempt_comes_from_the_prerequisites(student, course_tree):
-    """P0=0.3, λ=0.5, one mastered prerequisite → the blended, capped P(L0)."""
-    course, _, first, second = course_tree
+    """
+    P0=0.3, λ=0.5 and a mastered prerequisite → the blended, capped P(L0).
+
+    The prerequisite has to be mastered for real: since stage 4 a topic whose
+    predecessors are unmastered is closed, so this is the only order in which
+    a learner can reach the dependent topic at all.
+    """
+    _, _, first, second = course_tree
     _params(first, p0=0.3)
     _params(second, p0=0.3)
     kb.add_prerequisite(prerequisite=first, topic=second)
 
-    # Bring the prerequisite to a known P(L).
-    q1, right1, _ = _question(first, "Q1")
-    _submit(student, q1, right1)
-    prerequisite_mastery = AssessmentAttempt.objects.get(user=student, topic=first).p_after
+    prerequisite_mastery = _master_by_answering(student, first)
+    from assessments.models import StudentTopicState
+    assert StudentTopicState.objects.get(user=student, topic=first).mastered_flag
 
     q2, right2, _ = _question(second, "Q2")
     _submit(student, q2, right2)
@@ -148,20 +186,38 @@ def test_the_prior_of_a_first_attempt_comes_from_the_prerequisites(student, cour
     row = AssessmentAttempt.objects.get(user=student, topic=second)
     expected = min(0.5 * 0.3 + 0.5 * prerequisite_mastery, 0.95 - 0.05)
     assert row.p_before == pytest.approx(expected, abs=TOL)
+    assert row.p_before < 0.90, "the cap must not be what this test measures"
 
 
 @pytest.mark.django_db
 def test_a_prerequisite_never_answered_contributes_its_own_p0(student, course_tree):
+    """
+    3.3: an unanswered prerequisite stands in with its own P0.
+
+    This is exercised on the engine directly, not through ``submit_answer``:
+    an unanswered prerequisite has M = 0, so the dependent topic is closed and
+    a learner cannot reach it that way. The branch is still live — the replay
+    in ``rebuild_student_states`` and the seed commands answer topics in their
+    own order — so the engine's contract is checked here.
+    """
+    from django.db import transaction
+
     _, _, first, second = course_tree
     _params(first, p0=0.8)
     _params(second, p0=0.3)
     kb.add_prerequisite(prerequisite=first, topic=second)
+    question, _right, _wrong = _question(second, "Q")
 
-    question, right, _ = _question(second, "Q")
-    _submit(student, question, right)
+    with transaction.atomic():
+        applied = student_model.apply_answer(
+            user=student,
+            topic=second,
+            course_id=course_tree[0].pk,
+            question=question,
+            is_correct=True,
+        )
 
-    row = AssessmentAttempt.objects.get(user=student)
-    assert row.p_before == pytest.approx(0.5 * 0.3 + 0.5 * 0.8, abs=TOL)
+    assert applied.trace.p_before == pytest.approx(0.5 * 0.3 + 0.5 * 0.8, abs=TOL)
 
 
 @pytest.mark.django_db
@@ -254,11 +310,14 @@ def test_without_prereq_init_the_first_attempt_starts_at_p0(student, course_tree
     _params(second, p0=0.3)
     kb.add_prerequisite(prerequisite=first, topic=second)
     settings.THESIS_FLAGS = {"use_irt": True, "use_prereq_init": False}
+    _master_directly(student, first)
 
     question, right, _ = _question(second, "Q")
     _submit(student, question, right)
 
-    assert AssessmentAttempt.objects.get(user=student).p_before == pytest.approx(0.3, abs=TOL)
+    assert AssessmentAttempt.objects.get(user=student, topic=second).p_before == pytest.approx(
+        0.3, abs=TOL,
+    )
 
 
 @pytest.mark.django_db
@@ -354,9 +413,9 @@ def _answer_a_few(student, topic, *, count: int = 4) -> None:
 def _state_fingerprint(student) -> tuple:
     return (
         tuple(
-            UserKnowledgeState.objects.filter(user=student)
+            StudentTopicState.objects.filter(user=student)
             .order_by("topic_id")
-            .values_list("topic_id", "mastery_percentage", "total_attempts", "correct_attempts")
+            .values_list("topic_id", "p_mastery", "attempts", "correct", "status", "mastered_flag")
         ),
         tuple(
             UserAbility.objects.filter(user=student)
@@ -396,7 +455,7 @@ def test_rebuild_restores_state_that_was_tampered_with(student, course_tree):
     _answer_a_few(student, topic)
     expected = _state_fingerprint(student)
 
-    UserKnowledgeState.objects.filter(user=student).update(mastery_percentage=0.01)
+    StudentTopicState.objects.filter(user=student).update(p_mastery=0.01)
     UserAbility.objects.filter(user=student, course=course).update(theta=-3.0, n_answers=99)
 
     call_command("rebuild_student_states", stdout=StringIO())
@@ -408,7 +467,7 @@ def test_rebuild_restores_state_that_was_tampered_with(student, course_tree):
 def test_rebuild_dry_run_writes_nothing(student, course_tree):
     _, _, topic, _ = course_tree
     _answer_a_few(student, topic)
-    UserKnowledgeState.objects.filter(user=student).update(mastery_percentage=0.01)
+    StudentTopicState.objects.filter(user=student).update(p_mastery=0.01)
     tampered = _state_fingerprint(student)
 
     out = StringIO()

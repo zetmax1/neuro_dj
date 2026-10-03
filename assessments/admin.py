@@ -9,9 +9,11 @@ from assessments.models import (
     AssessmentAttempt,
     Choice,
     Question,
+    StudentTopicState,
     TestSessionResult,
+    TopicModelParams,
+    UserAbility,
     UserKnowledgeHistory,
-    UserKnowledgeState,
 )
 
 
@@ -54,14 +56,35 @@ class QuestionAdmin(ModelAdmin):
         return "No image"
 
 
-@admin.register(UserKnowledgeState)
-class UserKnowledgeStateAdmin(ModelAdmin):
+@admin.register(StudentTopicState)
+class StudentTopicStateAdmin(ModelAdmin):
+    """Read-only: states are written by assessments.services.readiness only."""
+
     list_display = [
-        "user", "topic", "mastery_level", "mastery_percentage",
-        "score", "streak", "updated_at",
+        "user", "topic", "status", "p_mastery", "mastered_flag",
+        "missing_count", "accuracy", "attempts", "kb_version", "updated_at",
     ]
-    list_filter = ["mastery_level"]
+    list_filter = ["status", "mastered_flag"]
     search_fields = ["user__email", "topic__name"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(UserAbility)
+class UserAbilityAdmin(ModelAdmin):
+    list_display = ["user", "course", "theta", "n_answers", "theta_updated_at"]
+    search_fields = ["user__email", "course__name"]
+
+
+@admin.register(TopicModelParams)
+class TopicModelParamsAdmin(ModelAdmin):
+    list_display = ["topic", "p0", "pt", "g0", "s0", "source", "fitted_at"]
+    list_filter = ["source"]
+    search_fields = ["topic__name"]
 
 
 @admin.register(AssessmentAttempt)

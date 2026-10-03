@@ -13,7 +13,10 @@ class ReactFlowNodeSerializer(serializers.Serializer):
     slug = serializers.CharField(required=False)
     data = serializers.DictField(
         required=False,
-        help_text="kind, parent, pos (D4), depth, lev (topics only), legacy is_unlocked and mastery_pct.",
+        help_text=(
+            "kind, parent, pos (D4), depth, lev (topics only), and the learner's "
+            "state: p_mastery, accuracy, status, mastered, missing_count (3.4)."
+        ),
     )
 
 

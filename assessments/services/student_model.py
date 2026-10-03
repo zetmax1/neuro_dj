@@ -38,7 +38,6 @@ from curriculum.services.graph import KBSnapshot, get_snapshot
 
 from assessments.models import (
     AttemptSource,
-    MasteryLevel,
     Question,
     TopicModelParams,
     UserAbility,
@@ -58,24 +57,6 @@ OBSERVED_SOURCES: frozenset[str] = frozenset({
     AttemptSource.SEED,
     AttemptSource.SIMULATED,
 })
-
-
-# P(L) bands for the legacy discrete MasteryLevel the current UI still shows.
-# Stage 4 replaces them with the τ/δ hysteresis of Algorithm 2.3.
-_PROBABILITY_THRESHOLDS: list[tuple[float, int]] = [
-    (0.90, MasteryLevel.MASTERED),
-    (0.70, MasteryLevel.ADVANCED),
-    (0.45, MasteryLevel.INTERMEDIATE),
-    (0.20, MasteryLevel.BEGINNER),
-]
-
-
-def mastery_level_for(value: float) -> int:
-    """Bin P(L) into a MasteryLevel; display only, not a model quantity."""
-    for threshold, level in _PROBABILITY_THRESHOLDS:
-        if value >= threshold:
-            return level
-    return MasteryLevel.NOT_STARTED
 
 
 # ---------------------------------------------------------------------------

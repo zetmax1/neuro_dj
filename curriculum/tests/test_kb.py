@@ -295,8 +295,8 @@ def test_structural_writes_outside_the_service_are_refused():
     assert Topic.objects.get(pk=a.pk).parent_id == sec.pk
     assert TopicPrerequisite.objects.get(pk=rel.pk).weight == 1.0
 
-    # Non-structural edits stay possible (e.g. renaming, the legacy unlock flag).
-    Topic.objects.filter(pk=a.pk).update(name="renamed", is_unlocked=False)
+    # Non-structural edits stay possible (e.g. renaming, the pass mark).
+    Topic.objects.filter(pk=a.pk).update(name="renamed", pass_mark_percentage=55.0)
     renamed = Topic.objects.get(pk=a.pk)
     renamed.description = "notes"
     renamed.save()

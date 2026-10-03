@@ -48,9 +48,22 @@ class TestSeedThesisDemoCommand(TestCase):
         self.assertGreaterEqual(abilities[0].n_answers, 15)
         self.assertNotEqual(abilities[0].theta, 0.0)
 
-        # 4. Verify DAG unlock status for demo_topic and creation of 3 demo users
-        from curriculum.services.graph import is_unlocked_dag
-        self.assertTrue(is_unlocked_dag(student, demo_topic))
+        # 4. Readiness of demo_topic is decided by the one service (3.4), and
+        # the seeder only answers what the learner may answer, so every topic
+        # it did answer was open at the time.
+        from assessments.models import StudentTopicState
+        from assessments.services import readiness
+
+        answered = StudentTopicState.objects.filter(user=student, attempts__gt=0)
+        self.assertTrue(answered.exists())
+        for state in answered:
+            self.assertNotEqual(state.status, "closed")
+        # demo_topic sits behind binary-trees and graph-traversals; whether it
+        # opened depends on whether those reached M = 1, so the assertion is
+        # that the service and the stored status agree.
+        blocked = readiness.check_open(user=student, topic_id=demo_topic.pk)
+        stored = StudentTopicState.objects.get(user=student, topic=demo_topic)
+        self.assertEqual(blocked is None, stored.status != "closed")
 
         self.assertTrue(User.objects.filter(email="yuta@gmail.com").exists())
         self.assertTrue(User.objects.filter(email="alex@neuro.learn").exists())

@@ -2,8 +2,9 @@
 assessments/models.py — The Adaptive Testing & Tracking Engine.
 
 This app owns all interactive assessment mechanics and user state tracking.
-It contains Question, Choice, UserKnowledgeState, the AssessmentAttempt
-answer ledger, TestSessionResult and UserKnowledgeHistory.
+It contains Question, Choice, StudentTopicState (3.4), the AssessmentAttempt
+answer ledger, UserAbility, TopicModelParams, TestSessionResult and
+UserKnowledgeHistory.
 
 Dependency rule: assessments depends on curriculum (one-way).
 All cross-app references use string-based foreign keys ('curriculum.Topic')
@@ -18,6 +19,8 @@ from django.db import models, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from neuro_model import readiness
+
 
 # ---------------------------------------------------------------------------
 # 1. Difficulty & Mastery Enums
@@ -28,15 +31,6 @@ class DifficultyLevel(models.IntegerChoices):
     EASY = 1, "Easy"
     MEDIUM = 2, "Medium"
     HARD = 3, "Hard"
-
-
-class MasteryLevel(models.IntegerChoices):
-    """State machine levels for the adaptive algorithm."""
-    NOT_STARTED = 0, "Not Started"
-    BEGINNER = 1, "Beginner"
-    INTERMEDIATE = 2, "Intermediate"
-    ADVANCED = 3, "Advanced"
-    MASTERED = 4, "Mastered"
 
 
 # ---------------------------------------------------------------------------
@@ -273,71 +267,134 @@ class Choice(models.Model):
 # 3. Learner State Tracking
 # ---------------------------------------------------------------------------
 
-class UserKnowledgeState(models.Model):
+class TopicStatus(models.TextChoices):
     """
-    Tracks a single user's mastery of a single topic.
+    The five statuses of 3.4. The values come from ``neuro_model.readiness``,
+    so the transition table and the database agree by construction.
+    """
+    CLOSED = readiness.CLOSED, "Closed"
+    OPEN = readiness.OPEN, "Open"
+    IN_PROGRESS = readiness.IN_PROGRESS, "In progress"
+    MASTERED = readiness.MASTERED, "Mastered"
+    REVIEW = readiness.REVIEW, "Review"
 
-    The (user, topic) pair is unique — enforced at the DB level.
-    This is the "state" the adaptive engine reads and writes.
+
+class StudentTopicState(models.Model):
+    """
+    One learner's state on one topic (3.4). Replaces ``UserKnowledgeState``,
+    whose ``mastery_percentage`` mixed a probability with a 0-100 test grade.
+
+    ``p_mastery`` is P(L) and nothing else. ``mastered_flag`` is M, which is
+    not ``p_mastery >= τ``: it carries hysteresis of width δ, so it is stored
+    rather than derived. ``missing_count`` is the number of immediate
+    predecessors in G_L still unmastered, maintained incrementally by
+    Algorithm 2.3.
+
+    ``kb_version`` is TY6: the KB version the counter was computed under. When
+    it falls behind, the readiness service recomputes the counters from the M
+    flags instead of trusting them.
+
+    ``started_at`` is set by the first answer and never cleared, which is TY5:
+    the constraint below makes "started" and "not closed" the same thing at
+    the database level.
     """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name="knowledge_states",
+        related_name="topic_states",
         db_index=True,
     )
     topic = models.ForeignKey(
         "curriculum.Topic",  # String-based FK — prevents circular imports
         on_delete=models.CASCADE,
-        related_name="knowledge_states",
+        related_name="student_states",
         db_index=True,
     )
 
-    mastery_level: int = models.IntegerField(
-        choices=MasteryLevel.choices,
-        default=MasteryLevel.NOT_STARTED,
-    )
-    # Continuous mastery probability (0.0–1.0) from probabilistic engines.
-    # For streak-based engines this is derived from mastery_level / 4.0.
-    mastery_percentage: float = models.FloatField(
+    p_mastery: float = models.FloatField(
         default=0.0,
-        help_text=(
-            "Raw engine-computed mastery probability (0.0–1.0). "
-            "Stored as a float for BKT/IRT precision; converted to an "
-            "integer percentage (0–100) for display via round(value * 100)."
-        ),
+        help_text="P(L) — the mastery probability, never a percentage.",
     )
-    # Running accuracy as a percentage (0–100)
-    score: int = models.PositiveIntegerField(default=0)
-    total_attempts: int = models.PositiveIntegerField(default=0)
-    correct_attempts: int = models.PositiveIntegerField(default=0)
-    # Consecutive correct answers — drives difficulty escalation
-    streak: int = models.PositiveIntegerField(default=0)
+    mastered_flag: bool = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="M, with τ/δ hysteresis; stored because it is not a function of p_mastery alone.",
+    )
+    status: str = models.CharField(
+        max_length=12,
+        choices=TopicStatus.choices,
+        default=TopicStatus.CLOSED,
+        db_index=True,
+    )
+    missing_count: int = models.PositiveIntegerField(
+        default=0,
+        help_text="Immediate predecessors in G_L with M = 0.",
+    )
+    started_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="When the learner first answered this topic; never cleared (TY5).",
+    )
+    kb_version: int = models.PositiveBigIntegerField(
+        default=0,
+        help_text="KB version the counter was computed under (TY6).",
+    )
+
+    attempts: int = models.PositiveIntegerField(default=0)
+    correct: int = models.PositiveIntegerField(default=0)
+    accuracy: float = models.FloatField(
+        default=0.0,
+        help_text="correct / attempts, in [0, 1]; 0 before the first answer.",
+    )
 
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
+        verbose_name = "Student Topic State"
+        verbose_name_plural = "Student Topic States"
         constraints = [
-            models.UniqueConstraint(
-                fields=["user", "topic"],
-                name="uniq_user_topic_state",
+            models.UniqueConstraint(fields=["user", "topic"], name="uniq_student_topic_state"),
+            models.CheckConstraint(
+                condition=Q(p_mastery__gte=0.0) & Q(p_mastery__lte=1.0),
+                name="state_p_mastery_is_a_probability",
+            ),
+            models.CheckConstraint(
+                condition=Q(accuracy__gte=0.0) & Q(accuracy__lte=1.0),
+                name="state_accuracy_is_a_fraction",
+            ),
+            models.CheckConstraint(
+                condition=Q(correct__lte=models.F("attempts")),
+                name="state_correct_within_attempts",
+            ),
+            # TY5: a started topic has started_at and is never closed; an
+            # unstarted one has neither.
+            models.CheckConstraint(
+                condition=(
+                    Q(status__in=[TopicStatus.IN_PROGRESS, TopicStatus.MASTERED, TopicStatus.REVIEW])
+                    & Q(started_at__isnull=False)
+                )
+                | (
+                    Q(status__in=[TopicStatus.CLOSED, TopicStatus.OPEN])
+                    & Q(started_at__isnull=True)
+                ),
+                name="state_started_matches_status",
             ),
         ]
         indexes = [
-            models.Index(
-                fields=["user", "mastery_level"],
-                name="idx_user_mastery",
-            ),
+            models.Index(fields=["user", "status"], name="idx_state_user_status"),
         ]
-        verbose_name = "User Knowledge State"
-        verbose_name_plural = "User Knowledge States"
+
+    @property
+    def is_started(self) -> bool:
+        return self.status in readiness.STARTED_STATUSES
+
+    @property
+    def is_closed(self) -> bool:
+        return self.status == TopicStatus.CLOSED
 
     def __str__(self) -> str:
-        return (
-            f"{self.user} | {self.topic} — "
-            f"{self.get_mastery_level_display()}"
-        )
+        return f"{self.user} | {self.topic} — {self.status} P(L)={self.p_mastery:.3f}"
 
 
 # ---------------------------------------------------------------------------

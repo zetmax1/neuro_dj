@@ -189,19 +189,6 @@ class TestMoves(TopicTreeSetup):
         self.assertEqual(KnowledgeBaseVersion.current(), version)
 
 
-class TestLegacyUnlockFlag(TopicTreeSetup):
-    """The global is_unlocked flag is not structural; stage 4 removes it."""
-
-    def test_default_unlock_state(self):
-        self.assertTrue(make_topic("Test", self.ds).is_unlocked)
-
-    def test_locked_topic_can_be_unlocked_without_the_service(self):
-        locked = make_topic("Locked Topic", self.ds, is_unlocked=False)
-        Topic.objects.filter(pk=locked.pk).update(is_unlocked=True)
-        locked.refresh_from_db()
-        self.assertTrue(locked.is_unlocked)
-
-
 class TestArchivedNodesLeaveReads(TopicTreeSetup):
     """D11: archiving keeps the rows for the answer ledger but drops them from the KB."""
 

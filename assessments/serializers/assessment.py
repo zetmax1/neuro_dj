@@ -110,10 +110,19 @@ class SubmissionResultSerializer(serializers.Serializer):
 
     is_correct = serializers.BooleanField()
     explanation = serializers.CharField()
-    mastery_level = serializers.IntegerField()
-    mastery_display = serializers.CharField()
-    mastery_percentage = serializers.FloatField()
-    streak = serializers.IntegerField()
+    # The learner's state after the answer (3.4); the same names the tree, the
+    # graph and the dashboard use.
+    p_mastery = serializers.FloatField(help_text="P(L) after this answer.")
+    status = serializers.CharField(
+        help_text="closed / open / in_progress / mastered / review.",
+    )
+    mastered = serializers.BooleanField(help_text="The M flag, with τ/δ hysteresis.")
+    accuracy = serializers.FloatField(help_text="correct / attempts on this topic.")
+    attempts = serializers.IntegerField()
+    opened_topics = serializers.ListField(
+        child=serializers.IntegerField(),
+        help_text="Topics this answer opened by completing their prerequisites (Algorithm 2.3).",
+    )
     next_question = QuestionSerializer(allow_null=True)
     source = serializers.CharField(
         help_text="Ledger source of this answer; 'review_repeat' answers do not change P(L).",

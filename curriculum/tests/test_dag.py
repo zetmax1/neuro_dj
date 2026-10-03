@@ -3,7 +3,7 @@ curriculum/tests/test_dag.py — prerequisite relations through the KB service.
 
   (a) cycle and self-loop rejection (Algorithm 2.1), with the chain
   (b) topological order of G_L (Algorithm 2.2) across branches
-  (c) legacy is_unlocked_dag AND-logic (kept until stage 4)
+  (c) readiness through G_L: every u ∈ Pre(w) must be mastered (3.4)
   (d) GET /api/curriculum/prerequisite-graph/ format
 
     Mathematics (course) ── Calculus (topic)
@@ -18,9 +18,9 @@ from django.test import TestCase
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from assessments.models import UserKnowledgeState
+from assessments.services import readiness
 from curriculum.services import kb
-from curriculum.services.graph import get_snapshot, is_unlocked_dag
+from curriculum.services.graph import get_snapshot
 from curriculum.testing import make_course, make_topic
 
 User = get_user_model()
@@ -82,19 +82,42 @@ class TestTopologicalOrder(DAGTestSetup):
         self.assertEqual(get_snapshot().descendants(self.calculus.id), [self.mechanics.id, self.quantum.id])
 
 
-class TestIsUnlockedDAG(DAGTestSetup):
-    """(c) Legacy unlock check: requires ALL direct prerequisites (removed in stage 4)."""
+class TestReadinessThroughTheGraph(DAGTestSetup):
+    """(c) R_s(w) = 1 only when every immediate predecessor has M = 1 (3.4)."""
 
-    def test_multi_prerequisite_unlocking(self):
+    def _master(self, topic) -> None:
+        """Set M directly: the arithmetic that gets there is tested elsewhere."""
+        from assessments.models import StudentTopicState
+
+        readiness.states_for(user=self.user)
+        StudentTopicState.objects.filter(user=self.user, topic=topic).update(
+            p_mastery=0.99, mastered_flag=True,
+        )
+        readiness.resync(user=self.user, snapshot=get_snapshot())
+
+    def test_a_topic_needs_all_of_its_prerequisites(self):
         kb.add_prerequisite(prerequisite=self.calculus, topic=self.quantum)
         kb.add_prerequisite(prerequisite=self.mechanics, topic=self.quantum)
-        self.assertFalse(is_unlocked_dag(self.user, self.quantum))
 
-        UserKnowledgeState.objects.create(user=self.user, topic=self.calculus, mastery_percentage=0.85)
-        self.assertFalse(is_unlocked_dag(self.user, self.quantum))
+        blocked = readiness.check_open(user=self.user, topic_id=self.quantum.pk)
+        assert blocked is not None
+        self.assertEqual(
+            {item["topic_id"] for item in blocked.missing},
+            {self.calculus.pk, self.mechanics.pk},
+        )
 
-        UserKnowledgeState.objects.create(user=self.user, topic=self.mechanics, mastery_percentage=0.90)
-        self.assertTrue(is_unlocked_dag(self.user, self.quantum))
+        self._master(self.calculus)
+        blocked = readiness.check_open(user=self.user, topic_id=self.quantum.pk)
+        assert blocked is not None
+        self.assertEqual(
+            [item["topic_id"] for item in blocked.missing], [self.mechanics.pk],
+        )
+
+        self._master(self.mechanics)
+        self.assertIsNone(readiness.check_open(user=self.user, topic_id=self.quantum.pk))
+
+    def test_a_topic_without_prerequisites_is_open(self):
+        self.assertIsNone(readiness.check_open(user=self.user, topic_id=self.calculus.pk))
 
 
 class TestPrerequisiteGraphAPI(DAGTestSetup):

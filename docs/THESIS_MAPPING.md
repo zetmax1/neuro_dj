@@ -44,17 +44,32 @@ qatlami faqat holatni yuklaydi, chaqiradi va saqlaydi.
 | Savol tanlash: min \|b_q − θ_s\| | `assessments/services/question_selection.py` | `test_student_model.py::test_selection_picks_the_question_closest_to_theta` |
 | Kalibrlash | `neuro_model/calibrate.py`, `assessments/management/commands/calibrate_bkt.py` | `neuro_model/tests/test_calibrate.py`, `test_student_model.py` |
 
-## 3. Keyingi bosqichlar
+## 3. Tayyorlik va holatlar (3.4)
+
+| II bob | Kod | Test |
+|---|---|---|
+| M belgisi, τ/δ gisterezis | `neuro_model/readiness.py` (`mastered_flag`) | `neuro_model/tests/test_readiness.py::test_mastered_flag_hysteresis` |
+| R_s(w) — barcha u ∈ Pre(w) uchun M = 1 | `neuro_model/readiness.py` (`is_ready`) | `test_readiness.py::test_readiness_needs_every_predecessor` |
+| r_s(w) = min P(L) | `neuro_model/readiness.py` (`readiness_score`) | `test_readiness.py::test_readiness_score_is_the_weakest_prerequisite`; ledger'da `readiness_score` |
+| `missing_count_s(w)` | `neuro_model/readiness.py` (`missing_count`, `recompute_counters`) | `test_readiness.py::test_a_new_learner_starts_at_the_size_of_pre` |
+| Algoritm 2.3 (1–5 qadam) | `neuro_model/readiness.py` (`propagate`), `assessments/services/readiness.py` (`apply_answer`) | `assessments/tests/test_readiness.py::test_the_readiness_example_of_section_four` |
+| Holatlar va o‘tishlar | `neuro_model/readiness.py` (`next_status`), `assessments/models.py` (`TopicStatus`) | `neuro_model/tests/test_readiness.py::test_status_transitions` |
+| TY5 — boshlangan mavzu yopilmaydi | `next_status` dagi `started` tarmog‘i + `StudentTopicState` DB cheklovi `state_started_matches_status` | `assessments/tests/test_readiness.py::test_ty5_*` |
+| TY6 — `kb_version` mos kelmasa O(n+m) qayta hisoblash | `assessments/services/readiness.py` (`resync`) | `assessments/tests/test_readiness.py::test_ty6_*` |
+| Talaba holati | `assessments/models.py` (`StudentTopicState`) | `assessments/tests/test_readiness.py` |
+| Yopiq mavzuga 403 `{missing: [...]}` | `readiness.check_open`, `orchestrator.TopicClosed`, `assessments/views/assessment.py` | `test_readiness.py::test_*_refuses_a_closed_topic` |
+| Bir xil `p_mastery` / `accuracy` / `status` barcha API'larda | `curriculum/services/path.py`, daraxt/graf/dashboard/testlar serializerlari | `test_readiness.py::test_every_student_endpoint_reports_the_same_state` |
+
+## 4. Keyingi bosqichlar
 
 | II bob | Bosqich |
 |---|---|
-| 3.4 Tayyorlik (Algoritm 2.3), τ/δ gisterezis, holatlar | 4 |
 | 3.5 Trayektoriya, Need(g) | 6 |
 | Test sessiyasi modeldan o‘tadi | 5 |
 
 ---
 
-## 4. Farqlar — koddagi, II bobda yo‘q narsalar
+## 5. Farqlar — koddagi, II bobda yo‘q narsalar
 
 Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
 
@@ -69,14 +84,11 @@ Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
   faqat ketma-ket ~15+ bir xil javobda yetiladi. Chegara `b_q` ga qo‘llanmaydi.
 - **Test.** `neuro_model/tests/test_student.py::test_theta_is_clamped`.
 
-### F2 — Diskret `MasteryLevel` darajalari
+### F2 — Diskret `MasteryLevel` darajalari — **yopildi (4-bosqich)**
 
-- **Nima.** `assessments/services/student_model.py` dagi `mastery_level_for()`
-  P(L) ni 5 ta darajaga (`NOT_STARTED`…`MASTERED`) 0.20/0.45/0.70/0.90
-  chegaralari bo‘yicha ajratadi.
-- **Nega.** Hozirgi interfeys shu maydonni ko‘rsatadi. Bu model miqdori emas.
-- **Ta’siri.** Faqat ko‘rsatish. 4-bosqich uni 3.4-bo‘limdagi τ/δ gisterezisi
-  bilan almashtiradi va bu farq yopiladi.
+`MasteryLevel` enum'i, `mastery_level_for()` va aralash shkalali
+`mastery_percentage` ustuni olib tashlandi. O‘rniga 3.4-bo‘limning M belgisi
+(τ/δ gisterezis) va beshta holati keldi. Bu farq endi mavjud emas.
 
 ### F3 — `review_repeat` siyosati (D25)
 

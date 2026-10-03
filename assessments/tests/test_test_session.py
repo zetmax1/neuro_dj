@@ -17,7 +17,7 @@ from assessments.models import (
     DifficultyLevel,
     Question,
     TestSessionResult,
-    UserKnowledgeState,
+    StudentTopicState,
 )
 from assessments.services import get_stratified_test_questions
 from curriculum.testing import make_topic
@@ -146,8 +146,8 @@ class TestStratifiedTestSession(TestCase):
 
         # D7: the grade is stored as a test result, never as the mastery
         # probability (stage 5 runs the answers through the model instead).
-        state = UserKnowledgeState.objects.get(user=self.user, topic=self.topic)
-        self.assertEqual(state.mastery_percentage, 0.0)
+        state = StudentTopicState.objects.get(user=self.user, topic=self.topic)
+        self.assertEqual(state.p_mastery, 0.0)
 
         first, second = TestSessionResult.objects.filter(user=self.user).order_by("submitted_at", "id")
         self.assertEqual(data["session_id"], second.pk)

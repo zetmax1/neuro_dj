@@ -41,7 +41,7 @@ KB_LOCK_KEY: int = 0x4E4C5F4B42  # "NL_KB"
 # Topic attributes the instructor may edit (structure is handled separately).
 EDITABLE_FIELDS = frozenset({
     "name", "slug", "description", "instructor", "pass_mark_percentage",
-    "test_question_count", "is_unlocked",
+    "test_question_count",
 })
 
 
