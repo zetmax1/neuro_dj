@@ -71,15 +71,42 @@ qatlami faqat holatni yuklaydi, chaqiradi va saqlaydi.
 | Atomarlik va qulflar | `submit` `@transaction.atomic`; barcha mavzular uchun advisory lock bir marta, tartiblangan holda | `test_the_whole_submission_is_atomic` |
 | Yopiq mavzuga 403 | `submit` `TopicClosed` beradi | `TestSessionRespectsReadiness` |
 
-## 5. Keyingi bosqichlar
+## 5. Trayektoriya (3.5)
 
-| II bob | Bosqich |
+| II bob | Kod | Test |
+|---|---|---|
+| Algoritm 2.5, A/B/C/D guruhlari | `neuro_model/trajectory.py` (`trajectory`) | `neuro_model/tests/test_trajectory.py::test_the_groups_come_in_order_a_b_c_d` |
+| ta’sir(v) = \|{w ∈ Desc\*(v) : M = 0}\| | `neuro_model/trajectory.py` (`impact`) | `test_impact_counts_unmastered_descendants` |
+| A guruhi tartibi: ta’sir ↓, so‘ng P ↑ | `trajectory()` ning A tarmog‘i | `assessments/tests/test_trajectory.py::test_review_priority_of_section_four` (t1 ta’sir 4, t3 ta’sir 3) |
+| B/C/D topologik tartibda, `position` bo‘yicha emas | `order` — snapshot'ning G_L tartibi | `test_the_order_is_topological_not_by_position` |
+| Tuzilmali sabab `{code, params}` | `Reason` | `test_every_item_has_a_code_and_numbers_not_a_sentence` |
+| Need_s(g) va yo‘l | `neuro_model/trajectory.py` (`need`, `path_to`) | `test_need_of_t7_and_its_path` (Need(t7) = {t4, t6}, yo‘l t4 → t6 → t7) |
+| `GET /api/learning/trajectory/?course=<id>` | `assessments/views/learning.py` (`TrajectoryView`), servis `assessments/services/trajectory.py` | `assessments/tests/test_trajectory.py` |
+| `GET /api/learning/path-to/<id>/` | `PathToTopicView` | `test_need_of_t7_and_its_path` |
+| Dashboard shu servisdan foydalanadi, to‘rtta evristika yo‘q | `analytics/views/dashboard.py` | `test_the_dashboard_reports_the_trajectory_not_four_heuristics` |
+| So‘rovlar byudjeti (ES7) | bitta tayyorlik sinxronizatsiyasi + bitta nom so‘rovi | `test_the_trajectory_cost_does_not_grow_with_the_course` |
+
+## 6. Addendum endpoint'lari (6-bosqich)
+
+| Talab | Kod | Test |
+|---|---|---|
+| A4-9 `GET /api/learning/mistakes/` (D25) | `MistakesView`; “ko‘rib chiqilgan” belgisi `MistakeReview` da (ledger o‘zgarmas) | `test_mistakes_are_grouped_by_topic_with_both_choices`, `test_a_mistake_can_be_marked_reviewed_and_the_marking_is_idempotent` |
+| A4-10 `GET /api/me/summary/` (D27) | `MeSummaryView` — kurs bo‘yicha k/n, θ, urinishlar, haftalik faollik javob vaqtlaridan | `test_the_summary_is_real_data_only` (XP/achievements/study_hours yo‘q) |
+| A4-11 `GET /api/config/model/` (D29) | `ModelConfigView` — τ, δ va boshqa konstantalar | `test_the_model_config_is_the_single_source` |
+| A4-12 `GET /api/learning/topics/<id>/history/` | `TopicHistoryView` — p̂, P(G), P(S), P(L) oldin→keyin, θ, b, natija, vaqt | `test_the_history_reports_what_the_model_used` |
+
+## 7. Keyingi bosqichlar
+
+| Ish | Bosqich |
 |---|---|
-| 3.5 Trayektoriya, Need(g) | 6 |
+| Frontend: sahifalar, i18n (D20), skrinshotlar | 7 |
+| Eksperimentlar, ablatsiya va rozilik (`use_irt`, `use_prereq_init` allaqachon tayyor) | 8 |
+| Saqlash usullari benchmarki | 9 |
+| Yakuniy sinovlar va hisobot | 10 |
 
 ---
 
-## 6. Farqlar — koddagi, II bobda yo‘q narsalar
+## 8. Farqlar — koddagi, II bobda yo‘q narsalar
 
 Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
 

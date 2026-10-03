@@ -36,11 +36,12 @@ from curriculum.models import Topic
 from curriculum.services import get_learning_path_queryset
 
 from assessments.models import AssessmentAttempt
-from assessments.services import readiness
+from assessments.services import readiness, trajectory
 
 from drf_spectacular.utils import extend_schema
 from analytics.serializers.dashboard import DashboardOverviewSerializer
 from neuro_model import readiness as r
+from neuro_model.trajectory import GROUPS
 
 logger = logging.getLogger(__name__)
 
@@ -80,11 +81,6 @@ class DashboardOverviewView(APIView):
 
         topics_unlocked: int = sum(1 for t in all_topics if is_topic_unlocked(t))
 
-        parent_ids = {t.parent_id for t in all_topics if t.parent_id is not None}
-
-        def is_leaf(t):
-            return t.id not in parent_ids
-
         # Derive mastered count from pre-fetched list
         mastered_states = [t for t in all_topics if t.user_mastered]
         topics_mastered: int = len(mastered_states)
@@ -117,80 +113,16 @@ class DashboardOverviewView(APIView):
                 "p_mastery": worst.user_p_mastery,
             }
 
-        # ── Recommendations Dictionary ────────────────────────────────
-        # recommended_next: highest priority unlocked leaf node not fully mastered
-        unlocked_leaf_not_mastered = [
-            t for t in all_topics
-            if is_leaf(t) and is_topic_unlocked(t) and not t.user_mastered
-        ]
-        recommended_next = unlocked_leaf_not_mastered[0] if unlocked_leaf_not_mastered else None
-
-        # needs_revision: an answered, unmastered leaf — review first
-        revision_candidates = [
-            t for t in all_topics
-            if is_leaf(t) and is_topic_unlocked(t) and t.user_attempts > 0 and not t.user_mastered
-        ]
-        needs_revision = min(revision_candidates, key=lambda t: t.user_p_mastery) if revision_candidates else None
-
-        # ready_to_advance: unlocked and not fully mastered topic where user_attempts == 0
-        advance_candidates = [
-            t for t in all_topics
-            if is_topic_unlocked(t) and t.user_attempts == 0 and not t.user_mastered
-        ]
-        if not advance_candidates:
-            advance_candidates = [
-                t for t in all_topics
-                if is_topic_unlocked(t) and not t.user_mastered
-            ]
-        ready_to_advance = advance_candidates[0] if advance_candidates else None
-
-        # coming_soon: first locked non-leaf (category) node, fallback to any locked node
-        locked_categories = [
-            t for t in all_topics
-            if not is_leaf(t) and not is_topic_unlocked(t)
-        ]
-        coming_soon = None
-        if locked_categories:
-            coming_soon = locked_categories[0]
-        else:
-            locked_nodes = [t for t in all_topics if not is_topic_unlocked(t)]
-            if locked_nodes:
-                coming_soon = locked_nodes[0]
-
-        recommendations = {
-            "recommended_next": {
-                "id": recommended_next.id,
-                "name": recommended_next.name,
-                "slug": recommended_next.slug,
-                "description": recommended_next.description,
-                "p_mastery": recommended_next.user_p_mastery,
-                "status": recommended_next.user_status,
-            } if recommended_next else None,
-            "needs_revision": {
-                "id": needs_revision.id,
-                "name": needs_revision.name,
-                "slug": needs_revision.slug,
-                "description": needs_revision.description,
-                "p_mastery": needs_revision.user_p_mastery,
-                "status": needs_revision.user_status,
-            } if needs_revision else None,
-            "ready_to_advance": {
-                "id": ready_to_advance.id,
-                "name": ready_to_advance.name,
-                "slug": ready_to_advance.slug,
-                "description": ready_to_advance.description,
-                "p_mastery": ready_to_advance.user_p_mastery,
-                "status": ready_to_advance.user_status,
-            } if ready_to_advance else None,
-            "coming_soon": {
-                "id": coming_soon.id,
-                "name": coming_soon.name,
-                "slug": coming_soon.slug,
-                "description": coming_soon.description,
-                "p_mastery": coming_soon.user_p_mastery,
-                "status": coming_soon.user_status,
-            } if coming_soon else None,
-        }
+        # ── What to do next: the trajectory service ───────────────────
+        # Stage 6 removed the four heuristics that used to live here
+        # (recommended_next, needs_revision, ready_to_advance, coming_soon).
+        # Each had its own ordering and its own idea of "unlocked"; they could
+        # and did disagree. Algorithm 2.5 answers the question once, in
+        # topological order, with a structured reason per item (D20).
+        steps = trajectory.for_learner(user=user)
+        grouped: dict[str, list[dict]] = {group: [] for group in GROUPS}
+        for step in steps:
+            grouped[step.group].append(step.payload())
 
         # ── Concept Heatmap Aggregates ────────────────────────────────
         # Top 12 primary concepts/topics from the database
@@ -276,7 +208,7 @@ class DashboardOverviewView(APIView):
             "weakest_topic": weakest_topic,
             "recent_activity": recent_activity,
             "heatmap_data": heatmap_data,
-            "recommendations": recommendations,
+            "trajectory": {"groups": grouped, "next": steps[0].payload() if steps else None},
         }
 
         serializer = DashboardOverviewSerializer(response_data)

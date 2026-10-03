@@ -610,6 +610,39 @@ class AssessmentAttempt(models.Model):
         return f"[{status}] {self.user} → Q{self.question_id} #{self.attempt_no} ({self.source})"
 
 
+class MistakeReview(models.Model):
+    """
+    The learner marked one wrong answer as reviewed (D25, addendum 2.10).
+
+    The ledger is append-only, so "I have looked at this" cannot be a column
+    on ``AssessmentAttempt``; it lives here instead. Nothing is ever deleted:
+    the mistakes page has no "clear" button, only this marker.
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="mistake_reviews",
+        db_index=True,
+    )
+    attempt = models.OneToOneField(
+        "assessments.AssessmentAttempt",
+        on_delete=models.CASCADE,
+        related_name="review",
+    )
+    reviewed_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        verbose_name = "Mistake Review"
+        verbose_name_plural = "Mistake Reviews"
+        indexes = [
+            models.Index(fields=["user", "reviewed_at"], name="idx_review_user_ts"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user} reviewed attempt {self.attempt_id}"
+
+
 class UserAbility(models.Model):
     """
     The learner's ability θ, held per **course** (D33).

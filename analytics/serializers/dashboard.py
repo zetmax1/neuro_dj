@@ -52,24 +52,35 @@ class HeatmapDataSerializer(serializers.Serializer):
     )
 
 
-class RecommendationTopicSerializer(serializers.Serializer):
-    """Minimal topic details for recommendation panels."""
+class TrajectoryReasonSerializer(serializers.Serializer):
+    """Why an item sits where it does: a stable code and the numbers (D20)."""
 
-    id = serializers.IntegerField()
+    code = serializers.CharField()
+    params = serializers.DictField()
+
+
+class TrajectoryItemSerializer(serializers.Serializer):
+    """One entry of Algorithm 2.5."""
+
+    topic_id = serializers.IntegerField()
     name = serializers.CharField()
     slug = serializers.CharField()
-    description = serializers.CharField(allow_blank=True)
-    p_mastery = serializers.FloatField()
+    group = serializers.CharField(help_text="A review, B in_progress, C open, D closed.")
     status = serializers.CharField()
+    p_mastery = serializers.FloatField()
+    accuracy = serializers.FloatField()
+    reason = TrajectoryReasonSerializer()
+    missing = serializers.ListField(child=serializers.DictField())
 
 
-class RecommendationsSerializer(serializers.Serializer):
-    """Dynamic personalized recommendation states for the UI."""
+class TrajectorySerializer(serializers.Serializer):
+    """
+    Algorithm 2.5 in four groups. Replaces the four heuristics the dashboard
+    used to compute, which could disagree with each other.
+    """
 
-    recommended_next = RecommendationTopicSerializer(allow_null=True)
-    needs_revision = RecommendationTopicSerializer(allow_null=True)
-    ready_to_advance = RecommendationTopicSerializer(allow_null=True)
-    coming_soon = RecommendationTopicSerializer(allow_null=True)
+    groups = serializers.DictField(child=TrajectoryItemSerializer(many=True))
+    next = TrajectoryItemSerializer(allow_null=True)
 
 
 class DashboardOverviewSerializer(serializers.Serializer):
@@ -124,4 +135,4 @@ class DashboardOverviewSerializer(serializers.Serializer):
 
     # ── New visual component aggregates ───────────────────────────────
     heatmap_data = HeatmapDataSerializer(many=True)
-    recommendations = RecommendationsSerializer()
+    trajectory = TrajectorySerializer()
