@@ -12,7 +12,9 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from django.conf import settings
-from django.conf.urls.static import static
+from django.urls import re_path
+
+from config.media import serve_media
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -39,5 +41,9 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # In production uploaded media is served by the web server with the same
+    # frame-ancestors policy.
+    urlpatterns += [
+        re_path(r"^media/(?P<path>.*)$", serve_media),
+    ]
 
