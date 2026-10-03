@@ -73,6 +73,26 @@ did not write (adaptive practice, test sessions, legacy rows), it stops; pass
 option removes only those accounts. Simulated data is for testing the
 pipeline only, never for thesis results.
 
+## Knowledge base
+
+The curriculum is a tree of `course` (roots), `section` and `topic` (leaves;
+only topics hold questions) stored with django-tree-queries. Prerequisites
+(`TopicPrerequisite`, weight ω ∈ (0, 1]) may join any two nodes; topics inherit
+them through the topic graph G_L.
+
+Every structural change — creating, moving, archiving or deleting nodes,
+changing kinds or positions, adding or removing prerequisites — goes through
+`curriculum.services.kb`. It serialises changes with a PostgreSQL advisory
+lock, rejects nesting (Y2) and cycles (Y3, with the offending chain) and bumps
+`KnowledgeBaseVersion`; direct `save()`/`update()`/`bulk_create()` calls on
+these fields raise `KBWriteError`. Graph data (pos, G_L, topological order,
+lev, Desc*, redundant edges, κ) is cached under the KB version. The pure
+algorithms live in `neuro_model/graph.py`.
+
+Instructor endpoints: `/api/curriculum/instructor/prerequisites/`
+(`?expand=leaf` for G_L) and `/api/curriculum/instructor/kb/warnings/`.
+Rejected changes answer 400 with `{"reason", "detail", "chain"}`.
+
 ## Answer ledger
 
 Every answer is one immutable `AssessmentAttempt` row written by

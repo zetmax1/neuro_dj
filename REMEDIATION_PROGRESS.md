@@ -2,6 +2,8 @@
 
 > **Foydalanuvchi ko‘rsatmasi (asl matn):** Backend ildizida ikkita fayl bor: NEUROLEARN_REMEDIATION.md (topshiriq) va NEUROLEARN_AUDIT.md (audit). Avval ikkalasini to‘liq o‘qi. Keyin topshiriqdagi "Ish qoidalari"ga amal qilib, 0-bosqichdan boshla. Har bir bosqich oxirida REMEDIATION_PROGRESS.md ni yangila, commit qil va menga qisqa hisobot ber. Keyingi bosqichga men "davom et" deganimdan keyin o‘t. Agar REMEDIATION_PROGRESS.md allaqachon mavjud bo‘lsa, ishni u yerda to‘xtagan joydan davom ettir.
 
+> **Foydalanuvchi ko‘rsatmasi, 2-bosqich (asl matn):** davom et. Keyin: qolgan joyidan davom etilsin. Aniqlashtirish savollariga javoblar: “Algorithm” kursidagi 31 ta savol — “Savollarni o‘chirish”; savoli yo‘q barglar — “topic”.
+
 > **Foydalanuvchi ko‘rsatmasi, 1-bosqich frontend (asl matn):** frontendni ham yuqorida aytilgani kabi o'zgartir. Desktop/neuro/neuro --> location. Aniqlashtirish savoliga javob: “1-bosqichga moslash” va tutor uchun “D24 bo‘yicha flag ortiga”.
 
 > **Foydalanuvchi ko‘rsatmasi, 1-bosqich (asl matn):** Backend ildiziga NEUROLEARN_UI_ADDENDUM.md faylini qo‘shdim. Uni to‘liq o‘qi: undagi D20–D29 qarorlari endi NEUROLEARN_REMEDIATION.md ning bir qismi. Fayldagi 4-bo‘lim jadvalida qaysi backend qismi qaysi bosqichda kerakligi yozilgan: ularni o‘sha bosqichlarda bajar va REMEDIATION_PROGRESS.md dagi bog‘liqlik matritsasiga qo‘sh. 0-bosqichdagi Q0-5, Q0-6, Q0-7 qarorlarini tasdiqlayman. Endi 1-bosqichni boshla.
@@ -14,7 +16,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 |---|---|---|---|
 | 0 — Xavfsizlik, infratuzilma, ma’lumotlarni himoyalash | **Bajarildi** | `1d6f286`, `b44df84`, `f620171`, `332d56f`, `4067215` | `a751538`, `6c5a0a7` |
 | 1 — Ma’lumot ifloslanishini to‘xtatish, javoblar logi | **Bajarildi** | `8bc4cea` (addendum), `888a96f`, `960ba2c` | `7b549fd`, `2fa1d99` |
-| 2 — Bilimlar bazasi modeli | Kutilmoqda | — | — |
+| 2 — Bilimlar bazasi modeli | **Bajarildi** | `5e5cb09`, `79b907c` | `c259646` |
 | 3 — Talaba modeli | Kutilmoqda | — | — |
 | 4 — Tayyorlik va holatlar | Kutilmoqda | — | — |
 | 5 — Test sessiyasi modeldan o‘tadi | Kutilmoqda | — | — |
@@ -170,6 +172,65 @@ Yangi testlar:
 
 ---
 
+## 2-bosqich hisoboti
+
+### Nima qilindi
+
+- **Sof algoritmlar (7-qoida).** `neuro_model/graph.py` (Django'siz):
+  - preorder `pos` (D4), Leaves, G_L (vazni — max), Y2;
+  - Algoritm 2.1 (BFS + zanjir);
+  - Algoritm 2.2 (`(pos, id)` kalitli heap, `lev`, `CycleError`);
+  - Desc\* bitset, ortiqcha qirralar, κ.
+- **Daraxt (D3, BB1, BB2).**
+  - `Topic` django-tree-queries'ga ko‘chirildi: MPTT ustunlari olib tashlandi, `mptt` INSTALLED_APPS'dan chiqarildi. Paket eski migratsiyalar va 9-bosqich benchmarki uchun qoladi.
+  - `kind` qo‘shildi: `course` / `section` / `topic`. Qo‘shimcha DB cheklovi: kurs ⇔ ildiz.
+  - Aka-uka tugunlar `(position, id)` bo‘yicha tartiblanadi.
+- **Migratsiyalar `0010`–`0012`.**
+  - `kind` qiymatlari: ildiz → course, bolasi bor tugun → section, barg → topic (Q2-2).
+  - Data qadami kurs yoki bo‘limda savol topsa (Y4), shuningdek mavjud Y2/Y3 buzilishini topsa, taxmin qilmay to‘xtaydi.
+  - `TopicPrerequisite` ga ω ∈ (0, 1], self-loop va unique cheklovlari qo‘shildi. `KnowledgeBaseVersion` singleton yaratildi.
+- **Yagona KB servisi (`curriculum/services/kb.py`).**
+  - Amallar: `create_node`, `update_node`, `move_node`, `archive_node`, `delete_node`, `add_prerequisite`, `update_weight`, `remove_prerequisite`.
+  - Har bir amal advisory lock oladi, KB'ni keshdan emas, bazadan qayta o‘qiydi va Y1–Y3 hamda tur qoidalarini tekshiradi. Algoritm 2.1 zanjir bilan ishlaydi; daraxt o‘zgarganda Algoritm 2.2 va Y2 qayta tekshiriladi.
+  - Muvaffaqiyatli amal versiyani aniq bittaga oshiradi. Rad etilgan amal hamma narsani, versiyani ham, orqaga qaytaradi.
+- **Chetlab o‘tishga qarshi guard'lar.** `Topic` (parent/kind/position/is_archived), `TopicPrerequisite` va `KnowledgeBaseVersion` uchun `save`, `delete`, `update`, `bulk_create`, `bulk_update` servisdan tashqarida `KBWriteError` beradi. Nostruktur tahrirlar (nom, `is_unlocked`) ruxsat etiladi. Admin servis orqali yozadi.
+- **Kesh (GR1).** `KBSnapshot` tarkibi: pos, depth, Leaves, G_L, tartib, lev, Pre/Succ, Desc\*, ortiqcha qirralar, κ. U KB versiyasi kaliti bilan keshlanadi va eskirgan yozuv o‘qilmaydi. Versiya ma’lumotdan oldin ham, keyin ham o‘qiladi; ular teng bo‘lmasa, natija keshga yozilmaydi.
+- **Olib tashlanganlar.** Eski `topological_order`, `get_all_prerequisites`, `_invalidate_tree_cache`, `TopicPrerequisite.clean` (DFS) va MPTT benchmark buyrug‘i.
+- **API.**
+  - Instruktor prerekvizitlari CRUD: `/api/curriculum/instructor/prerequisites/`; G_L uchun `?expand=leaf`.
+  - Ogohlantirishlar: `/api/curriculum/instructor/kb/warnings/`.
+  - Rad javobi — 400 `{reason, detail, chain, chain_names, edge}`.
+  - Graf API (addendum A4-2…A4-5): `kind`, `pos`, `depth`, `lev`; G_L qirralari (`inherited`, `via`); E_P qirralari ω bilan; instruktorlarga `warnings`.
+  - O‘quv yo‘li daraxti `pos` tartibida va `kind`/`pos`/`lev` bilan qaytadi.
+- **Y4 va import.**
+  - Savol faqat faol `topic` ga biriktiriladi. Bu serializer, import, admin (`Question.clean`) va model guard'ida tekshiriladi; guard tur o‘zgarishi bilan poygaga qarshi topic qatorini qulflaydi.
+  - Import endi alohida servis: 2–4 variant va bitta to‘g‘ri javob tekshiriladi, xatolar savol bo‘yicha qaytadi va hech narsa qisman yozilmaydi.
+  - ≤4 variant qoidasi `bulk_create` yo‘lida ham ishlaydi.
+- **Ledger.** Endi `kb_version` yoziladi; `course` snapshot'dan olinadi.
+- **Seed'lar va simulyator** daraxtni servis orqali quradi. `Demo Topic` CS kursining mavzusi bo‘ldi, chunki u ildiz bo‘lib, savollari bor edi.
+- **Dev baza.**
+  - 31 ta javobsiz savol va ularning 124 ta varianti foydalanuvchi qarori bilan o‘chirildi (Q2-1). Oldin `backups/pg-20261003-1106-before-b2.dump` olindi.
+  - Migratsiyadan keyin barcha jadvallarda qatorlar soni o‘zgarmadi. Natija: 3 kurs, 4 bo‘lim, 9 mavzu; G_L da 5 qirra, κ = 0, ortiqcha qirra yo‘q.
+  - Docker volume yo‘qolgani tufayli baza zaxiradan tiklandi (Q2-8).
+- **Frontend (`c259646`).** Tur tanlovi (Topic/Section), savollar faqat topic'larga, topic'lar ota tugun sifatida taklif qilinmaydi, KB va import xatolari ko‘rsatiladi, graf tiplari kengaytirildi.
+
+### Tekshiruv natijalari
+
+| Tekshiruv | Natija |
+|---|---|
+| `pytest` (PostgreSQL 16) | **440 passed** (140 ta Django testi + 300 ta tasodifiy `neuro_model` holati; 3 subtest) |
+| `pytest` toza venv'da, CI env bilan | **440 passed**; `check` toza; `makemigrations --check` → No changes |
+| 4-bo‘lim etalon qiymatlari (API va sof funksiyalar) | Hammasi mos: E_L = 10 (meros: t4→t6, t4→t7, t4→t8), tartib t1…t8, lev 0,0,1,1,1,2,3,3, FIFO t1,t2,t3,t5,t4,…, \|Desc\*\| 5,4,3,3,3,2,0,0, ortiqcha t4→t7, t4→t8, κ = 0; (t8,t3) → `cycle` [t3,t6,t8]; (B3,t6) → `nested`; t4 → B3 → `nested`; audit probe'lari 1–2 |
+| Poyga testi (V-B5) | 10/10 raundda aynan bitta relatsiya o‘tadi. Advisory lock o‘chirilganda 10/10 yiqiladi (mutatsion tekshiruv) |
+| Tasodifiy taqqoslash (seed `20261003`, 300 holat) | Algoritm 2.1 qarori va zanjiri, Algoritm 2.2 tartibi (leksikografik eng kichik), lev, Desc\*, ortiqcha qirralar — brute-force bilan mos |
+| Frontend | lint 71 / 12 va tsc 16 — o‘zgarmadi; vitest 10 passed; build o‘tdi |
+
+### Foydalanuvchi bajarishi kerak bo‘lgan ishlar
+
+- Docker snap orqali o‘rnatilgan. Qayta yuklangandan keyin `neurolearn_pgdata` volume'i yo‘qolgan edi (Q2-8). Dev ma’lumotlarini muntazam `pg_dump` bilan saqlang yoki Docker'ni snap'siz o‘rnatishni ko‘rib chiqing.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -208,20 +269,30 @@ Yangi testlar:
 | Q1-16 | Dev bazada 31 ta savol farzandli tugunlarga biriktirilgan (Y4 buzilishi) | 1-bosqichda `topic` savolning hozirgi tuguni sifatida saqlanadi. 2-bosqichdagi `kind` migratsiyasi spetsifikatsiyaga ko‘ra shunday tugunni topganda to‘xtaydi va foydalanuvchidan so‘raydi |
 | Q1-17 | Repoda kuzatilmaydigan `NEUROLEARN_VERIFICATION.md` bor | Bu mustaqil tekshiruvchi sessiyaning topshirig‘i. Commit qilinmadi, chunki bu so‘ralmagan. Uning V-C9, V-C12 va V-D1 talablari 1-bosqich testlarida hisobga olindi |
 | Q1-18 | “Frontendni ham yuqorida aytilgani kabi o‘zgartir” — hajmi noaniq edi: 1-bosqichga moslashmi yoki addendum UI'si (7-bosqich)mi | Foydalanuvchi “1-bosqichga moslash” variantini tanladi. Faqat 1-bosqich backend o‘zgarishlari bilan bog‘liq qismlar qilindi. Addendum sahifalari B2/B4/B6 API'lariga bog‘liq, ular 7-bosqichda qilinadi. Yangi xabarlar hozircha inglizcha, chunki interfeys hali inglizcha; 7-bosqichda D20 bo‘yicha i18n'ga o‘tadi |
+| Q2-1 | Dev bazada “Algorithm” ildizi (kurs) ga 31 ta savol biriktirilgan edi (Y4 buzilishi; spetsifikatsiya bo‘yicha to‘xtash va so‘rash kerak) | Foydalanuvchi “savollarni o‘chirish” ni tanladi. Ularga javob yo‘q edi. 31 ta savol va 124 ta variant migratsiyadan oldin, alohida amal sifatida o‘chirildi; zaxira `pg-20261003-1106-before-b2.dump`. Migratsiyaning o‘zi boshqa bazalarda bunday tugunni topsa, ma’lumotni o‘chirmaydi — to‘xtaydi |
+| Q2-2 | Spetsifikatsiya: “savollari bor barg → topic; qolganlari → section”. Dev bazada 6 ta bo‘sh barg bor | Foydalanuvchi qarori: bo‘sh barg ham `topic` (II bob: topic — barg). `0011_kb_data` shunday ishlaydi |
+| Q2-3 | Yangi tugun qaysi tur bo‘ladi? Topic ostida bola yaratish mumkinmi? | Standart: ildiz → course, aks holda topic. Topic ostida bola yaratish rad etiladi (`parent_is_topic`); avval uni section'ga o‘zgartirish kerak (savoli bo‘lmasa). Avtomatik o‘zgartirish qilinmaydi |
+| Q2-4 | Spetsifikatsiyada `delete_node` va oddiy maydonlarni tahrirlash servisi yo‘q, lekin “API ... faqat shu servis orqali yozadi” | `update_node` (nom, slug, pass mark va boshqalar; strukturaviy o‘zgarishlarda versiya oshadi, aks holda oshmaydi) va `delete_node` (javob bo‘lsa — `archive_node`) qo‘shildi |
+| Q2-5 | Arxivlangan tugunlar KB'da qanday? | Ular va ularga tegishli relatsiyalar snapshot'ga kirmaydi (G_L, pos). Relatsiya qatorlari bazada saqlanadi; arxivlangan tugunga yangi relatsiya qo‘shib bo‘lmaydi (`archived`) |
+| Q2-6 | Graf API'da `edges` kaliti nimani bildiradi? | Mavjud frontend buzilmasligi uchun `edges` E_P (instruktor kiritgani) bo‘lib qoldi. G_L — yangi `leaf_edges` (`inherited`, `via`). `warnings` faqat instruktorlarga |
+| Q2-7 | Prerekvizit API'da instruktorlar faqat o‘z mavzularini ko‘radimi? | Yo‘q: prerekvizitlar kurslararo bo‘lishi mumkin (D2), shuning uchun har qanday instruktor barcha faol tugunlar orasida relatsiya qo‘sha oladi. Egalik cheklovi kerak bo‘lsa — 7-bosqichda |
+| Q2-8 | Ish davomida tizim qayta yuklandi; snap Docker'ning `neurolearn_pgdata` volume'i yo‘qoldi va dev baza bo‘sh bo‘lib qoldi | Bu sessiyadan tashqarida sodir bo‘ldi. Eng so‘nggi zaxira (`pg-20261003-1132-pre-b2-migrate.dump`) bo‘sh bazaga tiklandi. Qatorlar soni mos keldi, 2-bosqich migratsiyalari qayta qo‘llandi va natija avvalgisi bilan bir xil chiqdi. `db.sqlite3` o‘zgarmagan (`5c33c7d2…`) |
+| Q2-9 | `benchmark_tree.py` MPTT ustunlariga bog‘liq edi | O‘chirildi; 9-bosqichda `benchmarks` app'i bilan almashtiriladi. Bu va `test_mptt_tree.py` ning o‘chirilishi xato bilan `5e5cb09` ga tushib qoldi (oldindan stage qilingan edi); tarix qayta yozilmadi |
+| Q2-10 | 1-bosqichning migratsiya testi `curriculum 0009` holatiga qaytardi, bu MPTT ustunlarini qayta qo‘shishni talab qilardi | Test endi `curriculum 0012` (joriy) bilan `assessments 0005` kombinatsiyasidan boshlanadi. Curriculum migratsiyalari `assessments 0005` dan keyingilariga bog‘lanmaydi |
 
 ---
 
 ## Bog‘liqlik matritsasi (audit topilmalari → vazifa)
 
 Holatlar: **Bajarildi**; **Qisman**; **Kutilmoqda (Bn)** — rejadagi n-bosqichda bajariladi; **Kechiktirildi — sababi**.
-Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (auth), `332d56f` (data), `4067215` (docs/CI), `8bc4cea` (addendum), `888a96f` (ledger), `960ba2c` (arxiv); frontend `a751538`, `6c5a0a7`, `7b549fd` (tutor flag), `2fa1d99` (1-bosqichga moslash).
+Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (auth), `332d56f` (data), `4067215` (docs/CI), `8bc4cea` (addendum), `888a96f` (ledger), `960ba2c` (arxiv); `5e5cb09` (neuro_model), `79b907c` (KB); frontend `a751538`, `6c5a0a7`, `7b549fd` (tutor flag), `2fa1d99` (1-bosqichga moslash), `c259646` (2-bosqichga moslash).
 
 ### 0-bo‘lim (asosiy 5 muammo)
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
 | #1 Test oqimi BKT'ni chetlab o‘tadi, 0–100 shkala | P0-1 (B5, B7) | Kutilmoqda (B5, B7) | — |
-| #2 KB modeli: MPTT, G_L yo‘q, Y2/Y3, qulf yo‘q | P0-4, P1-6, P1-7 (B2) | Kutilmoqda (B2) | — |
+| #2 KB modeli: MPTT, G_L yo‘q, Y2/Y3, qulf yo‘q | P0-4, P1-6, P1-7 (B2) | Bajarildi | `curriculum/services/kb.py`, `neuro_model/graph.py`, `5e5cb09`, `79b907c`; testlar `test_kb.py`, `test_kb_concurrency.py` |
 | #3 Talaba modeli II bobga zid | P0-5 (B3) | Kutilmoqda (B3) | — |
 | #4 Unlock 4 xil, global `is_unlocked`, cascade | P0-3, P0-6 (B4), P0-2 (B1) | Qisman | Cascade olib tashlandi (`888a96f`, test `test_mastering_a_section_does_not_touch_descendants`); unlock — B4 |
 | #5 Log yaroqsiz, sun’iy yozuvlar; maxfiy ma’lumotlar repoda | P0-2, P1-1 (B1); P2-1 (B0) | Bajarildi | Maxfiy qism: `config/settings.py:33-60`, README (B0). Log: `assessments/models.py` (`AssessmentAttempt`), `assessments/services/ledger.py`, `888a96f`; testlar `test_ledger.py` |
@@ -233,9 +304,9 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 1.1 `.idea/` git'da kuzatiladi | B0 repo tozaligi | Bajarildi | `.gitignore`, `1d6f286` |
 | 1.1 Bo‘sh `views.py` paketlar bilan to‘sib qo‘yilgan | B0 | Bajarildi | `1d6f286` |
 | 1.2 `requirements.txt` to‘liq emas, `Pipfile` nomuvofiq | P2-2, D18 | Bajarildi | `requirements.txt`, `requirements-dev.txt`, `1d6f286`; toza venv tekshiruvi |
-| 1.2 django-tree-queries o‘rnatilgan, lekin ishlatilmaydi | P1-6 (B2) | Kutilmoqda (B2) | `requirements.txt` ga qo‘shildi |
+| 1.2 django-tree-queries o‘rnatilgan, lekin ishlatilmaydi | P1-6 (B2) | Bajarildi | `curriculum/models.py` (`TreeNode`), migratsiya `0012_kb_enforce`, `79b907c` |
 | 1.2 SQLite, PostgreSQL yo‘q | D1 | Bajarildi | `config/settings.py:153-156`, `docker-compose.yml`, `b44df84` |
-| 1.2 Redis sozlangan, lekin hech narsa keshlanmaydi | GR1 (B2) | Kutilmoqda (B2) | — |
+| 1.2 Redis sozlangan, lekin hech narsa keshlanmaydi | GR1 (B2) | Bajarildi | KB snapshot versiya kaliti bilan keshlanadi: `curriculum/services/graph.py:get_snapshot`, `79b907c` |
 | 1.3 Redis bo‘lmasa yozuvdan keyin 500 | B0 | Bajarildi | `config/settings.py:170-185`, `curriculum/views/instructor.py:72-75`; test `test_topic_writes_survive_cache_backend[redis-down]` |
 | 1.3 Env o‘zgaruvchilari yo‘q, `.env` ishlatilmaydi | P2-1 | Bajarildi | `config/settings.py:22-27`, `config/.env.example` |
 | 1.3 Ildizdagi `.env` da token | 3-qoida, 8.4-Q6 | Qisman | `.gitignore:13` da borligi tekshirildi; tokenni bekor qilish foydalanuvchida |
@@ -248,16 +319,16 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| 2.2 `TopicPrerequisite` da ω yo‘q | BB3 (B2) | Kutilmoqda (B2) | — |
-| 2.2 `Choice` ≤4 cheklovi `bulk_create` da ishlamaydi | B2 (Y4, import servisi) | Kutilmoqda (B2) | — |
-| 2.2 Daraxt MPTT'da | D3, P1-6 (B2) | Kutilmoqda (B2) | — |
+| 2.2 `TopicPrerequisite` da ω yo‘q | BB3 (B2) | Bajarildi | `weight` ∈ (0, 1] + CHECK (`prerequisite_weight_range`), `79b907c` |
+| 2.2 `Choice` ≤4 cheklovi `bulk_create` da ishlamaydi | B2 (Y4, import servisi) | Bajarildi | `assessments/models.py:check_choice_limits` (`bulk_create` va `save`), `assessments/services/question_import.py`, `79b907c`; test `test_at_most_four_choices_on_bulk_paths` |
+| 2.2 Daraxt MPTT'da | D3, P1-6 (B2) | Bajarildi | MPTT ustunlari olib tashlandi, `mptt` INSTALLED_APPS'dan chiqarildi, `79b907c` |
 | 2.2 `orchestrator.py:23` noto‘g‘ri izoh | B0 | Bajarildi | `assessments/services/orchestrator.py:21-24`, `1d6f286` |
-| 2.4 Prerekvizit uchun API yo‘q | B2 API | Kutilmoqda (B2) | — |
+| 2.4 Prerekvizit uchun API yo‘q | B2 API | Bajarildi | `/api/curriculum/instructor/prerequisites/` (CRUD, `?expand=leaf`), `/api/curriculum/instructor/kb/warnings/`, `79b907c` |
 | 2.4 Graf va shablon AllowAny | D15 | Bajarildi | `curriculum/views/graph.py:34`, `assessments/views/instructor.py:235`, `f620171` |
 | 2.4 `learning_path/tree` dagi `mastery_percentage` aslida `score` | D5 (B4) | Kutilmoqda (B4) | — |
 | 2.5 JWT blacklist ishlamaydi | D16 | Bajarildi | `config/settings.py:86`; test `test_rotated_refresh_token_is_blacklisted` |
 | 2.5 Rollar nomuvofiq (`Instructor` va `is_staff`) | D15, P2-5 | Qisman | Backend: `accounts/permissions.py`, `f620171`; frontend `AdminRoute` — B7 |
-| 2.6 Advisory lock yo‘q | BB9 (B2) | Kutilmoqda (B2) | — |
+| 2.6 Advisory lock yo‘q | BB9 (B2) | Bajarildi | `pg_advisory_xact_lock(KB_LOCK_KEY)` — `curriculum/services/kb.py:_lock`, `79b907c`; mutatsion tekshiruvli poyga testi |
 | 2.6 `SubmitTestSessionView` atomar emas | B5 | Qisman | B1: yozuvlar `transaction.atomic` ichida, holat qatori `select_for_update` bilan (`assessments/views/assessment.py`, `888a96f`). Servisga ko‘chirish — B5 |
 | 2.6 `dashboard.py:66` ortiqcha `atomic` | B5 | Kutilmoqda (B5) | — |
 | 2.6 SQLite `FOR UPDATE` ni e’tiborsiz qoldiradi | D1 | Bajarildi | Testlar PostgreSQL'da ishlaydi (`pytest.ini`, CI) |
@@ -283,15 +354,15 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| 4.1 Sikl tugunlar grafida DFS bilan | BB7, ES1 (B2) | Kutilmoqda (B2) | — |
-| 4.1 Sikl zanjiri qaytarilmaydi | BB7 (B2) | Kutilmoqda (B2) | — |
-| 4.1 Y2 tekshirilmaydi | BB6 (B2) | Kutilmoqda (B2) | — |
-| 4.1 TOCTOU poyga holati | BB9 (B2) | Kutilmoqda (B2) | — |
-| 4.1 `bulk_create`/`update` chetlab o‘tadi | B2 (guard) | Kutilmoqda (B2) | — |
-| 4.1 Har bir tugun uchun SQL (N+1) | B2 | Kutilmoqda (B2) | — |
-| 4.2 `InvalidMove` → 500 | BB5, P2-3 (B2) | Kutilmoqda (B2) | — |
+| 4.1 Sikl tugunlar grafida DFS bilan | BB7, ES1 (B2) | Bajarildi | BFS G_L bo‘yicha (Algoritm 2.1): `neuro_model/graph.py:find_cycle_chain`, `5e5cb09` |
+| 4.1 Sikl zanjiri qaytarilmaydi | BB7 (B2) | Bajarildi | 400 javobida `chain`, `chain_names`, `edge`; test `test_cycle_t8_to_t3_is_rejected_with_its_chain` |
+| 4.1 Y2 tekshirilmaydi | BB6 (B2) | Bajarildi | `kb.add_prerequisite` va tree o‘zgarishlarida `_check_nesting`, `79b907c`; test `test_b3_to_t6_violates_y2` |
+| 4.1 TOCTOU poyga holati | BB9 (B2) | Bajarildi | Advisory lock + lock ostida qayta o‘qish, `79b907c`; `test_kb_concurrency.py` (10 raund) |
+| 4.1 `bulk_create`/`update` chetlab o‘tadi | B2 (guard) | Bajarildi | `curriculum/kb_guard.py` + model/queryset guard'lari, `79b907c`; test `test_structural_writes_outside_the_service_are_refused` |
+| 4.1 Har bir tugun uchun SQL (N+1) | B2 | Bajarildi | KB bir marta o‘qiladi (2 so‘rov) va xotirada hisoblanadi: `build_snapshot`, `79b907c` |
+| 4.2 `InvalidMove` → 500 | BB5, P2-3 (B2) | Bajarildi | Y1 servisda (`move_into_subtree`), `KBError` → 400 (`KBErrorMixin`), `79b907c`; test `test_y1_node_cannot_move_into_its_subtree` |
 | 4.2 Tugun o‘chirilsa javoblar CASCADE bilan o‘chadi | D11, P2-8 (B1) | Bajarildi | `PROTECT` (`assessments/models.py`), arxivlash `curriculum/views/instructor.py` (`destroy`), `960ba2c`; test `test_orm_refuses_to_drop_answers`, `test_deleting_an_answered_subtree_archives_it` |
-| 4.2 Daraxt o‘zgarganda Y2/Y3 tekshirilmaydi | BB8 (B2) | Kutilmoqda (B2) | — |
+| 4.2 Daraxt o‘zgarganda Y2/Y3 tekshirilmaydi | BB8 (B2) | Bajarildi | `update_node`/`create_node` dan keyin Algoritm 2.2 va Y2, `79b907c`; test `test_moving_t4_into_b3_violates_y2` |
 | 4.3 Unlock 4 xil implementatsiya | P0-6 (B4) | Kutilmoqda (B4) | — |
 | 4.3 Global `Topic.is_unlocked` | D9 (B4) | Kutilmoqda (B4) | — |
 | 4.3 Ochiq mavzu qayta yopiladi | TY5 (B4) | Kutilmoqda (B4) | — |
@@ -311,32 +382,32 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 4.6 p̂ saqlanmaydi | TM6, TM7 (B1, B3) | Qisman | `AssessmentAttempt.p_hat` va boshqa model maydonlari yoziladi (`888a96f`); II bob formulasi — B3 |
 | 4.7 P(L0) o‘zgarmas 0.15 | TM5 (B3) | Kutilmoqda (B3) | — |
 | 4.7 Avlodlarga P=1.0 cascade | P0-2, D8 (B1) | Bajarildi | `_cascade_mastery_to_descendants` o‘chirildi (`888a96f`); test `test_mastering_a_section_does_not_touch_descendants` |
-| 4.8 Kahn FIFO, lev yo‘q | GR2 (B2) | Kutilmoqda (B2) | — |
-| 4.8 Sikl qoldig‘i jim qo‘shiladi | GR2 (B2) | Kutilmoqda (B2) | — |
-| 4.8 Tugunlar grafida, G_L'da emas | GR2 (B2) | Kutilmoqda (B2) | — |
-| 4.8 Faqat testlarda ishlatiladi | B2, B6 | Kutilmoqda (B2, B6) | — |
+| 4.8 Kahn FIFO, lev yo‘q | GR2 (B2) | Bajarildi | `neuro_model/graph.py:topological_order` (heap, `(pos, id)`, lev), `5e5cb09` |
+| 4.8 Sikl qoldig‘i jim qo‘shiladi | GR2 (B2) | Bajarildi | `CycleError(remaining)`, `5e5cb09`; test `test_cycle_error_lists_unordered_topics` |
+| 4.8 Tugunlar grafida, G_L'da emas | GR2 (B2) | Bajarildi | `neuro_model/graph.py:expand`, `5e5cb09` |
+| 4.8 Faqat testlarda ishlatiladi | B2, B6 | Qisman | Snapshot daraxt/graf API, savol tanlash va ledger'da ishlatiladi (`79b907c`); trayektoriya — B6 |
 | 4.9 To‘rtta alohida evristika | TR2, ES7 (B6) | Kutilmoqda (B6) | — |
 | 4.9 Sabablar yo‘q | TR3 (B6) | Kutilmoqda (B6) | — |
-| 4.9 Tartib `position` bo‘yicha | D4 (B2, B6) | Kutilmoqda (B2, B6) | — |
+| 4.9 Tartib `position` bo‘yicha | D4 (B2, B6) | Qisman | Global `pos` (D4) — snapshot, daraxt API va admin shu tartibda (`79b907c`); trayektoriya — B6 |
 | 4.9 Easy-skip sun’iy yozuvlar | P0-2, D8 (B1) | Bajarildi | `_maybe_skip_easy_questions` o‘chirildi (`888a96f`); testlar `test_easy_skip_probe_writes_only_real_answers`, `test_only_the_ledger_creates_attempts` |
 
 ### 5-bo‘lim (II bob talablari)
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| BB1 Kurs→bo‘lim→mavzu, `kind`, pos | B2 | Kutilmoqda (B2) | — |
-| BB2 Qo‘shni ro‘yxat + CTE | D3, B2 | Kutilmoqda (B2) | — |
-| BB3 ω vazni | B2 | Kutilmoqda (B2) | — |
-| BB4 Meros G_L | B2 | Kutilmoqda (B2) | — |
-| BB5 Y1 | B2 | Kutilmoqda (B2) | — |
-| BB6 Y2 | B2 | Kutilmoqda (B2) | — |
-| BB7 Y3 BFS + zanjir | B2 | Kutilmoqda (B2) | — |
-| BB8 Daraxt o‘zgarganda tekshiruv | B2 | Kutilmoqda (B2) | — |
-| BB9 Advisory lock | B2 | Kutilmoqda (B2) | PostgreSQL (D1) tayyor |
-| BB10 Y4 | B2 | Kutilmoqda (B2) | — |
-| GR1 Versiyaga bog‘langan kesh | B2 | Kutilmoqda (B2) | Redis/LocMem infratuzilmasi tayyor (`b44df84`) |
-| GR2 Kahn + ustuvor navbat + lev + CycleError | B2 | Kutilmoqda (B2) | — |
-| GR3 Desc*, ortiqcha qirralar, κ | B2 | Kutilmoqda (B2) | — |
+| BB1 Kurs→bo‘lim→mavzu, `kind`, pos | B2 | Bajarildi | `TopicKind`, `topic_course_is_root`, `pos`, `79b907c` |
+| BB2 Qo‘shni ro‘yxat + CTE | D3, B2 | Bajarildi | django-tree-queries (CTE), `79b907c` |
+| BB3 ω vazni | B2 | Bajarildi | `TopicPrerequisite.weight`, G_L vazni = max, `5e5cb09`, `79b907c` |
+| BB4 Meros G_L | B2 | Bajarildi | `neuro_model/graph.py:expand`, `?expand=leaf`, `5e5cb09`, `79b907c` |
+| BB5 Y1 | B2 | Bajarildi | `kb.update_node` (Y1), `79b907c` |
+| BB6 Y2 | B2 | Bajarildi | `neuro_model/graph.py:is_nested`, `5e5cb09` |
+| BB7 Y3 BFS + zanjir | B2 | Bajarildi | `find_cycle_chain`, `5e5cb09`; 300 ta tasodifiy brute-force taqqoslash |
+| BB8 Daraxt o‘zgarganda tekshiruv | B2 | Bajarildi | Tree o‘zgarishidan keyin Algoritm 2.2 + Y2, `79b907c` |
+| BB9 Advisory lock | B2 | Bajarildi | `kb._lock`, `79b907c`; `test_kb_concurrency.py` |
+| BB10 Y4 | B2 | Bajarildi | Serializer, import, admin (`Question.clean`), model guard (topic qatori qulflanadi), `79b907c`; test `test_questions_only_on_topics` |
+| GR1 Versiyaga bog‘langan kesh | B2 | Bajarildi | `get_snapshot` (versiya kaliti, ikki marta versiya o‘qish), `79b907c` |
+| GR2 Kahn + ustuvor navbat + lev + CycleError | B2 | Bajarildi | `topological_order`, `5e5cb09` |
+| GR3 Desc*, ortiqcha qirralar, κ | B2 | Bajarildi | `descendant_bitsets`, `redundant_edges`, `order_conflicts`, `5e5cb09`; warnings endpoint `79b907c` |
 | TM1 Mavzu bo‘yicha BKT parametrlari | B3 | Kutilmoqda (B3) | Standart qiymatlar `config/settings.py:277-280` |
 | TM2 Sigmoid G/S | B3 | Kutilmoqda (B3) | Konstantalar `G_MAX`, `S_MAX`, `A_Q` tayyor |
 | TM3 θ_s kurs bo‘yicha, b_q savol bo‘yicha | B3 | Kutilmoqda (B3) | — |
@@ -361,7 +432,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | EX4 Statistika | B8 | Kutilmoqda (B8) | — |
 | EX5 Benchmark | B9 | Kutilmoqda (B9) | — |
 | EX6 Rozilik va anonimlashtirish | B8 | Kutilmoqda (B8) | `is_simulated` belgisi qo‘shildi (`332d56f`) |
-| SN1 Unit testlar | B2–B6, B10 | Qisman | 0-bosqich uchun 17 ta yangi test |
+| SN1 Unit testlar | B2–B6, B10 | Qisman | B0: 17, B1: 32, B2: 300 ta tasodifiy + 57 ta yangi/qayta yozilgan test (`neuro_model/tests`, `test_tree.py`, `test_kb.py`, `test_dag.py`, `test_kb_concurrency.py`) |
 | SN2 Hypothesis | B10 | Kutilmoqda (B10) | `hypothesis` `requirements-dev.txt` da |
 | SN3 Locust | B10 | Kutilmoqda (B10) | `locust` `requirements-dev.txt` da |
 
@@ -369,9 +440,9 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| ES1 DFS tugunlar grafida | B2 | Kutilmoqda (B2) | — |
+| ES1 DFS tugunlar grafida | B2 | Bajarildi | G_L bo‘yicha BFS, `5e5cb09` |
 | ES2 θ=0.70 + fallback | B4 | Kutilmoqda (B4) | — |
-| ES3 MPTT | B2 | Kutilmoqda (B2) | — |
+| ES3 MPTT | B2 | Bajarildi | tree-queries, `79b907c` |
 | ES4 Chiziqli G/S | B3 | Kutilmoqda (B3) | — |
 | ES5 θ talaba×mavzu | B3 | Kutilmoqda (B3) | — |
 | ES6 η=0.3 | B3 | Kutilmoqda (B3) | — |
@@ -398,7 +469,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | H1 tayyorligi | B1, B4, B8 | Kutilmoqda | B1 qismi bajarildi: `readiness_score`, `was_ready` maydonlari (`888a96f`); to‘ldirish — B4 |
 | H2 tayyorligi | B3, B8 | Kutilmoqda | — |
 | H3 tayyorligi | B3, B8 | Kutilmoqda | — |
-| H4 tayyorligi | B2, B9 | Kutilmoqda | PostgreSQL tayyor (D1) |
+| H4 tayyorligi | B2, B9 | Kutilmoqda | B2 qismi bajarildi: CTE (django-tree-queries) asosiy model, `79b907c`; benchmark — B9 |
 
 ### 7-bo‘lim (testlar va sifat)
 
@@ -425,10 +496,10 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 7.3 Talaba yopiq mavzuga javob beradi | D9 (B4) | Kutilmoqda (B4) | — |
 | 7.3 `arms_cache` git'da | B0 | Bajarildi | frontend `a751538` |
 | 7.4 `TestsListView` N+1 | P2-4 (B5) | Kutilmoqda (B5) | — |
-| 7.4 Sikl DFS N+1 | P2-4 (B2) | Kutilmoqda (B2) | — |
+| 7.4 Sikl DFS N+1 | P2-4 (B2) | Bajarildi | Tekshiruv xotiradagi snapshot ustida, `5e5cb09`, `79b907c` |
 | 7.4 Easy-skip N+1 | D8 (B1) | Bajarildi | Funksiya o‘chirildi (`888a96f`) |
 | 7.4 `SubmitTestSession` N+1 | P2-4 (B5) | Kutilmoqda (B5) | — |
-| 7.4 Keshlanmagan qayta hisoblashlar | GR1 (B2) | Kutilmoqda (B2) | — |
+| 7.4 Keshlanmagan qayta hisoblashlar | GR1 (B2) | Bajarildi | Versiya kaliti bilan kesh, `79b907c` |
 | 7.4 Bir javobga 12–20 SQL | B10 (byudjet ≤ 12) | Kutilmoqda (B10) | B1 dan keyin o‘lchandi: 25 (birinchi), 20 (keyingi), 15 (`review_repeat`); Q1-14 |
 
 ### 8.3 (ustuvorliklar ro‘yxati)
@@ -438,7 +509,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | P0-1 Test sessiyasi BKT'ni chetlab o‘tadi | B5, B7 | Qisman | B1: baho endi `mastery_percentage` ga yozilmaydi, `TestSessionResult` ga yoziladi (`888a96f`); model orqali o‘tish — B5, UI — B7 |
 | P0-2 Cascade va easy-skip | B1 | Bajarildi | `888a96f`; `test_ledger.py` |
 | P0-3 Talabaga xos tayyorlik | B4 | Kutilmoqda (B4) | — |
-| P0-4 G_L, Y2, Y3, qulf | B2 | Kutilmoqda (B2) | — |
+| P0-4 G_L, Y2, Y3, qulf | B2 | Bajarildi | `5e5cb09`, `79b907c` |
 | P0-5 Talaba modeli | B3 | Kutilmoqda (B3) | — |
 | P0-6 Yagona unlock servisi | B4 | Kutilmoqda (B4) | — |
 | P1-1 Logni kengaytirish | B1 | Bajarildi | `888a96f`; `test_ledger.py`, `test_ledger_migration.py` |
@@ -446,14 +517,14 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | P1-3 Oflayn baholash | B8 | Kutilmoqda (B8) | — |
 | P1-4 Metrikalar va statistika | B8 | Kutilmoqda (B8) | — |
 | P1-5 Benchmark | B9 | Kutilmoqda (B9) | — |
-| P1-6 tree-queries'ga ko‘chirish | B2 | Kutilmoqda (B2) | — |
-| P1-7 Kahn, Desc*, κ, kesh | B2 | Kutilmoqda (B2) | — |
+| P1-6 tree-queries'ga ko‘chirish | B2 | Bajarildi | `79b907c` |
+| P1-7 Kahn, Desc*, κ, kesh | B2 | Bajarildi | `5e5cb09`, `79b907c` |
 | P1-8 Trayektoriya | B6, B7 | Kutilmoqda | — |
 | P1-9 Hypothesis va Locust | B10 | Kutilmoqda (B10) | Paketlar `requirements-dev.txt` da |
 | P2-1 Maxfiy qiymatlar va xavfsizlik sozlamalari | B0 | Bajarildi | `b44df84`, `332d56f` |
 | P2-2 Requirements sinxronligi | B0 | Bajarildi | `1d6f286` |
-| P2-3 `InvalidMove` → 400, Redis chidamliligi, prerekvizit API | B0 (Redis), B2 | Qisman | Redis qismi bajarildi (`b44df84`, `f620171`); qolgani B2 |
-| P2-4 N+1 | B2, B5 | Kutilmoqda | — |
+| P2-3 `InvalidMove` → 400, Redis chidamliligi, prerekvizit API | B0 (Redis), B2 | Bajarildi | Redis (`b44df84`, `f620171`); Y1/400 va prerekvizit API (`79b907c`) |
+| P2-4 N+1 | B2, B5 | Qisman | Sikl tekshiruvi N+1 yo‘q (`79b907c`); `TestsListView`, `SubmitTestSession` — B5 |
 | P2-5 Rollarni bir xil qilish | B0 (backend), B7 (frontend) | Qisman | `accounts/permissions.py`, `f620171` |
 | P2-6 Frontend lint/tsc, o‘lik kod | B7 | Qisman | `arms_cache` va CI (`a751538`); qolgani B7 |
 | P2-7 Xavfli seed buyruqlari | B0 | Bajarildi | `332d56f` |
@@ -466,7 +537,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | Q1 Natijalar qaysi ma’lumotdan? | D13 | Bajarildi (qaror) | D13: simulyatsiya hech qachon natija uchun ishlatilmaydi |
 | Q2 `db.sqlite3` da real ma’lumot bormi? | 2-qoida | Bajarildi (qaror) | Bor deb hisoblanadi; zaxira olindi, hisobotga faqat qatorlar soni chiqarildi |
 | Q3 PostgreSQL | D1 | Bajarildi | `docker-compose.yml`, `b44df84` |
-| Q4 Kurs modeli | D2 (B2) | Kutilmoqda (B2) | — |
+| Q4 Kurs modeli | D2 (B2) | Bajarildi | Kurs = ildiz (`kind=course`), `79b907c`; θ kurs bo‘yicha — B3 |
 | Q5 α, β, λ va parametrlar manbasi | D6, `calibrate_bkt` (B3) | Qisman | Konstantalar `config/settings.py:266-285`; kalibrlash — B3 |
 | Q6 `.env` dagi token | 3-qoida | Qisman | Fayl gitignored; bekor qilish foydalanuvchida |
 | Q7 `token_blacklist` | D16 | Bajarildi | `config/settings.py:86`, test |
@@ -481,10 +552,10 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
 | A4-1 `source` enum'ida `review_repeat` | B1 | Bajarildi | `assessments/models.py` (`AttemptSource`), `assessments/services/ledger.py:classify_source`, `888a96f`; testlar `test_repeat_within_window_is_logged_but_changes_nothing`, `test_repeat_after_window_is_a_normal_answer` |
-| A4-2 Graf API: daraxt (`kind`, `pos`, `lev`) | B2 | Kutilmoqda (B2) | — |
-| A4-3 Graf API: G_L qirralari `inherited` belgisi va ularni hosil qilgan E_P id'si bilan | B2 | Kutilmoqda (B2) | — |
-| A4-4 Graf API: o‘qituvchi kiritgan E_P qirralari alohida | B2 | Kutilmoqda (B2) | — |
-| A4-5 Graf API: ogohlantirishlar (ortiqcha qirralar, κ) | B2 | Kutilmoqda (B2) | — |
+| A4-2 Graf API: daraxt (`kind`, `pos`, `lev`) | B2 | Bajarildi | `curriculum/views/graph.py` (`nodes[].data.kind/pos/lev`, `leaf_edges`, `edges`, `warnings`), `79b907c`; test `test_graph_endpoint_response_format` |
+| A4-3 Graf API: G_L qirralari `inherited` belgisi va ularni hosil qilgan E_P id'si bilan | B2 | Bajarildi | `curriculum/views/graph.py` (`nodes[].data.kind/pos/lev`, `leaf_edges`, `edges`, `warnings`), `79b907c`; test `test_graph_endpoint_response_format` |
+| A4-4 Graf API: o‘qituvchi kiritgan E_P qirralari alohida | B2 | Bajarildi | `curriculum/views/graph.py` (`nodes[].data.kind/pos/lev`, `leaf_edges`, `edges`, `warnings`), `79b907c`; test `test_graph_endpoint_response_format` |
+| A4-5 Graf API: ogohlantirishlar (ortiqcha qirralar, κ) | B2 | Bajarildi | `curriculum/views/graph.py` (`nodes[].data.kind/pos/lev`, `leaf_edges`, `edges`, `warnings`), `79b907c`; test `test_graph_endpoint_response_format` |
 | A4-6 Mavzu holatlari va P(L) | B4 | Kutilmoqda (B4) | — |
 | A4-7 Bo‘lim va kurslar uchun `mastered/total` (D22) | B4 | Kutilmoqda (B4) | — |
 | A4-8 Yopiq mavzuning yetishmayotgan prerekvizitlari | B4 | Kutilmoqda (B4) | — |
@@ -500,7 +571,7 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 |---|---|---|---|
 | D20 Til: o‘zbek (lotin) asosiy, `react-i18next`, `uz.json`/`en.json`, atamalar va bosh harf qoidasi | B7 | Kutilmoqda (B7) | — |
 | D21 Holatlar palitrasi `src/lib/status.ts`, WCAG AA | B7 | Kutilmoqda (B7) | — |
-| D22 Holat faqat `topic` turida, bo‘lim/kurs — `k / n` | B2 (`kind`), B4 (backend), B7 (UI) | Kutilmoqda (B2, B4, B7) | — |
+| D22 Holat faqat `topic` turida, bo‘lim/kurs — `k / n` | B2 (`kind`), B4 (backend), B7 (UI) | Qisman | B2 qismi (`kind`) bajarildi, `79b907c`; holatlar — B4, UI — B7 |
 | D23 Soxta ma’lumot yo‘q, har bir son API'dan | B6 (endpoint'lar), B7 (grep) | Kutilmoqda (B6, B7) | — |
 | D24 `VITE_ENABLE_TUTOR=false`, menyuda yo‘q | B7 | Bajarildi | `src/lib/features.ts`, `src/App.tsx`, `src/components/layout/Header.tsx`, `7b549fd`; test `src/lib/features.test.ts` |
 | D25 Xatolar backend'dan, “Qayta yechish”, `review_repeat` | B1 (ledger), B6 (endpoint), B7 (UI, `mistakeStorage` olib tashlash) | Qisman | B1 qismi bajarildi (A4-1); savol tanlash oynadagi savollarni oxiriga qo‘yadi (`question_selection.py`, test `test_next_question_prefers_questions_outside_the_window`) |
