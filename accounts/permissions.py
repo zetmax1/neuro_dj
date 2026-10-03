@@ -39,3 +39,22 @@ class IsInstructor(BasePermission):
 
     def has_permission(self, request, view) -> bool:
         return is_instructor(request.user)
+
+
+def is_admin(user) -> bool:
+    return bool(user and user.is_authenticated and get_role(user) == "admin")
+
+
+class IsAdminRole(BasePermission):
+    """
+    The ``admin`` role from ``get_role`` — the value the frontend routes on.
+
+    ``IsAdminUser`` checks ``is_staff`` instead, which is not the same set: a
+    staff member is an instructor here, and a member of the ``Admin`` group is
+    an admin without being staff. One rule for both sides (D15).
+    """
+
+    message = "Admin role required."
+
+    def has_permission(self, request, view) -> bool:
+        return is_admin(request.user)

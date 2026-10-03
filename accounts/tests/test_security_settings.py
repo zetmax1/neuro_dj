@@ -80,15 +80,21 @@ def test_topic_writes_survive_cache_backend(settings, cache_backend):
 
 
 @pytest.mark.django_db
-def test_rotated_refresh_token_is_blacklisted():
+def test_rotated_refresh_token_is_blacklisted(settings):
+    """D16: the refresh token is a cookie now, and a rotated one is dead."""
     password = secrets.token_urlsafe(16)
     User.objects.create_user(email="jwt@example.org", password=password)
     client = APIClient()
-    tokens = client.post("/api/accounts/token/", {"email": "jwt@example.org", "password": password}, format="json").json()
+    client.post("/api/accounts/token/", {"email": "jwt@example.org", "password": password}, format="json")
+    name = settings.JWT_REFRESH_COOKIE["name"]
+    original = client.cookies[name].value
 
-    first = client.post("/api/accounts/token/refresh/", {"refresh": tokens["refresh"]}, format="json")
+    first = client.post("/api/accounts/token/refresh/")
     assert first.status_code == 200
-    reused = client.post("/api/accounts/token/refresh/", {"refresh": tokens["refresh"]}, format="json")
+    assert client.cookies[name].value != original, "the cookie is rotated"
+
+    client.cookies[name] = original  # replay the retired token
+    reused = client.post("/api/accounts/token/refresh/")
     assert reused.status_code == 401
 
 

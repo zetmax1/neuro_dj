@@ -204,6 +204,18 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
+# D16: the refresh token is an httpOnly cookie, never readable by scripts.
+# Path-scoped to the token endpoints so it is not sent anywhere else. SameSite
+# Lax works for an SPA on another port of the same host (and behind one
+# proxy); a cross-site deployment sets None, which requires Secure.
+JWT_REFRESH_COOKIE = {
+    "name": env("JWT_REFRESH_COOKIE_NAME", default="nl_refresh"),
+    "path": "/api/accounts/token/",
+    "domain": env("JWT_REFRESH_COOKIE_DOMAIN", default=None),
+    "secure": env.bool("JWT_REFRESH_COOKIE_SECURE", default=not DEBUG),
+    "samesite": env("JWT_REFRESH_COOKIE_SAMESITE", default="Lax"),
+}
+
 
 # ---------------------------------------------------------------------------
 # Internationalization, static and media files

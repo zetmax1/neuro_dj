@@ -81,6 +81,7 @@ class UserDetailSerializer(serializers.Serializer):
     date_joined = serializers.DateTimeField(read_only=True)
     is_deleted = serializers.BooleanField(read_only=True)
     deleted_at = serializers.DateTimeField(read_only=True)
+    is_simulated = serializers.BooleanField(read_only=True)
     role = serializers.SerializerMethodField(read_only=True)
 
     def get_role(self, obj) -> str:
@@ -98,4 +99,60 @@ class UserUpdateSerializer(serializers.Serializer):
         instance.first_name = validated_data.get("first_name", instance.first_name)
         instance.last_name = validated_data.get("last_name", instance.last_name)
         instance.save(update_fields=["first_name", "last_name", "updated_at"] if hasattr(instance, "updated_at") else ["first_name", "last_name"])
+        return instance
+
+
+ROLE_GROUPS: dict[str, tuple[str, ...]] = {
+    "student": (),
+    "instructor": ("Instructor",),
+    "admin": ("Admin",),
+}
+
+
+class UserAdminUpdateSerializer(serializers.Serializer):
+    """
+    What an admin may change on another account: the role and the active flag.
+
+    The role is expressed through the ``Instructor`` and ``Admin`` groups,
+    which is exactly what ``get_role`` reads. Two cases cannot be expressed
+    that way and are refused rather than half-applied: a superuser is always
+    an admin, and a staff member is always at least an instructor. An admin
+    may not change their own role or deactivate themselves (no lock-out).
+    """
+
+    role = serializers.ChoiceField(choices=list(ROLE_GROUPS), required=False)
+    is_active = serializers.BooleanField(required=False)
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = self.instance
+        if request is not None and user.pk == request.user.pk:
+            raise serializers.ValidationError(
+                {"reason": "self", "detail": "You cannot change your own role or active flag."}
+            )
+        role = attrs.get("role")
+        if role is not None and role != "admin" and user.is_superuser:
+            raise serializers.ValidationError(
+                {"reason": "superuser", "detail": "A superuser is always an admin."}
+            )
+        if role == "student" and user.is_staff:
+            raise serializers.ValidationError(
+                {"reason": "staff", "detail": "A staff member is always at least an instructor."}
+            )
+        return attrs
+
+    def update(self, instance, validated_data):
+        from django.contrib.auth.models import Group
+        from django.db import transaction
+
+        with transaction.atomic():
+            role = validated_data.get("role")
+            if role is not None:
+                managed = {name for names in ROLE_GROUPS.values() for name in names}
+                instance.groups.remove(*Group.objects.filter(name__in=managed))
+                for name in ROLE_GROUPS[role]:
+                    instance.groups.add(Group.objects.get_or_create(name=name)[0])
+            if "is_active" in validated_data:
+                instance.is_active = validated_data["is_active"]
+                instance.save(update_fields=["is_active"])
         return instance
