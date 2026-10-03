@@ -271,6 +271,16 @@ def test_structural_writes_outside_the_service_are_refused():
         lambda: TopicPrerequisite.objects.filter(pk=rel.pk).delete(),
         lambda: TopicPrerequisite.objects.get(pk=rel.pk).delete(),
         lambda: KnowledgeBaseVersion.objects.filter(pk=1).update(version=0),
+        # D30: the reverse manager and _base_manager used to slip past the guard.
+        lambda: course.children.add(a),
+        lambda: course.children.set([a]),
+        lambda: course.children.remove(sec),
+        lambda: course.children.clear(),
+        lambda: Topic._base_manager.filter(pk=a.pk).update(parent_id=course.pk),
+        lambda: Topic._base_manager.bulk_create([Topic(name="z", slug="z", parent=course, kind=TopicKind.TOPIC)]),
+        lambda: TopicPrerequisite._base_manager.all().delete(),
+        # D31: the version row may not be removed either.
+        lambda: KnowledgeBaseVersion.objects.filter(pk=1).delete(),
     ]
     for attempt in attempts:
         with pytest.raises(KBWriteError):
@@ -389,3 +399,135 @@ def test_import_checks_y4_and_choice_limits(api):
     response = _upload(api, topic.pk, good)
     assert response.status_code == 201
     assert Question.objects.get(topic=topic).choices.count() == 2
+
+
+# ---------------------------------------------------------------------------
+# D31 — the version row is an invariant, and the cache is scoped to it
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_a_missing_version_row_is_an_error_not_version_one():
+    """Without the row the KB has no version; a silent 1 would serve a stale cache."""
+    from curriculum.kb_guard import kb_write
+
+    course = make_course("Invariant", slug="inv-course")
+    with kb_write():  # only the service may remove it; here we simulate the damage
+        KnowledgeBaseVersion.objects.filter(pk=1).delete()
+
+    with pytest.raises(kb.KBError) as missing:
+        KnowledgeBaseVersion.current()
+    assert missing.value.reason == "version_missing"
+
+    with pytest.raises(kb.KBError) as refused:
+        make_topic("orphan", course, slug="inv-orphan")
+    assert refused.value.reason == "version_missing"
+    assert not Topic.objects.filter(slug="inv-orphan").exists()
+
+
+@pytest.mark.django_db
+def test_updated_at_moves_with_every_version_bump():
+    """auto_now does not fire on QuerySet.update(), so the service sets it (V-B6a)."""
+    course = make_course("Stamp", slug="stamp-course")
+    before = KnowledgeBaseVersion.objects.get(pk=1).updated_at
+
+    make_topic("t", course, slug="stamp-t")
+
+    row = KnowledgeBaseVersion.objects.get(pk=1)
+    assert row.version == version()
+    assert row.updated_at > before
+
+
+@pytest.mark.django_db
+def test_cache_entries_are_scoped_to_the_version_row():
+    """
+    The key carries the row's instance_token, so an entry written before the
+    counter was reset can never be served. Entries are still never invalidated:
+    a new version simply writes a new key.
+    """
+    from django.core.cache import cache
+
+    from curriculum.services.graph import _cache_key, clear_local_cache, get_snapshot
+
+    course = make_course("Cache", slug="cache-course")
+    a = make_topic("a", course, slug="cache-a")
+    b = make_topic("b", course, slug="cache-b")
+    relation = kb.add_prerequisite(prerequisite=a, topic=b)
+
+    clear_local_cache()
+    first = get_snapshot()
+    token = KnowledgeBaseVersion.token()
+    old_key = _cache_key(first.version)
+    assert old_key == f"kb:snapshot:{token}:v{first.version}"
+    assert cache.get(old_key) is not None
+
+    kb.remove_prerequisite(relation.pk)
+    clear_local_cache()
+    second = get_snapshot()
+
+    assert second.version == first.version + 1
+    assert len(second.edges) == len(first.edges) - 1
+    assert cache.get(old_key) is not None, "the previous entry stays addressable"
+    assert cache.get(_cache_key(second.version)) is not None
+    assert cache.get(f"kb:snapshot:v{first.version}") is None, "no unscoped key is written"
+
+
+# ---------------------------------------------------------------------------
+# D32 — only KBError leaves the service
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_missing_relation_and_duplicate_slug_are_kb_errors():
+    course = make_course("Wrap", slug="wrap-course")
+    a = make_topic("a", course, slug="wrap-a")
+    b = make_topic("b", course, slug="wrap-b")
+    relation = kb.add_prerequisite(prerequisite=a, topic=b)
+    before = version()
+
+    with pytest.raises(kb.KBError) as missing:
+        kb.update_weight(10**9, 0.5)
+    assert missing.value.reason == "not_found"
+
+    with pytest.raises(kb.KBError) as duplicate:
+        kb.create_node(name="Again", slug="wrap-a", parent=course, kind=TopicKind.TOPIC)
+    assert duplicate.value.reason == "duplicate_slug"
+
+    with pytest.raises(kb.KBError) as renamed:
+        kb.update_node(b, slug="wrap-a")
+    assert renamed.value.reason == "duplicate_slug"
+
+    assert version() == before
+    assert TopicPrerequisite.objects.get(pk=relation.pk).weight == 1.0
+    assert Topic.objects.filter(slug="wrap-a").count() == 1
+
+
+@pytest.mark.django_db
+def test_duplicate_slug_answers_400_through_the_api(api):
+    """
+    On the API the serializer's unique check answers first, with a field-shaped
+    400; the service's ``duplicate_slug`` covers the other callers (seeds,
+    imports, the admin). Either way nothing reaches the client as a 500.
+    """
+    course = make_course("Api", slug="api-course")
+    make_topic("taken", course, slug="api-taken")
+
+    response = api.post(
+        "/api/curriculum/instructor/topics/",
+        {"name": "Clash", "slug": "api-taken", "parent": course.pk, "kind": "topic"},
+        format="json",
+    )
+    assert response.status_code == 400
+    assert "slug" in response.json()
+    assert Topic.objects.filter(slug="api-taken").count() == 1
+
+
+@pytest.mark.django_db
+def test_delete_node_counts_only_the_nodes_it_removes():
+    """Already-archived descendants are not part of the KB, so they are not counted."""
+    course = make_course("Count", slug="count-course")
+    section = make_section("S", course, slug="count-s")
+    make_topic("keep", section, slug="count-keep")
+    archived = make_topic("gone", section, slug="count-gone")
+    kb.archive_node(archived)
+
+    assert kb.delete_node(section) == ("deleted", 2)
+    assert not Topic.objects.filter(slug="count-gone").exists()

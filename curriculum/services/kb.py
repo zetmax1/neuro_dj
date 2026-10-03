@@ -20,10 +20,11 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import Any
 
-from django.db import connection, transaction
+from django.db import IntegrityError, connection, transaction
 from django.db.models import F, Max, ProtectedError, RestrictedError
+from django.utils import timezone
 
-from curriculum.kb_guard import kb_write
+from curriculum.kb_guard import KBError, kb_write
 from curriculum.models import (
     STRUCTURAL_FIELDS,
     KnowledgeBaseVersion,
@@ -44,32 +45,21 @@ EDITABLE_FIELDS = frozenset({
 })
 
 
-class KBError(Exception):
-    """A rejected KB change. ``reason`` is a stable code for the API (400)."""
-
-    def __init__(
-        self,
-        reason: str,
-        detail: str,
-        *,
-        chain: list[int] | None = None,
-        edge: tuple[int, int] | None = None,
-    ) -> None:
-        super().__init__(detail)
-        self.reason = reason
-        self.detail = detail
-        self.chain = chain
-        self.edge = edge
-
-    def payload(self) -> dict[str, Any]:
-        data: dict[str, Any] = {"reason": self.reason, "detail": self.detail}
-        if self.chain is not None:
-            data["chain"] = self.chain
-            names = dict(Topic.objects.filter(pk__in=self.chain).values_list("pk", "name"))
-            data["chain_names"] = [names.get(pk, str(pk)) for pk in self.chain]
-        if self.edge is not None:
-            data["edge"] = list(self.edge)
-        return data
+# ``KBError`` is defined in curriculum.kb_guard (curriculum.models raises it as
+# well) and re-exported here: ``kb.KBError`` stays the name callers import.
+__all__ = [
+    "KBError",
+    "add_prerequisite",
+    "archive_node",
+    "create_node",
+    "delete_node",
+    "ensure_node",
+    "ensure_prerequisite",
+    "move_node",
+    "remove_prerequisite",
+    "update_node",
+    "update_weight",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -83,8 +73,16 @@ def _lock() -> None:
 
 
 def _bump_version() -> int:
-    KnowledgeBaseVersion.objects.get_or_create(pk=1, defaults={"version": 0})
-    KnowledgeBaseVersion.objects.filter(pk=1).update(version=F("version") + 1)
+    # The row is an invariant (D31): it is never recreated here, because a
+    # counter that restarts at 1 would make a cached snapshot of the previous
+    # knowledge base look current. ``updated_at`` is set explicitly —
+    # ``auto_now`` does not fire on ``QuerySet.update()`` (V-B6a).
+    rows = KnowledgeBaseVersion.objects.filter(pk=1).update(
+        version=F("version") + 1,
+        updated_at=timezone.now(),
+    )
+    if rows != 1:
+        raise KBError("version_missing", KnowledgeBaseVersion._MISSING)
     return KnowledgeBaseVersion.current()
 
 
@@ -149,6 +147,15 @@ def _validate_tree_rules(node: Topic) -> None:
         raise KBError("has_questions", "Only topics hold questions (Y4); move the questions first.")
 
 
+def _check_slug_free(slug: str, *, exclude_pk: int | None = None) -> None:
+    """``slug`` is unique in the database; report the clash as a KBError (D32)."""
+    clash = Topic.objects.filter(slug=slug)
+    if exclude_pk is not None:
+        clash = clash.exclude(pk=exclude_pk)
+    if clash.exists():
+        raise KBError("duplicate_slug", f"A node with the slug {slug!r} already exists.")
+
+
 def _next_position(parent_id: int | None) -> int:
     top = Topic.objects.filter(parent_id=parent_id).aggregate(p=Max("position"))["p"]
     return 0 if top is None else top + 1
@@ -176,6 +183,9 @@ def create_node(
     if kind not in TopicKind.values:
         raise KBError("kind", f"Unknown kind {kind!r}.")
     with _kb_change():
+        # Serialised by the KB lock, so the check cannot be raced; the
+        # IntegrityError below still covers backends without advisory locks.
+        _check_slug_free(slug)
         if parent_id is not None:
             _active(parent_id, lock=True)
         node = Topic(
@@ -187,7 +197,11 @@ def create_node(
             **attrs,
         )
         _validate_tree_rules(node)
-        node.save()
+        try:
+            with transaction.atomic():
+                node.save()
+        except IntegrityError as exc:
+            raise KBError("duplicate_slug", f"A node with the slug {slug!r} already exists.") from exc
         _fresh()  # a new topic inherits its ancestors' relations: Algorithm 2.2
     return node
 
@@ -209,6 +223,8 @@ def update_node(node: Topic | int, **changes: Any) -> Topic:
     with transaction.atomic(), kb_write():
         _lock()
         current = _active(pk, lock=True)
+        if "slug" in changes and changes["slug"] != current.slug:
+            _check_slug_free(changes["slug"], exclude_pk=pk)
         structural = {
             k: v for k, v in changes.items()
             if k in STRUCTURAL_FIELDS and getattr(current, k) != v
@@ -258,7 +274,9 @@ def delete_node(node: Topic | int) -> tuple[str, int]:
     with transaction.atomic(), kb_write():
         _lock()
         current = _active(pk, lock=True)
-        size = Topic.objects.descendants(pk, include_self=True).count()
+        # Already-archived descendants are not part of the knowledge base, so
+        # they are not counted (D32).
+        size = Topic.objects.descendants(pk, include_self=True).filter(is_archived=False).count()
         try:
             with transaction.atomic():
                 current.delete()
@@ -325,7 +343,10 @@ def update_weight(relation: TopicPrerequisite | int, weight: float) -> TopicPrer
     pk = getattr(relation, "pk", relation)
     weight = _check_weight(weight)
     with _kb_change():
-        current = TopicPrerequisite.objects.select_for_update().get(pk=pk)
+        try:
+            current = TopicPrerequisite.objects.select_for_update().get(pk=pk)
+        except TopicPrerequisite.DoesNotExist:
+            raise KBError("not_found", f"Prerequisite {pk} does not exist.") from None
         current.weight = weight
         current.save(update_fields=["weight"])
     return current

@@ -111,6 +111,16 @@ class TestSnapshotTreeData(TopicTreeSetup):
         self.assertEqual(snapshot.leaves_of(self.ds.id), {self.arrays.id, self.linked_lists.id})
         self.assertEqual(snapshot.leaves_of(self.sorting.id), {self.sorting.id})
 
+    def test_leaves_for_every_kind(self):
+        """Leaves(n): the course yields every topic, a section its own, a topic itself."""
+        snapshot = get_snapshot()
+        self.assertEqual(
+            snapshot.leaves_of(self.root.id),
+            {self.arrays.id, self.linked_lists.id, self.sorting.id, self.searching.id},
+        )
+        self.assertEqual(snapshot.leaves_of(self.algos.id), {self.sorting.id, self.searching.id})
+        self.assertEqual(snapshot.leaves_of(self.searching.id), {self.searching.id})
+
     def test_position_change_reorders_pos_and_bumps_the_version(self):
         version = KnowledgeBaseVersion.current()
         kb.update_node(self.algos, position=0)
@@ -190,3 +200,131 @@ class TestLegacyUnlockFlag(TopicTreeSetup):
         Topic.objects.filter(pk=locked.pk).update(is_unlocked=True)
         locked.refresh_from_db()
         self.assertTrue(locked.is_unlocked)
+
+
+class TestArchivedNodesLeaveReads(TopicTreeSetup):
+    """D11: archiving keeps the rows for the answer ledger but drops them from the KB."""
+
+    def test_archived_subtree_leaves_the_snapshot(self):
+        kb.archive_node(self.ds)
+        snapshot = get_snapshot()
+        for gone in (self.ds, self.arrays, self.linked_lists):
+            with self.subTest(node=gone.name):
+                self.assertNotIn(gone.id, snapshot.order)
+                self.assertNotIn(gone.id, snapshot.pos)
+                self.assertNotIn(gone.id, snapshot.depth)
+
+    def test_archiving_reduces_the_leaves_of_the_ancestors(self):
+        kb.archive_node(self.ds)
+        snapshot = get_snapshot()
+        self.assertEqual(snapshot.leaves_of(self.root.id), {self.sorting.id, self.searching.id})
+
+    def test_archiving_a_single_topic_leaves_its_siblings(self):
+        kb.archive_node(self.arrays)
+        snapshot = get_snapshot()
+        self.assertNotIn(self.arrays.id, snapshot.order)
+        self.assertEqual(snapshot.leaves_of(self.ds.id), {self.linked_lists.id})
+
+    def test_pos_closes_the_gap_left_by_an_archived_subtree(self):
+        kb.archive_node(self.ds)
+        pos = get_snapshot().pos
+        expected = [self.root, self.algos, self.sorting, self.searching]
+        self.assertEqual([pos[n.id] for n in expected], list(range(4)))
+
+    def test_archiving_bumps_the_version(self):
+        version = KnowledgeBaseVersion.current()
+        self.assertEqual(kb.archive_node(self.ds), 3)
+        self.assertEqual(KnowledgeBaseVersion.current(), version + 1)
+
+
+class TestAncestorsAndDescendantsAfterAMove(TopicTreeSetup):
+    """A move must leave both ends of the tree consistent (D37)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        kb.move_node(self.arrays, self.algos)
+
+    def test_the_node_has_the_new_ancestor_chain(self):
+        self.assertEqual(
+            list(self.arrays.ancestors().values_list("id", flat=True)),
+            [self.root.id, self.algos.id],
+        )
+
+    def test_the_new_parent_gained_the_subtree(self):
+        self.assertEqual(
+            self.ids(self.algos.descendants()),
+            {self.sorting.id, self.searching.id, self.arrays.id},
+        )
+
+    def test_the_old_parent_lost_the_subtree(self):
+        self.assertEqual(self.ids(self.ds.descendants()), {self.linked_lists.id})
+
+    def test_the_root_still_sees_every_node(self):
+        self.assertEqual(Topic.objects.descendants(self.root).count(), 6)
+
+    def test_depth_and_leaves_follow_the_move(self):
+        snapshot = get_snapshot()
+        self.assertEqual(snapshot.depth[self.arrays.id], 2)
+        self.assertEqual(snapshot.leaves_of(self.ds.id), {self.linked_lists.id})
+        self.assertEqual(
+            snapshot.leaves_of(self.algos.id),
+            {self.sorting.id, self.searching.id, self.arrays.id},
+        )
+
+    def test_moving_a_whole_section(self):
+        empty = make_section("Electives", self.root)
+        kb.move_node(self.ds, empty)
+        self.assertEqual(
+            list(self.linked_lists.ancestors().values_list("id", flat=True)),
+            [self.root.id, empty.id, self.ds.id],
+        )
+        self.assertEqual(get_snapshot().depth[self.linked_lists.id], 3)
+
+
+class TestDeepTree(TestCase):
+    """The same reads on a chain deeper than five levels (D37)."""
+
+    DEPTH = 7  # course + 5 sections + leaf topic
+
+    @classmethod
+    def setUpTestData(cls) -> None:
+        cls.chain = [make_course("Deep", slug="deep-root")]
+        for level in range(1, cls.DEPTH - 1):
+            cls.chain.append(make_section(f"Level {level}", cls.chain[-1], slug=f"deep-s{level}"))
+        cls.chain.append(make_topic("Deep leaf", cls.chain[-1], slug="deep-leaf"))
+        cls.root, cls.leaf = cls.chain[0], cls.chain[-1]
+
+    def test_ancestors_are_ordered_from_the_root(self):
+        self.assertEqual(
+            list(self.leaf.ancestors().values_list("id", flat=True)),
+            [node.id for node in self.chain[:-1]],
+        )
+
+    def test_descendants_cover_the_whole_chain(self):
+        self.assertEqual(
+            set(self.root.descendants().values_list("id", flat=True)),
+            {node.id for node in self.chain[1:]},
+        )
+
+    def test_depth_matches_the_level(self):
+        depth = get_snapshot().depth
+        self.assertEqual([depth[node.id] for node in self.chain], list(range(self.DEPTH)))
+
+    def test_pos_is_the_preorder_index_of_the_chain(self):
+        pos = get_snapshot().pos
+        self.assertEqual([pos[node.id] for node in self.chain], list(range(self.DEPTH)))
+
+    def test_every_level_has_the_same_single_leaf(self):
+        snapshot = get_snapshot()
+        for node in self.chain:
+            with self.subTest(node=node.name):
+                self.assertEqual(snapshot.leaves_of(node.id), {self.leaf.id})
+                self.assertEqual(snapshot.root_of(node.id), self.root.id)
+
+    def test_a_move_near_the_bottom_keeps_the_chain_consistent(self):
+        kb.move_node(self.leaf, self.chain[1])
+        self.assertEqual(
+            list(self.leaf.ancestors().values_list("id", flat=True)),
+            [self.root.id, self.chain[1].id],
+        )
+        self.assertEqual(get_snapshot().depth[self.leaf.id], 2)

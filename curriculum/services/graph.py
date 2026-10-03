@@ -154,14 +154,29 @@ def snapshot_from(version: int, tree: g.Tree, prerequisites: tuple[g.Prerequisit
 
 _local = threading.local()
 
+# The instance token of the version row; constant for that row's lifetime, so
+# it is read once instead of on every cache lookup.
+_instance_token: str | None = None
+
+
+def _token() -> str:
+    global _instance_token
+    if _instance_token is None:
+        _instance_token = KnowledgeBaseVersion.token()
+    return _instance_token
+
 
 def _cache_key(version: int) -> str:
-    return f"kb:snapshot:v{version}"
+    # D31: the token scopes the key to this counter row, so an entry written
+    # before a counter restart can never be served as the current KB.
+    return f"kb:snapshot:{_token()}:v{version}"
 
 
 def clear_local_cache() -> None:
     """Forget the per-thread copy (tests reset the database between cases)."""
     _local.snapshot = None
+    global _instance_token
+    _instance_token = None
 
 
 def get_snapshot() -> KBSnapshot:

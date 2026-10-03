@@ -18,14 +18,17 @@ Dependency rule: curriculum NEVER imports from assessments.
 
 from __future__ import annotations
 
+import uuid
+
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.db.models.fields.related_descriptors import ReverseManyToOneDescriptor
 from tree_queries.fields import TreeNodeForeignKey
 from tree_queries.models import TreeNode
 from tree_queries.query import TreeQuerySet
 
-from curriculum.kb_guard import require_kb_write
+from curriculum.kb_guard import KBError, require_kb_write
 
 
 class TopicKind(models.TextChoices):
@@ -36,6 +39,45 @@ class TopicKind(models.TextChoices):
 
 # Fields whose change alters the knowledge base (pos, Leaves, G_L).
 STRUCTURAL_FIELDS: frozenset[str] = frozenset({"parent", "parent_id", "kind", "position", "is_archived"})
+
+
+def _guarded_related_manager(manager_cls: type) -> type:
+    """``node.children`` writes reshape the tree, so they are refused (D30)."""
+
+    class GuardedRelatedManager(manager_cls):
+        # Refused here rather than in the queryset underneath: Django's ``set()``
+        # runs inside ``atomic(savepoint=False)``, so an error raised in there
+        # marks the whole surrounding transaction for rollback. Reads are
+        # untouched, which is what ``base_manager_name`` requires.
+        def add(self, *objs, **kwargs):
+            require_kb_write("Changing the tree structure")
+
+        def set(self, objs, **kwargs):
+            require_kb_write("Changing the tree structure")
+
+        def remove(self, *objs, **kwargs):
+            require_kb_write("Changing the tree structure")
+
+        def clear(self, **kwargs):
+            require_kb_write("Changing the tree structure")
+
+    return GuardedRelatedManager
+
+
+class _GuardedReverseManyToOneDescriptor(ReverseManyToOneDescriptor):
+    @property
+    def related_manager_cls(self):
+        guarded = self.__dict__.get("_guarded_related_manager_cls")
+        if guarded is None:
+            guarded = _guarded_related_manager(super().related_manager_cls)
+            self.__dict__["_guarded_related_manager_cls"] = guarded
+        return guarded
+
+
+class GuardedTreeNodeForeignKey(TreeNodeForeignKey):
+    """A tree parent whose reverse manager (``children``) is under the guard."""
+
+    related_accessor_class = _GuardedReverseManyToOneDescriptor
 
 
 class TopicQuerySet(TreeQuerySet):
@@ -82,7 +124,7 @@ class Topic(TreeNode):
     slug: str = models.SlugField(max_length=255, unique=True, db_index=True)
     description: str = models.TextField(blank=True, default="")
 
-    parent = TreeNodeForeignKey(
+    parent = GuardedTreeNodeForeignKey(
         'self',
         on_delete=models.CASCADE,
         null=True,
@@ -142,6 +184,12 @@ class Topic(TreeNode):
         ordering = ["position", "id"]
         verbose_name = "Topic"
         verbose_name_plural = "Topics"
+        # D30: the reverse FK manager (``parent.children.add()``/``.set()``)
+        # writes through ``_base_manager``. Point it at the guarded manager, or
+        # those paths change the tree without validation or a version bump.
+        # Allowed because ``objects`` filters nothing on read (Django's rule);
+        # the guards sit in the write methods only.
+        base_manager_name = "objects"
         constraints = [
             # A course is exactly a root (D2).
             models.CheckConstraint(
@@ -298,6 +346,8 @@ class TopicPrerequisite(models.Model):
         ordering = ["id"]
         verbose_name = "Topic Prerequisite"
         verbose_name_plural = "Topic Prerequisites"
+        # D30: see Topic.Meta — closes ``TopicPrerequisite._base_manager``.
+        base_manager_name = "objects"
         constraints = [
             models.UniqueConstraint(fields=["topic", "prerequisite"], name="uniq_prerequisite_edge"),
             models.CheckConstraint(
@@ -327,15 +377,33 @@ class KnowledgeBaseVersionQuerySet(models.QuerySet):
         require_kb_write("Changing the KB version")
         return super().update(**kwargs)
 
+    def bulk_create(self, objs, *args, **kwargs):
+        require_kb_write("Creating the KB version row")
+        return super().bulk_create(objs, *args, **kwargs)
+
+    def delete(self):
+        require_kb_write("Deleting the KB version row")
+        return super().delete()
+
+    delete.alters_data = True
+    delete.queryset_only = True
+
 
 class KnowledgeBaseVersion(models.Model):
     """
     Singleton (id = 1). ``version`` grows by exactly one with every successful
     KB change, inside the same transaction; cached graph data is keyed by it.
+
+    The row's existence is an invariant (D31): it is created by migration and
+    never by application code, so a missing row is an error rather than
+    "version 1". ``instance_token`` is drawn once when the row is created and
+    joins the cache key, so a counter that somehow restarts can never read an
+    entry written by the previous one.
     """
 
     id = models.PositiveSmallIntegerField(primary_key=True, default=1)
     version = models.PositiveBigIntegerField(default=1)
+    instance_token = models.UUIDField(default=uuid.uuid4, editable=False)
     updated_at = models.DateTimeField(auto_now=True)
 
     objects = KnowledgeBaseVersionQuerySet.as_manager()
@@ -349,9 +417,24 @@ class KnowledgeBaseVersion(models.Model):
         require_kb_write("Changing the KB version")
         super().save(*args, **kwargs)
 
+    # The counter row is required; a silent fallback would let a stale cache
+    # entry look current (D31).
+    _MISSING = "The knowledge-base version row is missing; it is created by migration."
+
     @classmethod
     def current(cls) -> int:
-        return cls.objects.filter(pk=1).values_list("version", flat=True).first() or 1
+        version = cls.objects.filter(pk=1).values_list("version", flat=True).first()
+        if version is None:
+            raise KBError("version_missing", cls._MISSING)
+        return version
+
+    @classmethod
+    def token(cls) -> str:
+        """The instance token of the counter row (stable for the row's lifetime)."""
+        value = cls.objects.filter(pk=1).values_list("instance_token", flat=True).first()
+        if value is None:
+            raise KBError("version_missing", cls._MISSING)
+        return str(value)
 
     def __str__(self) -> str:
         return f"KB v{self.version}"
