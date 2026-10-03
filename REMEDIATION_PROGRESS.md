@@ -21,7 +21,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 3 — Talaba modeli | **Bajarildi** | `b1d3a08` | — |
 | 4 — Tayyorlik va holatlar | **Bajarildi** | `0b15802` | — |
 | 5 — Test sessiyasi modeldan o‘tadi | **Bajarildi** | `620d4e1` | — |
-| 6 — Trayektoriya va API | Kutilmoqda | — | — |
+| 6 — Trayektoriya va API | **Bajarildi** | `3add9ef` | — |
 | 7 — Frontend | Kutilmoqda | — | — |
 | 8 — Eksperimentlar va rozilik | Kutilmoqda | — | — |
 | 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
@@ -532,6 +532,66 @@ Uchtasi B2.1 dan (asoslangan), beshtasi `test_na.py` ning o‘z signali: `test_p
 - **Har bir javobga tushadigan so‘rovlar soni chiziqli qoladi** — bu Algoritm 2.4 ning har javobda bir marta bajarilishi, ya’ni tabiiy narx. Test varaqni **qayta yuklash** yo‘qligini tekshiradi, umumiy so‘rov sonini emas.
 ---
 
+## 6-bosqich hisoboti (trayektoriya va API)
+
+Qamradi: P1-8 (backend), TR1–TR4, ES7; audit 4.9. Addendum bo‘yicha A4-9…A4-12 endpoint'lari ham shu bosqichda.
+
+### Nima qilindi
+
+- **Sof trayektoriya (7-qoida).** `neuro_model/trajectory.py`: Algoritm 2.5 (A/B/C/D guruhlari), `impact(v) = |{w ∈ Desc*(v) : M_s(w) = 0}|`, `need(g)` va `path_to(g)`. Django importi yo‘q.
+- **Tartib topologik.** Guruhlar G_L ning topologik tartibini (`snapshot.order`, Algoritm 2.2) ishlatadi, `position` ni emas. Audit 4.9 ning asosiy e’tirozi shu edi: `position, id` bo‘yicha saralangan ro‘yxatda turli shoxlardagi tugunlarning tartibi tasodifiy bo‘lardi.
+- **A guruhi tartibi.** ta’sir kamayishi, so‘ng P o‘sishi: eng ko‘p ishni to‘sib turgan va eng zaif mavzu birinchi. Etalon holat (t1 ta’sir 4, t3 ta’sir 3) test bilan tasdiqlangan.
+- **Sabablar tuzilmali.** Har bir element `{code, params}` qaytaradi — `review_impact`, `in_progress`, `ready`, `blocked`. Matn yo‘q: so‘zlar frontend'ning bitta lug‘at faylida (D20). Test har bir sabab kodining matn emasligini va `params` dagi barcha qiymatlarning son ekanini tekshiradi.
+- **`assessments/services/trajectory.py`.** Django tomoni: holatlarni va snapshot'ni yuklaydi, sof funksiyani chaqiradi, nomlarni qo‘shadi. `?course=<id>` bo‘yicha bitta kursga chegaralanadi (Leaves(n)). Byudjet: bitta tayyorlik sinxronizatsiyasi + bitta nom so‘rovi, kurs hajmidan qat’i nazar — test har qo‘shimcha mavzuga **0.5 dan kam** so‘rov tushishini tasdiqlaydi (ES7).
+- **Need_s(g) va yo‘l.** Yopiq g dan orqaga qarab yuriladi: Pre(node) dagi M = 0 bo‘lgan har bir u olinadi, va u ning o‘zi yopiq bo‘lsa qidiruv davom etadi. O‘zlashtirilgan tugun kerak emas, ochiq tugun kerak lekin undan orqaga yurilmaydi. Yo‘l — Need topologik tartibda, oxirida g. Etalon: Need(t7) = {t4, t6}, yo‘l t4 → t6 → t7.
+- **Dashboard servisdan foydalanadi.** To‘rtta evristika (`recommended_next`, `needs_revision`, `ready_to_advance`, `coming_soon`) olib tashlandi. Ularning har birining o‘z tartibi va “ochiq” degan tushunchasi bor edi va bir-biriga qarama-qarshi chiqishi mumkin edi. Endi dashboard `trajectory.for_learner` ni chaqiradi va `trajectory: {groups, next}` qaytaradi. Test dashboard va endpoint **aynan bir xil** natija berishini tasdiqlaydi.
+
+### Endpoint'lar
+
+| Endpoint | Nima |
+|---|---|
+| `GET /api/learning/trajectory/?course=<id>` | Algoritm 2.5: `groups` (A, B, C, D), `items`, `next`, `kb_version` |
+| `GET /api/learning/path-to/<topic_id>/` | `need`, `path`, `reachable` — topologik tartibda, oxirida maqsad |
+| `GET /api/learning/mistakes/` | Xato javoblar, mavzular bo‘yicha guruhlangan (D25) |
+| `POST /api/learning/mistakes/<attempt_id>/reviewed/` | “Ko‘rib chiqilgan” belgisi, idempotent |
+| `GET /api/learning/topics/<topic_id>/history/` | Har bir urinish: p̂, P(G), P(S), P(L) oldin→keyin, θ, b, tayyorlik, natija, vaqt |
+| `GET /api/me/summary/` | Profil, faqat haqiqiy ma’lumot (D27) |
+| `GET /api/config/model/` | II bob konstantalari (D29) |
+
+Ikki qoida hammasida: **hech narsa o‘ylab topilmaydi** — har bir son ledger'dan, talaba holatidan yoki `settings.THESIS_MODEL` dan o‘qiladi, backend hisoblab bera olmaydigan ko‘rsatkich esa taxmin qilinmaydi, yo‘q bo‘ladi (D23). Va **hech narsa so‘zlashtirilmaydi** — sabablar kod va sonlar (D20).
+
+### Tanlovlar va tafsilotlar
+
+- **“Ko‘rib chiqilgan” belgisi alohida jadvalda.** Ledger append-only, shuning uchun `AssessmentAttempt` ga ustun qo‘shib bo‘lmaydi. Yangi `MistakeReview` modeli (migratsiya `assessments 0011_mistake_review`). O‘chirish yo‘q: “Tozalash” tugmasi olib tashlanadi, faqat belgilash mumkin (addendum 2.10). Test belgilash ledger qatorini o‘zgartirmasligini tasdiqlaydi, va boshqa talabaning xatosini belgilab bo‘lmasligini ham.
+- **`corrected_later`** aynan shu savolga keyinroq to‘g‘ri javob berilganmi degan savolga javob beradi va bitta qo‘shimcha so‘rovda hisoblanadi.
+- **Profilda XP, achievements va study_hours yo‘q** (D27): ularni haqiqiy ma’lumotdan hisoblab bo‘lmaydi, shuning uchun qaytarilmaydi. Buni test alohida tekshiradi. Haftalik faollik javob vaqtlaridan sanaladi. Foydalanuvchi ismi bo‘sh bo‘lsa `null` qaytadi — “Learner” degan to‘qima nom yo‘q.
+- **Tarix ledger'dan o‘qiladi, qayta hisoblanmaydi.** Bu panel himoyada modelni ko‘rsatish uchun asosiy vosita (addendum 2.5), shuning uchun u javob berilgan paytda **ishlatilgan** qiymatlarni beradi, bugungi parametrlar bilan chiqadigan qiymatlarni emas.
+- **`config/model` holatlar va guruhlar ro‘yxatini ham beradi**, shunda UI `closed`/`open`/… va A/B/C/D ni qattiq yozmaydi.
+- **Bo‘lim va kurs trayektoriyada yo‘q.** Holat faqat `topic` turida (D22), shuning uchun `path-to` bo‘lim uchun 404 qaytaradi va trayektoriya faqat mavzulardan iborat.
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| `venv/bin/pytest` (prototip) | **706 passed**, 13 subtests (6-bosqichdan oldin 645) |
+| `venv/bin/python manage.py check` | toza (0 silenced) |
+| `venv/bin/python manage.py makemigrations --check --dry-run` | No changes detected |
+| `neuro_model` yolg‘iz | 461 passed |
+| `venv/bin/pytest --ds=verification.settings verification/tests -q` | **685 passed, 9 failed** |
+
+### Tekshiruvdagi FAIL'lar
+
+Uchtasi B2.1 dan (asoslangan), oltitasi `test_na.py` ning o‘z signali: `test_pending_stages[3]`, `[4]`, `[5]`, `[6]`, `test_na_group_a_student_model_is_not_implemented`, `test_na_group_c_and_d_readiness_and_trajectory_are_not_implemented`.
+
+**Diqqat:** `test_na_group_c_and_d` trayektoriya endpoint'ini `reverse("trajectory")` bilan qidiradi, bizning URL'lar esa `assessments` namespace'ida (`assessments:trajectory`), shuning uchun u endpoint mavjudligini **sezmaydi** — test boshqa sababdan (`StudentTopicState` paydo bo‘lgani) yiqiladi. `test_na_group_f` ham shu sababdan hamon o‘tadi. Bu V-D1 qayta yozilganda hisobga olinishi kerak: endpoint nomlari namespace bilan `assessments:trajectory` va `assessments:path-to`.
+
+### API o‘zgarishi (buzuvchi)
+
+| Endpoint | Olib tashlandi | Qo‘shildi |
+|---|---|---|
+| `GET /api/analytics/overview/` | `recommendations` (`recommended_next`, `needs_revision`, `ready_to_advance`, `coming_soon`) | `trajectory` — `{groups: {A, B, C, D}, next}` |
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -687,8 +747,8 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 4.8 Sikl qoldig‘i jim qo‘shiladi | GR2 (B2) | Bajarildi | `CycleError(remaining)`, `5e5cb09`; test `test_cycle_error_lists_unordered_topics` |
 | 4.8 Tugunlar grafida, G_L'da emas | GR2 (B2) | Bajarildi | `neuro_model/graph.py:expand`, `5e5cb09` |
 | 4.8 Faqat testlarda ishlatiladi | B2, B6 | Qisman | Snapshot daraxt/graf API, savol tanlash va ledger'da ishlatiladi (`79b907c`); trayektoriya — B6 |
-| 4.9 To‘rtta alohida evristika | TR2, ES7 (B6) | Kutilmoqda (B6) | — |
-| 4.9 Sabablar yo‘q | TR3 (B6) | Kutilmoqda (B6) | — |
+| 4.9 To‘rtta alohida evristika | TR2, ES7 (B6) | Bajarildi | To‘rtta evristika olib tashlandi; dashboard `trajectory.for_learner` dan foydalanadi, test `test_the_dashboard_reports_the_trajectory_not_four_heuristics` |
+| 4.9 Sabablar yo‘q | TR3 (B6) | Bajarildi | Har bir element `{code, params}` qaytaradi (`review_impact`, `in_progress`, `ready`, `blocked`); matn frontend lug‘atida (D20) |
 | 4.9 Tartib `position` bo‘yicha | D4 (B2, B6) | Qisman | Global `pos` (D4) — snapshot, daraxt API va admin shu tartibda (`79b907c`); trayektoriya — B6 |
 | 4.9 Easy-skip sun’iy yozuvlar | P0-2, D8 (B1) | Bajarildi | `_maybe_skip_easy_questions` o‘chirildi (`888a96f`); testlar `test_easy_skip_probe_writes_only_real_answers`, `test_only_the_ledger_creates_attempts` |
 
@@ -722,10 +782,10 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | TY4 r_s(w) + tushuntirish | B4, B7 | Qisman | Backend: `readiness.readiness_at` r_s(w) va R_s(w) ni hisoblaydi va ular har bir javobda ledger'ga (`readiness_score`, `was_ready`) yoziladi; 403 tanasi yetishmayotganlarni nomi va P(L) bilan beradi. UI tushuntirishi — 7-bosqich |
 | TY5 Boshlangan mavzu yopilmaydi | B4 | Bajarildi | `next_status` + DB cheklovi; test `test_ty5_a_new_prerequisite_does_not_close_a_started_topic` |
 | TY6 KB versiyasi bo‘yicha qayta hisoblash | B4 | Bajarildi | `StudentTopicState.kb_version` va `readiness.resync` (O(n+m)); test `test_ty6_*` |
-| TR1 5 ta holat | B4, B7 | Kutilmoqda (B4, B7) | — |
-| TR2 A–D guruhlari | B6 | Kutilmoqda (B6) | — |
-| TR3 Sabablar | B6 | Kutilmoqda (B6) | — |
-| TR4 Need_s(g) | B6 | Kutilmoqda (B6) | — |
+| TR1 5 ta holat | B4, B7 | Qisman | Backend bajarildi (B4): `TopicStatus` va o‘tishlar; `GET /api/config/model/` holatlar ro‘yxatini beradi. UI nishonlari — B7 |
+| TR2 A–D guruhlari | B6 | Bajarildi | `neuro_model/trajectory.py::trajectory`; A — ta’sir ↓ va P ↑, B/C/D topologik tartibda |
+| TR3 Sabablar | B6 | Bajarildi | `Reason(code, params)`; test sabab matn emas, kod va sonlar ekanini tasdiqlaydi |
+| TR4 Need_s(g) | B6 | Bajarildi | `need` va `path_to`; etalon Need(t7) = {t4, t6}, yo‘l t4 → t6 → t7 |
 | TR5 Frontend'da ko‘rsatish | B7 | Kutilmoqda (B7) | — |
 | EX1 Anonim pyKT eksporti | B8 | Kutilmoqda (B8) | — |
 | EX2 Oflayn baholash | B8 | Kutilmoqda (B8) | — |
@@ -747,7 +807,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | ES4 Chiziqli G/S | B3 | Bajarildi | chiziqli G/S olib tashlandi, o‘rniga chegaralangan sigmoid |
 | ES5 θ talaba×mavzu | B3 | Bajarildi | θ endi kurs bo‘yicha (D33) |
 | ES6 η=0.3 | B3 | Bajarildi | K(n) = ELO_ALPHA/(1+ELO_BETA·n), o‘zgarmas η emas |
-| ES7 Alohida tavsiya funksiyalari | B6 | Kutilmoqda (B6) | — |
+| ES7 Alohida tavsiya funksiyalari | B6 | Bajarildi | Bitta servis (`assessments/services/trajectory.py`); so‘rovlar byudjeti testi har qo‘shimcha mavzuga <0.5 so‘rov |
 | ES8 Simulyatsiya va baholash | D13 (B0, B1, B8) | Qisman | `is_simulated` va alohida `sim-` daraxti (`332d56f`); `source=simulated` (`888a96f`, test `test_simulator_labels_its_rows`); generator — B8 |
 
 ### 6-bo‘lim (eksperimentlarga tayyorlik)
@@ -860,10 +920,10 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 | A4-6 Mavzu holatlari va P(L) | B4 | Bajarildi | Daraxt, DAG, dashboard, testlar ro‘yxati va `knowledge_states` bir xil `p_mastery`/`accuracy`/`status` qaytaradi |
 | A4-7 Bo‘lim va kurslar uchun `mastered/total` (D22) | B4 | Qisman | Backend: bo‘lim/kursda holat qatori yo‘q (D22), ular standart qiymatlar bilan keladi; `k / n` UI'da — 7-bosqich |
 | A4-8 Yopiq mavzuning yetishmayotgan prerekvizitlari | B4 | Bajarildi | 403 tanasi `{missing: [{topic_id, name, p_mastery}]}`, `pos` bo‘yicha tartiblangan |
-| A4-9 `GET /api/learning/mistakes/` (D25) | B6 | Kutilmoqda (B6) | Ma’lumot manbai tayyor: ledger'dagi `selected_choice`, `is_correct`, `source` (`888a96f`) |
-| A4-10 `GET /api/me/summary/` (D27) | B6 | Kutilmoqda (B6) | — |
-| A4-11 `GET /api/config/model/` (D29) | B6 | Kutilmoqda (B6) | Konstantalar bir joyda: `config/settings.py` `THESIS_MODEL` (shu jumladan `REVIEW_REPEAT_HOURS`) |
-| A4-12 `GET /api/learning/topics/<id>/history/` — p̂, P(G), P(S), p_before, p_after, natija, vaqt | B6 | Kutilmoqda (B6) | Ustunlar ledger'da bor (`888a96f`); II bob qiymatlari B3 dan |
+| A4-9 `GET /api/learning/mistakes/` (D25) | B6 | Bajarildi | `MistakesView` — mavzular bo‘yicha guruhlangan, tanlangan va to‘g‘ri variant, tushuntirish, sana, keyinroq to‘g‘ri yechilgani; “ko‘rib chiqilgan” belgisi `MistakeReview` da (ledger o‘zgarmas), o‘chirish yo‘q |
+| A4-10 `GET /api/me/summary/` (D27) | B6 | Bajarildi | `MeSummaryView` — kurs bo‘yicha k/n va θ, urinishlar, aniqlik, takrorlash soni, haftalik faollik javob vaqtlaridan. XP/achievements/study_hours yo‘q (D27) |
+| A4-11 `GET /api/config/model/` (D29) | B6 | Bajarildi | `ModelConfigView` — τ, δ, G_MAX, S_MAX, a_q, Elo, λ, c, clamp, standartlar, holatlar va trayektoriya guruhlari |
+| A4-12 `GET /api/learning/topics/<id>/history/` — p̂, P(G), P(S), p_before, p_after, natija, vaqt | B6 | Bajarildi | `TopicHistoryView` — har bir urinish uchun p̂, P(G), P(S), P(L) oldin→keyin, θ va b oldin→keyin, tayyorlik, natija, vaqt; qiymatlar ledger'dan (qayta hisoblanmaydi) |
 | A4-13 `PATCH /api/me/consent/` | B8 | Kutilmoqda (B8) | — |
 
 **1-bo‘lim: qarorlar**
