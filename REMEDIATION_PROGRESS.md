@@ -17,6 +17,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 0 — Xavfsizlik, infratuzilma, ma’lumotlarni himoyalash | **Bajarildi** | `1d6f286`, `b44df84`, `f620171`, `332d56f`, `4067215` | `a751538`, `6c5a0a7` |
 | 1 — Ma’lumot ifloslanishini to‘xtatish, javoblar logi | **Bajarildi** | `8bc4cea` (addendum), `888a96f`, `960ba2c` | `7b549fd`, `2fa1d99` |
 | 2 — Bilimlar bazasi modeli | **Bajarildi** | `5e5cb09`, `79b907c` | `c259646` |
+| 2.1 — Tekshiruvdagi FAIL'larni tuzatish (D30–D32, D37, D38) | **Bajarildi** | `cb41a67` | — |
 | 3 — Talaba modeli | Kutilmoqda | — | — |
 | 4 — Tayyorlik va holatlar | Kutilmoqda | — | — |
 | 5 — Test sessiyasi modeldan o‘tadi | Kutilmoqda | — | — |
@@ -231,6 +232,80 @@ Yangi testlar:
 
 ---
 
+## 2.1-bosqich hisoboti (B2.1 — tekshiruvdagi FAIL'larni tuzatish)
+
+Manba: `VERIFICATION_REPORT.md` (commit `7825f2a`) va `NEUROLEARN_B2FIX_B3.md` 1-bo‘limi (D30–D32, D37, D38).
+
+### Nima qilindi
+
+- **D30 — teskari FK manageri guard ostiga olindi.**
+  - `Topic.Meta` va `TopicPrerequisite.Meta` ga `base_manager_name = "objects"` qo‘shildi. Shart bajariladi: `objects` o‘qishda hech narsani filtrlamaydi, guard'lar faqat yozish metodlarida. Shuning uchun D30 dagi `all_objects` varianti kerak bo‘lmadi.
+  - Bu `Topic._base_manager.filter(...).update(parent_id=...)`, `Topic._base_manager.bulk_create([...])` va `TopicPrerequisite._base_manager.all().delete()` yo‘llarini yopdi.
+  - Qo‘shimcha: `parent` maydoni `GuardedTreeNodeForeignKey` ga o‘zgartirildi va teskari manager (`node.children`) ning `add`, `set`, `remove`, `clear` metodlari guard ostiga olindi (`curriculum/models.py`). **Sabab:** `base_manager_name` yolg‘iz `children.set([...])` ni ham rad etadi, lekin Django `set()` ni `transaction.atomic(savepoint=False)` ichida bajaradi — guard ichkarida ishga tushganda butun tranzaksiya `needs_rollback` holatiga o‘tadi va rad etilgandan keyin hech narsa o‘qib bo‘lmaydi (V-B4 testi aynan shundan yiqilgan edi). Manager chegarasida rad etish `atomic` ochilishidan oldin sodir bo‘ladi, shuning uchun rad etilgan yozuv atrofdagi tranzaksiyani buzmaydi. O‘qish yo‘llari tegilmagan.
+  - Migratsiya talab qilinmadi: `TreeNodeForeignKey.deconstruct()` `django.db.models.ForeignKey` yo‘lini qaytaradi, shuning uchun sinfni almashtirish sxemaga ta’sir qilmaydi (`makemigrations --check` toza).
+- **D31 — KB versiyasi yaxlitligi.**
+  - `KnowledgeBaseVersionQuerySet` endi `delete` va `bulk_create` ni ham bloklaydi (`update` avvaldan bor edi).
+  - `KnowledgeBaseVersion.current()` qator yo‘q bo‘lsa `KBError(reason="version_missing")` beradi. Jim `or 1` fallback olib tashlandi.
+  - `_bump_version()` qatorni qayta yaratmaydi: `get_or_create` olib tashlandi, `update(...)` natijasi `rowcount != 1` bo‘lsa `version_missing` beradi. Qator faqat `0011_kb_data` migratsiyasi orqali yaratiladi.
+  - `instance_token` (UUID) maydoni qo‘shildi (`0013_kb_version_instance_token`). Kesh kaliti `kb:snapshot:<instance_token>:v<version>` bo‘ldi, shuning uchun hisoblagich orqaga qaytsa ham eski yozuv o‘qilmaydi.
+  - `updated_at` har bir versiya oshishida `timezone.now()` bilan aniq yoziladi (`auto_now` `QuerySet.update()` da ishlamaydi — V-B6a).
+- **D32 — servis chegarasida xatolar o‘raldi.**
+  - `kb.update_weight(<yo‘q id>, …)` → `KBError(reason="not_found")`.
+  - `kb.create_node(..., slug=<takrorlanuvchi>)` → `KBError(reason="duplicate_slug")`. Tekshiruv KB qulfi ostida bajariladi; `IntegrityError` ham ushlanadi (advisory lock'siz backend'lar uchun). `update_node(slug=…)` ham shu yo‘ldan o‘tadi.
+  - `delete_node` qaytaradigan `size` endi faqat shu amal olib tashlagan faol tugunlarni sanaydi; oldindan arxivlangan avlodlar sanalmaydi.
+  - `KBError` sinfi `curriculum/kb_guard.py` ga ko‘chirildi va `curriculum/services/kb.py` dan qayta eksport qilinadi (`kb.KBError` nomi o‘zgarmadi). Sabab: `curriculum/models.py` ham uni beradi (`current()`), lekin modellar servisni import qila olmaydi.
+  - **Istisno:** noma’lum maydon nomi bilan chaqirilganda servis hamon `TypeError` beradi (`create_node`/`update_node`). Bu foydalanuvchi kiritmasi emas, server kodidagi xato (serializer maydonlarni validatsiya qiladi), shuning uchun 400 ga aylantirilmadi.
+- **D37 — o‘chirilgan daraxt testlari qayta yozildi.** `curriculum/tests/test_tree.py` 26 ta testdan 45 ta testga to‘ldirildi. Qo‘shilganlari: `Leaves(n)` har bir tur uchun (kurs, bo‘lim, mavzu); arxivlangan tugunlarning `order`/`pos`/`depth`/`Leaves` dan chiqib ketishi va `pos` dagi bo‘shliqning yopilishi; ko‘chirishdan keyin ajdod zanjiri, ikki ota-onaning avlodlar to‘plami, `depth` va `Leaves`; chuqurligi 7 bo‘lgan zanjirda shu o‘qishlarning hammasi va pastdan ko‘chirish.
+- **D38 — dev muhiti tozalandi.** Buyruq:
+  ```bash
+  redis-cli --scan --pattern '*kb:snapshot*' | xargs -r redis-cli del
+  ```
+  Tekshirilganda (0, 1, 2-bazalar) dev Redis'da birorta kalit qolmagan edi (`dbsize` = 0) — hisobotdagi `:1:kb:snapshot:v1` kaliti TTL bo‘yicha o‘chib ketgan. D31 dagi `instance_token` bu muammoni kelajak uchun yopadi.
+
+### Qo‘shilgan testlar (prototip tomonida)
+
+- `curriculum/tests/test_kb.py`: chetlab o‘tish ro‘yxatiga `children.add/set/remove/clear`, `Topic._base_manager.update/bulk_create`, `TopicPrerequisite._base_manager.all().delete()` va `KnowledgeBaseVersion...delete()` qo‘shildi; yangi testlar — `version_missing` invarianti, `updated_at` siljishi, kesh kalitining token bilan chegaralanishi, `not_found`/`duplicate_slug`, `delete_node` sanog‘i.
+- `conftest.py`: `transaction=True` testlari har bir testdan keyin barcha jadvallarni truncate qiladi va migratsiya yaratgan versiya qatorini ham olib tashlaydi. Endi prod kodi qatorni qayta yaratmagani uchun (D31) invariantni test harness'i tiklaydi. Bu `verification/` dan tashqarida, root `conftest.py` da — V-B5 ham shu bilan ishlaydi.
+- `pytest.ini`: standart `pytest` ishga tushganda `verification/` o‘tkazib yuboriladi (`--ignore=verification`). U o‘zining `--ds=verification.settings` sozlamasi bilan ishlaydi, shuning uchun standart `--ds` ostida yig‘ilganda `VERIFICATION_SEED` yo‘qligidan collection error bergan edi.
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| `venv/bin/pytest` (prototip) | **464 passed**, 13 subtests (B2.1 dan oldin 458) |
+| `venv/bin/python manage.py check` | toza (0 silenced) |
+| `venv/bin/python manage.py makemigrations --check --dry-run` | No changes detected |
+| `venv/bin/pytest --ds=verification.settings verification/tests -q` | **691 passed, 3 failed** (B2.1 dan oldin: 689 passed, 5 failed) |
+
+Tekshiruv suite'iga tegilmadi (`verification/` o‘zgarmagan).
+
+**Tuzatilgan FAIL'lar (5 tadan 3 tasi + 1 ta qo‘shimcha):**
+
+| Test | Holat |
+|---|---|
+| `test_v_b4_reverse_manager_add_cannot_move_a_node` | FAIL → **PASS** |
+| `test_v_b4_reverse_manager_set_cannot_break_y2_and_the_kind_rules` | FAIL → **PASS** |
+| `test_v_b4_kb_version_row_cannot_be_removed_or_replaced` | FAIL → **PASS** |
+| `test_v_b6_updated_at_tracks_the_last_kb_change` (V-B6a) | FAIL → **PASS** |
+| `test_v_b4_integrity_after_every_attempt` | PASS (saqlandi) |
+
+### Qolgan 3 ta FAIL — nega tuzatilmadi
+
+Uchalasi ham tuzatishdan **oldingi** xatti-harakatni tasdiqlaydigan testlar: D30–D32 aynan shu xatti-harakatni o‘zgartirgani uchun ular endi yiqiladi. Tekshiruv kodi o‘zgartirilmadi (topshiriq talabi), shuning uchun asos shu yerda yozilgan.
+
+1. **`test_b4_bypass.py::test_v_b4_removing_the_version_row_makes_get_snapshot_serve_a_stale_kb`**
+   Test teshikni *namoyish qiladi*: `KnowledgeBaseVersion.objects.filter(pk=1).delete()` ni `pytest.raises` siz bajaradi va keyin eskirgan snapshot xizmat qilishini kutadi. D31 bu `delete` ni guard ostiga oldi, shuning uchun test birinchi qatorda `KBWriteError: Deleting the KB version row must go through curriculum.services.kb.` oladi. Teshik yopilgandan keyin bu test yozilgan holida o‘ta olmaydi — uning juftligi, `test_v_b4_kb_version_row_cannot_be_removed_or_replaced` (aynan shu `delete` rad etilishini kutadi), endi PASS. Ya’ni talab bajarilgan, faqat namoyish testi eskirgan.
+
+2. **`test_b6_version.py::test_v_b6_the_cache_follows_the_version`**
+   Oxirgi qatori kesh kalitining formatini qattiq yozadi: `assert cache.get(f"kb:snapshot:v{version}") is not None` (izoh: “eski yozuv hamon murojaat qilinadi, ya’ni hech narsa invalidatsiya qilinmadi”). D31 kalitni `kb:snapshot:<instance_token>:v<version>` ga o‘zgartirdi, shuning uchun bu aniq satr `None` qaytaradi. Testning *maqsadi* — “yangi versiya yangi kalit yozadi, eski yozuv invalidatsiya qilinmaydi” — hamon bajariladi; faqat kalit satri boshqa. Buni `curriculum/tests/test_kb.py::test_cache_entries_are_scoped_to_the_version_row` tasdiqlaydi: eski kalit (`_cache_key(first.version)`) o‘zgarishdan keyin ham `is not None`, yangi kalit ham yozilgan, va kalitsiz `kb:snapshot:v<version>` yozilmaydi. Testning qolgan barcha assert'lari (versiya +1, 7 qirra, ortiqcha qirralar yo‘q) o‘tadi.
+   *Agar V-B6 ni butunlay yashil ko‘rish muhimroq bo‘lsa:* token kesh kalitida emas, keshlangan qiymat ichida saqlanib, o‘qishda tekshirilsa, D31 ning maqsadi bajariladi va kalit formati o‘zgarmaydi. Bu bir joyda o‘zgarish (`curriculum/services/graph.py`), lekin D31 kalit formatini aniq yozgani uchun hozir spetsifikatsiya bo‘yicha bajarildi.
+
+3. **`test_b6_version.py::test_v_b6_update_weight_on_a_missing_relation_is_not_a_kb_error`**
+   Test nomi ham, mazmuni ham tuzatishdan oldingi kuzatishni qayd etadi: `with pytest.raises(TopicPrerequisite.DoesNotExist): kb.update_weight(10**9, 0.5)`. D32 bu yo‘lni `KBError(reason="not_found")` ga aylantirishni talab qiladi, shuning uchun test yiqiladi. Hisobotning o‘zi (“Qo‘shimcha kuzatishlar”, 1-band) bu holatni V-C1 uchun tuzatilishi kerak deb belgilagan edi; tuzatilgandan keyin kuzatishni qayd etuvchi test eskiradi.
+
+**Xulosa:** V-B4 va V-B6 bo‘yicha talablar bajarildi (guard'lar yopildi, versiya invarianti va `updated_at` tuzatildi), lekin shu uchta test o‘zgartirilmagan holida PASS bo‘la olmaydi, chunki ular eski xatti-harakatning dalili edi. Boshqa B tekshiruvlari (V-B1, V-B2, V-B3, V-B5) regressiyaga uchramadi: 691 passed.
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -267,7 +342,7 @@ Yangi testlar:
 | Q1-14 | `submit_answer` SQL soni oshdi (22 → 25) | Ma’lum va o‘lchangan. `record_attempt` advisory lock'ni qayta oladi (no-op so‘rov). Optimallash 10-bosqichdagi ≤ 12 byudjet bilan birga qilinadi |
 | Q1-15 | Frontend repo'da bu sessiya qilmagan, commit qilinmagan o‘zgarishlar bor edi: tutor fayllari o‘chirilgan, landing/auth/profile/README matnlari o‘zgartirilgan | Foydalanuvchi “D24 bo‘yicha flag ortiga” variantini tanladi. O‘chirilgan fayllar qaytarildi va `VITE_ENABLE_TUTOR` ortiga o‘tkazildi (D24: “kod saqlanadi”). Matn o‘zgarishlari saqlanib, `7b549fd` ga kiritildi |
 | Q1-16 | Dev bazada 31 ta savol farzandli tugunlarga biriktirilgan (Y4 buzilishi) | 1-bosqichda `topic` savolning hozirgi tuguni sifatida saqlanadi. 2-bosqichdagi `kind` migratsiyasi spetsifikatsiyaga ko‘ra shunday tugunni topganda to‘xtaydi va foydalanuvchidan so‘raydi |
-| Q1-17 | Repoda kuzatilmaydigan `NEUROLEARN_VERIFICATION.md` bor | Bu mustaqil tekshiruvchi sessiyaning topshirig‘i. Commit qilinmadi, chunki bu so‘ralmagan. Uning V-C9, V-C12 va V-D1 talablari 1-bosqich testlarida hisobga olindi |
+| Q1-17 | Repoda kuzatilmaydigan `NEUROLEARN_VERIFICATION.md` bor | **O‘zgartirildi (foydalanuvchi, 2026-10-03, B2.1):** `NEUROLEARN_VERIFICATION.md`, `NEUROLEARN_UI_ADDENDUM.md` va `NEUROLEARN_B2FIX_B3.md` commit qilinadi — ular topshiriqning bir qismi va keyingi sessiyalar ularni o‘qishi kerak. (`NEUROLEARN_UI_ADDENDUM.md` allaqachon `8bc4cea` da commit qilingan.) Oldingi qaror: commit qilinmadi, chunki so‘ralmagan edi. Uning V-C9, V-C12 va V-D1 talablari 1-bosqich testlarida hisobga olindi |
 | Q1-18 | “Frontendni ham yuqorida aytilgani kabi o‘zgartir” — hajmi noaniq edi: 1-bosqichga moslashmi yoki addendum UI'si (7-bosqich)mi | Foydalanuvchi “1-bosqichga moslash” variantini tanladi. Faqat 1-bosqich backend o‘zgarishlari bilan bog‘liq qismlar qilindi. Addendum sahifalari B2/B4/B6 API'lariga bog‘liq, ular 7-bosqichda qilinadi. Yangi xabarlar hozircha inglizcha, chunki interfeys hali inglizcha; 7-bosqichda D20 bo‘yicha i18n'ga o‘tadi |
 | Q2-1 | Dev bazada “Algorithm” ildizi (kurs) ga 31 ta savol biriktirilgan edi (Y4 buzilishi; spetsifikatsiya bo‘yicha to‘xtash va so‘rash kerak) | Foydalanuvchi “savollarni o‘chirish” ni tanladi. Ularga javob yo‘q edi. 31 ta savol va 124 ta variant migratsiyadan oldin, alohida amal sifatida o‘chirildi; zaxira `pg-20261003-1106-before-b2.dump`. Migratsiyaning o‘zi boshqa bazalarda bunday tugunni topsa, ma’lumotni o‘chirmaydi — to‘xtaydi |
 | Q2-2 | Spetsifikatsiya: “savollari bor barg → topic; qolganlari → section”. Dev bazada 6 ta bo‘sh barg bor | Foydalanuvchi qarori: bo‘sh barg ham `topic` (II bob: topic — barg). `0011_kb_data` shunday ishlaydi |
