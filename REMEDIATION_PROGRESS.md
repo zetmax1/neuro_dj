@@ -19,7 +19,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 2 — Bilimlar bazasi modeli | **Bajarildi** | `5e5cb09`, `79b907c` | `c259646` |
 | 2.1 — Tekshiruvdagi FAIL'larni tuzatish (D30–D32, D37, D38) | **Bajarildi** | `cb41a67` | — |
 | 3 — Talaba modeli | **Bajarildi** | `b1d3a08` | — |
-| 4 — Tayyorlik va holatlar | Kutilmoqda | — | — |
+| 4 — Tayyorlik va holatlar | **Bajarildi** | `0b15802` | — |
 | 5 — Test sessiyasi modeldan o‘tadi | Kutilmoqda | — | — |
 | 6 — Trayektoriya va API | Kutilmoqda | — | — |
 | 7 — Frontend | Kutilmoqda | — | — |
@@ -386,6 +386,103 @@ Qolgan ikkitasi — **yangi va kutilgan**: `test_na.py::test_na_group_a_student_
 - **pyBKT (ixtiyoriy).** `calibrate_bkt --method=pybkt` kerak bo‘lsa: `venv/bin/pip install -r requirements-dev.txt`. Standart grid search uchun hech narsa kerak emas.
 ---
 
+## 4-bosqich hisoboti (tayyorlik va holatlar)
+
+Qamradi: P0-3, P0-6, TY1–TY6, ES2; audit 4.3 (to‘rtta implementatsiya, global `is_unlocked`, qayta yopilish, yopiq mavzuga javob berish), 3.4 (ikki xil son), 2.4 (`learning_path/tree` dagi `mastery_percentage` aslida `score` edi).
+
+### Nima qilindi
+
+- **Sof tayyorlik (7-qoida).** `neuro_model/readiness.py`: M belgisi τ/δ gisterezis bilan, R_s(w), r_s(w), `missing_count`, Algoritm 2.3 ning tarqalishi (`propagate`), TY6 uchun O(n+m) qayta hisoblash (`recompute_counters`) va holatlar o‘tish jadvali (`next_status`). Django importi yo‘q — buni `test_purity.py` tekshiradi.
+- **Gisterezis saqlanadigan qiymat.** M `p_mastery >= τ` emas: τ va τ−δ orasida u avvalgi qiymatini saqlaydi, shuning uchun hisoblanmaydi, balki `mastered_flag` ustunida saqlanadi. Aks holda τ atrofida turgan talaba har bir javobda o‘ziga bog‘liq mavzularni ochib-yopib turardi.
+- **`StudentTopicState`.** `UserKnowledgeState` butunlay almashtirildi. Maydonlar: `p_mastery`, `mastered_flag`, `status`, `missing_count`, `started_at`, `kb_version`, `attempts`, `correct`, `accuracy`. Eski `mastery_percentage` bitta ustunda ikki shkalani saqlardi (ehtimollik va 0–100 baho) — bu qiymatlar **ko‘chirilmadi**, jadval tashlandi va holatlar `rebuild_student_states` bilan qayta quriladi. Yangi ustunda bu strukturaviy jihatdan imkonsiz: `p_mastery` [0,1] DB cheklovi bilan.
+- **TY5 DB darajasida.** `state_started_matches_status` cheklovi: `started_at` to‘lgan qator faqat `in_progress`/`mastered`/`review` bo‘lishi mumkin, bo‘sh qator faqat `closed`/`open`. Ya’ni “boshlangan” va “yopiq emas” — bir xil narsa, va TY5 ni kod ham, baza ham buzolmaydi.
+- **Yagona tayyorlik servisi.** `assessments/services/readiness.py`. U to‘rtta eski implementatsiyani almashtirdi:
+  1. `Topic.is_unlocked` global bayrog‘i va `orchestrator._unlock_child_topics` ota→farzand kaskadi;
+  2. `curriculum.services.graph.is_unlocked_dag` (ota tugunga fallback bilan);
+  3. `curriculum/views/graph.py` ichidagi har bir so‘rovda qayta hisoblangan `is_unlocked`;
+  4. `submit_test_session` ning o‘tgan bahoda farzandlarni ochishi.
+  Endi bitta joy qaror qiladi. Vazifalari: yangi talaba uchun boshlang‘ich holat (`missing_count` = |Pre(w)|), Algoritm 2.3 (`apply_answer`), TY6 (`resync`), va `check_open` — yopiq mavzu uchun yetishmayotgan prerekvizitlar ro‘yxati.
+- **Meros faqat G_L orqali.** Ota tugun o‘zlashtirilgani mavzuni ochmaydi; faqat `Pre(w)` dagi barcha tugunlarda M = 1 bo‘lishi ochadi. Bu audit 4.3 ning asosiy topilmasi edi va alohida test bilan yopilgan (`test_a_mastered_parent_does_not_open_its_child`).
+- **Olib tashlanganlar.** `Topic.is_unlocked` (migratsiya `curriculum 0014`), `is_unlocked_dag`, `_unlock_child_topics`, `MasteryLevel` enum'i, `mastery_level_for()`, `settings.MASTERY_THRESHOLD`, `orchestrator.MASTERY_THRESHOLD`, `UserKnowledgeState`, holat qatoridagi `streak` ustuni.
+- **`streak` ledger'dan.** Dashboard'dagi “streak” endi holat qatoridan emas, javoblar logidan o‘qiladi (`_trailing_streak`). U model miqdori emas, append-only ledger esa javoblarni tartibda saqlaydi.
+- **Orchestrator.** Algoritm 2.4 ning 7-qadami qo‘shildi: javobdan keyin `readiness.apply_answer` M ni qayta hisoblaydi va o‘zgargan bo‘lsa Succ(v) hisoblagichlarini siljitadi. Yopiq mavzu `TopicClosed` bilan rad etiladi (3-qadam, yozuvdan oldin). `readiness_score` va `was_ready` endi ledger'ga **javob berilgan paytdagi** qiymat sifatida yoziladi (ilgari NULL edi).
+- **Endpoint'lar.** `next_question`, `submit_answer` va `test_session` yopiq mavzuga **403** qaytaradi, tanasi `{"missing": [{"topic_id", "name", "p_mastery"}]}` va u programme order (`pos`) bo‘yicha tartiblangan. Daraxt, DAG, dashboard, testlar ro‘yxati va `knowledge_states` bir xil `p_mastery`, `accuracy`, `status` (+ `mastered`, `missing_count`) maydonlarini qaytaradi — buni bitta test to‘rtta endpoint'ni taqqoslab tasdiqlaydi.
+- **D22 bo‘yicha.** Holat faqat `topic` turida bo‘ladi: bo‘lim va kurs uchun holat qatori yaratilmaydi (ularda savol yo‘q, Y4), DAG ularni standart qiymatlar bilan ko‘rsatadi. UI ular uchun `k / n` ko‘rsatadi (7-bosqich).
+- **`rebuild_student_states` kengaytirildi.** Endi P(L), θ, b_q dan tashqari M, `status` va `missing_count` ni ham tiklaydi — **Algoritm 2.3 ni qayta o‘ynab**, oxirida qayta hisoblamay. Sabab: holatlar yo‘lga bog‘liq (`mastered → review` ni `open → in_progress` dan faqat oldingi holat ajratadi), M ning o‘zi ham gisterezisli, ya’ni javoblar tartibiga bog‘liq.
+- **Soxta holat olib tashlandi.** `seed_data` ilgari 7 ta `UserKnowledgeState` qatorini qo‘lda yozardi (0.95, 0.68, …) — bu D8 ga qarshi edi. Endi u faqat haqiqiy `seed` javoblarini yozadi va oxirida `rebuild_student_states --include-legacy` chaqiradi, ya’ni holatlar javoblardan kelib chiqadi.
+- **`seed_thesis_demo` qoidaga bo‘ysunadi.** Demo talabasi ham haqiqiy o‘quvchi kabi tayyorlik darvozasidan o‘tadi: mavzular programme order bo‘yicha javoblanadi va hali yopiq bo‘lgani o‘tkazib yuboriladi hamda hisobotda aytiladi. Ilgari u yopiq mavzularga ham javob berardi.
+
+### 4-bo‘lim etalon qiymatlari (tayyorlik)
+
+τ=0.95, δ=0.10. Boshlang‘ich holat: t1=0.97, t2=0.96, t3=0.98, t5=0.96 (M=1); t4=0.62 (`in_progress`).
+
+| Tekshiruv | Kutilgan | Natija |
+|---|---|---|
+| Yangi talaba hisoblagichlari | t3=1, t4=1, t5=1, t6=3, t7=2, t8=2 | mos |
+| Boshlang‘ich holatda hisoblagichlar | t6=1, t7=2, t8=2 | mos |
+| t4 ga 1-to‘g‘ri javob: P(L) 0.62 → 0.8921 | hisoblagichlar o‘zgarmaydi (M band ichida) | mos |
+| t4 ga 2-to‘g‘ri javob: P(L) → 0.9764 | t6 ochiladi; t7, t8 2 → 1 | mos |
+| M 1 dan 0 ga tushsa | t4 `review`, t6 qayta yopiladi (boshlanmagan) | mos |
+| Meros probe'i | o‘zlashtirilgan ota mavzuni ochmaydi | mos |
+| TY5 | boshlangan mavzuga yangi prerekvizit qo‘shilsa hisoblagich o‘sadi, lekin holat `in_progress` qoladi va 403 bermaydi | mos |
+| TY6 | `kb_version` orqada qolgan qator hisoblagichlari M belgilaridan qayta hisoblanadi | mos |
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| `venv/bin/pytest` (prototip) | **627 passed**, 13 subtests (4-bosqichdan oldin 566) |
+| `venv/bin/python manage.py check` | toza (0 silenced) |
+| `venv/bin/python manage.py makemigrations --check --dry-run` | No changes detected |
+| `neuro_model` yolg‘iz | 433 passed |
+| `venv/bin/pytest --ds=verification.settings verification/tests -q` | **687 passed, 7 failed** |
+
+Tekshiruv suite'iga tegilmadi.
+
+### Tekshiruvdagi FAIL'lar
+
+Uchtasi B2.1 dan qolgan va o‘sha bo‘limda asoslangan. Qolgan to‘rttasi — `test_na.py` ning o‘z signali (“these tests start failing the moment a stage lands”):
+
+| Test | Nega |
+|---|---|
+| `test_pending_stages[3]` | 3-bosqich endi “Bajarildi” |
+| `test_pending_stages[4]` | 4-bosqich endi “Bajarildi” |
+| `test_na_group_a_student_model_is_not_implemented` | `neuro_model` da `graph.py` dan boshqa fayllar bor, `STUDENT_MODEL_ENGINE` yo‘q |
+| `test_na_group_c_and_d_readiness_and_trajectory_are_not_implemented` | `StudentTopicState` modeli endi mavjud; `p_mastery`/`missing_count`/`status` maydonlari bor |
+
+**Demak qayta yozilishi kerak:** V-A1…V-A4 (sof model), V-C1…V-C12 ning 4-bosqichga tegishli qismi va V-D1. Trayektoriya endpoint'lari (`trajectory`, `path-to`) hamon yo‘q — ular 6-bosqichda.
+
+### API o‘zgarishlari (buzuvchi)
+
+7-bosqichda frontend shu maydonlarga moslanadi (D20–D29). Hozircha backend API shakli o‘zgardi:
+
+| Endpoint | Olib tashlandi | Qo‘shildi |
+|---|---|---|
+| `GET /api/learning_path/tree/` | `mastery_percentage` (aslida `score` edi), `mastery_level`, `mastery_level_display`, `is_unlocked` | `p_mastery`, `accuracy`, `status`, `mastered`, `missing_count`, `attempts` |
+| `GET /api/curriculum/prerequisite-graph/` | `data.is_unlocked`, `data.mastery_pct` | `data.p_mastery`, `data.accuracy`, `data.status`, `data.mastered`, `data.missing_count` |
+| `POST /api/assessments/submit_answer/` | `mastery_level`, `mastery_display`, `mastery_percentage`, `streak` | `p_mastery`, `status`, `mastered`, `accuracy`, `attempts`, `opened_topics`; yopiq mavzuga **403** |
+| `GET /api/assessments/next_question/`, `GET /api/assessments/test_session/` | — | yopiq mavzuga **403** `{missing: [...]}` |
+| `GET /api/assessments/tests/` | `is_unlocked`, `mastery_percentage` | `p_mastery`, `accuracy`, `status`, `mastered`, `missing_count` |
+| `GET /api/knowledge_states/` | `mastery_level`, `mastery_display`, `score`, `total_attempts`, `correct_attempts`, `streak` | `status`, `status_display`, `p_mastery`, `mastered_flag`, `missing_count`, `accuracy`, `attempts`, `correct`, `started_at` |
+| `GET /api/analytics/overview/` | `heatmap`/tavsiyalarda `mastery_percentage`, `strongest/weakest.mastery_pct` | `p_mastery` va `status`; `topics_unlocked` = holati `closed` bo‘lmaganlar, `topics_mastered` = M belgisi |
+| Topic serializerlari (student, instructor) | `is_unlocked` | — |
+
+### Ataylab qilingan tanlovlar
+
+- **`UserKnowledgeState` qayta tuzilmadi, almashtirildi.** Spetsifikatsiya ikkisini ham ruxsat beradi. Yangi maydon to‘plami butunlay boshqa (M, holat, hisoblagich, `kb_version`), eski nom esa endi mazmunni ifodalamaydi, shuning uchun toza almashtirish tanlandi — aralash shkalali ustunlarni ortidan tortib yurmaslik uchun.
+- **Holat qatorlari o‘qishda materializatsiya qilinadi.** `states_for` yo‘q qatorlarni `bulk_create(ignore_conflicts=True)` bilan yaratadi va `kb_version` orqada bo‘lsa `resync` qiladi. Barqaror holatda bu bitta SELECT va hech qanday yozuv emas. Shu sababli daraxt/DAG/dashboard GET'lari birinchi murojaatda yozishi mumkin — bu idempotent va tranzaksiya ichida.
+- **`readiness_score` javob berilgan paytdan olinadi.** Algoritm 2.4 da tayyorlik 7-qadam, lekin ledger ustunining ma’nosi “r_s(w) at answer time”, shuning uchun u yangilashdan **oldin** hisoblanadi va shundan keyin Algoritm 2.3 bajariladi.
+- **Prerekvizit o‘zlashtirilmagan bo‘lsa, unga javob berib bo‘lmaydi — shuning uchun P(L0) dagi “javob berilmagan prerekvizit” tarmog‘i endpoint orqali yetib bo‘lmaydigan bo‘ldi.** U hamon jonli: `rebuild_student_states` va seed buyruqlari mavzularga o‘z tartibida javob beradi. Shu sababli bu tarmoq dvigatelga to‘g‘ridan-to‘g‘ri chaqiruv bilan test qilinadi va buning sababi testda yozilgan.
+- **`submit_test_session` P(L) ni o‘zgartirmaydi.** D7: baho imtihon natijasi. Endi u faqat `attempts`/`correct`/`accuracy` ni siljitadi va hech narsani ochmaydi. Test javoblarini model orqali o‘tkazish — 5-bosqich.
+- **Diskret `MasteryLevel` olib tashlandi** (`docs/THESIS_MAPPING.md` F2 farqi yopildi).
+
+### Foydalanuvchi bajarishi kerak bo‘lgan ishlar
+
+- **Dev bazasiga migratsiya.** `venv/bin/python manage.py migrate` — `assessments.0010_student_topic_state` `UserKnowledgeState` jadvalini **tashlaydi** (qiymatlar ko‘chirilmaydi, spetsifikatsiya talabi), `curriculum.0014_drop_topic_is_unlocked` esa `Topic.is_unlocked` ustunini olib tashlaydi. Qaytarib bo‘lmaydi, shuning uchun sizning muhitingizda bajarilmadi. 3-bosqichning `assessments.0009` migratsiyasi ham hali qo‘llanmagan bo‘lsa, ikkisi birga qo‘llanadi.
+- **Keyin holatlarni qayta qurish.** `venv/bin/python manage.py rebuild_student_states --include-legacy` — dev bazadagi holatlar, M belgilari va hisoblagichlar javoblar logidan tiklanadi.
+- **Frontend.** API shakli o‘zgardi (yuqoridagi jadval). Moslashtirish 7-bosqichda, D20–D29 bo‘yicha.
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -480,7 +577,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 2.2 `orchestrator.py:23` noto‘g‘ri izoh | B0 | Bajarildi | `assessments/services/orchestrator.py:21-24`, `1d6f286` |
 | 2.4 Prerekvizit uchun API yo‘q | B2 API | Bajarildi | `/api/curriculum/instructor/prerequisites/` (CRUD, `?expand=leaf`), `/api/curriculum/instructor/kb/warnings/`, `79b907c` |
 | 2.4 Graf va shablon AllowAny | D15 | Bajarildi | `curriculum/views/graph.py:34`, `assessments/views/instructor.py:235`, `f620171` |
-| 2.4 `learning_path/tree` dagi `mastery_percentage` aslida `score` | D5 (B4) | Kutilmoqda (B4) | — |
+| 2.4 `learning_path/tree` dagi `mastery_percentage` aslida `score` | D5 (B4) | Bajarildi | Daraxt endi `p_mastery` (P(L)) va `accuracy` ni alohida qaytaradi; aralash shkalali ustun olib tashlandi |
 | 2.5 JWT blacklist ishlamaydi | D16 | Bajarildi | `config/settings.py:86`; test `test_rotated_refresh_token_is_blacklisted` |
 | 2.5 Rollar nomuvofiq (`Instructor` va `is_staff`) | D15, P2-5 | Qisman | Backend: `accounts/permissions.py`, `f620171`; frontend `AdminRoute` — B7 |
 | 2.6 Advisory lock yo‘q | BB9 (B2) | Bajarildi | `pg_advisory_xact_lock(KB_LOCK_KEY)` — `curriculum/services/kb.py:_lock`, `79b907c`; mutatsion tekshiruvli poyga testi |
@@ -518,10 +615,10 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 4.2 `InvalidMove` → 500 | BB5, P2-3 (B2) | Bajarildi | Y1 servisda (`move_into_subtree`), `KBError` → 400 (`KBErrorMixin`), `79b907c`; test `test_y1_node_cannot_move_into_its_subtree` |
 | 4.2 Tugun o‘chirilsa javoblar CASCADE bilan o‘chadi | D11, P2-8 (B1) | Bajarildi | `PROTECT` (`assessments/models.py`), arxivlash `curriculum/views/instructor.py` (`destroy`), `960ba2c`; test `test_orm_refuses_to_drop_answers`, `test_deleting_an_answered_subtree_archives_it` |
 | 4.2 Daraxt o‘zgarganda Y2/Y3 tekshirilmaydi | BB8 (B2) | Bajarildi | `update_node`/`create_node` dan keyin Algoritm 2.2 va Y2, `79b907c`; test `test_moving_t4_into_b3_violates_y2` |
-| 4.3 Unlock 4 xil implementatsiya | P0-6 (B4) | Kutilmoqda (B4) | — |
-| 4.3 Global `Topic.is_unlocked` | D9 (B4) | Kutilmoqda (B4) | — |
-| 4.3 Ochiq mavzu qayta yopiladi | TY5 (B4) | Kutilmoqda (B4) | — |
-| 4.3 Yopiq mavzuga javob berish mumkin | D9 (B4) | Kutilmoqda (B4) | — |
+| 4.3 Unlock 4 xil implementatsiya | P0-6 (B4) | Bajarildi | Yagona `assessments/services/readiness.py`; `is_unlocked_dag`, `_unlock_child_topics`, view ichidagi hisoblash va test-sessiya kaskadi olib tashlandi |
+| 4.3 Global `Topic.is_unlocked` | D9 (B4) | Bajarildi | `Topic.is_unlocked` ustuni olib tashlandi, migratsiya `curriculum 0014_drop_topic_is_unlocked` |
+| 4.3 Ochiq mavzu qayta yopiladi | TY5 (B4) | Bajarildi | TY5 `next_status` dagi `started` tarmog‘i va `state_started_matches_status` DB cheklovi bilan; test `test_ty5_*` |
+| 4.3 Yopiq mavzuga javob berish mumkin | D9 (B4) | Bajarildi | `next_question`, `submit_answer`, `test_session` 403 `{missing: [...]}` qaytaradi; test `test_*_refuses_a_closed_topic` |
 | 4.3 Chegara 3 joyda har xil | TY1, D6 (B4) | Qisman | D6 konstantalari bir joyda (`config/settings.py:266-285`); eski chegaralar B4 da olib tashlanadi |
 | 4.4 BKT parametrlari global | TM1 (B3) | Bajarildi | `TopicModelParams` (P0, PT, G0, S0, `source`); qatori yo‘q mavzu `settings.THESIS_MODEL` standartlarini oladi |
 | 4.4 `_retrieve_prior` `algorithm_used` ni filtrlamaydi | B1 | Bajarildi | `_retrieve_prior` o‘chirildi, prior holatdan: `assessments/services/engines/bayesian.py:prior_from_state`, `888a96f`; test `test_hybrid_trace_is_stored_and_prior_comes_from_state` |
@@ -570,12 +667,12 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | TM5 Prerekvizitli P(L0) | B3 | Bajarildi | `neuro_model/init.py`; etalon 0.636 va 0.35 test sifatida |
 | TM6 Algoritm 2.4 tartibi | B3 | Bajarildi | `neuro_model/student.py::observe`; test `test_p_hat_uses_theta_before_not_theta_after` |
 | TM7 Log maydonlari | B1 | Qisman | Maydonlar, cheklovlar va yozish yo‘li tayyor (`888a96f`). `kb_version` B2 da, `readiness_score`/`was_ready` B4 da to‘ldiriladi, II bob qiymatlari B3 dan |
-| TY1 Histerezis M (τ, δ) | B4 | Kutilmoqda (B4) | `TAU`, `DELTA` tayyor |
-| TY2 R faqat G_L orqali, fallback'siz | B4 | Kutilmoqda (B4) | — |
-| TY3 `missing_count` hisoblagichi | B4 | Kutilmoqda (B4) | — |
-| TY4 r_s(w) + tushuntirish | B4, B7 | Kutilmoqda (B4, B7) | — |
-| TY5 Boshlangan mavzu yopilmaydi | B4 | Kutilmoqda (B4) | — |
-| TY6 KB versiyasi bo‘yicha qayta hisoblash | B4 | Kutilmoqda (B4) | — |
+| TY1 Histerezis M (τ, δ) | B4 | Bajarildi | `neuro_model/readiness.py::mastered_flag`; M saqlanadi, chunki band ichida avvalgi qiymatga bog‘liq |
+| TY2 R faqat G_L orqali, fallback'siz | B4 | Bajarildi | `Pre(w)` snapshot'ning G_L'idan; ota tugunga fallback yo‘q, test `test_a_mastered_parent_does_not_open_its_child` |
+| TY3 `missing_count` hisoblagichi | B4 | Bajarildi | `StudentTopicState.missing_count`, inkremental `propagate`, TY6 uchun `recompute_counters` |
+| TY4 r_s(w) + tushuntirish | B4, B7 | Qisman | Backend: `readiness.readiness_at` r_s(w) va R_s(w) ni hisoblaydi va ular har bir javobda ledger'ga (`readiness_score`, `was_ready`) yoziladi; 403 tanasi yetishmayotganlarni nomi va P(L) bilan beradi. UI tushuntirishi — 7-bosqich |
+| TY5 Boshlangan mavzu yopilmaydi | B4 | Bajarildi | `next_status` + DB cheklovi; test `test_ty5_a_new_prerequisite_does_not_close_a_started_topic` |
+| TY6 KB versiyasi bo‘yicha qayta hisoblash | B4 | Bajarildi | `StudentTopicState.kb_version` va `readiness.resync` (O(n+m)); test `test_ty6_*` |
 | TR1 5 ta holat | B4, B7 | Kutilmoqda (B4, B7) | — |
 | TR2 A–D guruhlari | B6 | Kutilmoqda (B6) | — |
 | TR3 Sabablar | B6 | Kutilmoqda (B6) | — |
@@ -596,7 +693,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
 | ES1 DFS tugunlar grafida | B2 | Bajarildi | G_L bo‘yicha BFS, `5e5cb09` |
-| ES2 θ=0.70 + fallback | B4 | Kutilmoqda (B4) | — |
+| ES2 θ=0.70 + fallback | B4 | Bajarildi | Qat’iy chegara va fallback olib tashlandi: M — τ/δ gisterezis, meros faqat G_L orqali |
 | ES3 MPTT | B2 | Bajarildi | tree-queries, `79b907c` |
 | ES4 Chiziqli G/S | B3 | Bajarildi | chiziqli G/S olib tashlandi, o‘rniga chegaralangan sigmoid |
 | ES5 θ talaba×mavzu | B3 | Bajarildi | θ endi kurs bo‘yicha (D33) |
@@ -648,7 +745,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 7.3 JWT `localStorage` da | D16 (B7) | Kutilmoqda (B7) | — |
 | 7.3 AllowAny endpoint'lar | D15 | Bajarildi | `f620171`; test `test_anonymous_access_is_rejected` |
 | 7.3 Talaba o‘qituvchi endpoint'larini o‘qiydi | D15 | Bajarildi | test `test_student_cannot_read_instructor_endpoints` |
-| 7.3 Talaba yopiq mavzuga javob beradi | D9 (B4) | Kutilmoqda (B4) | — |
+| 7.3 Talaba yopiq mavzuga javob beradi | D9 (B4) | Bajarildi | 403 `{missing: [...]}` uchta endpoint'da; servis `TopicClosed` beradi |
 | 7.3 `arms_cache` git'da | B0 | Bajarildi | frontend `a751538` |
 | 7.4 `TestsListView` N+1 | P2-4 (B5) | Kutilmoqda (B5) | — |
 | 7.4 Sikl DFS N+1 | P2-4 (B2) | Bajarildi | Tekshiruv xotiradagi snapshot ustida, `5e5cb09`, `79b907c` |
@@ -663,10 +760,10 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 |---|---|---|---|
 | P0-1 Test sessiyasi BKT'ni chetlab o‘tadi | B5, B7 | Qisman | B1: baho endi `mastery_percentage` ga yozilmaydi, `TestSessionResult` ga yoziladi (`888a96f`); model orqali o‘tish — B5, UI — B7 |
 | P0-2 Cascade va easy-skip | B1 | Bajarildi | `888a96f`; `test_ledger.py` |
-| P0-3 Talabaga xos tayyorlik | B4 | Kutilmoqda (B4) | — |
+| P0-3 Talabaga xos tayyorlik | B4 | Bajarildi | `StudentTopicState` (user, topic) va `assessments/services/readiness.py` |
 | P0-4 G_L, Y2, Y3, qulf | B2 | Bajarildi | `5e5cb09`, `79b907c` |
 | P0-5 Talaba modeli | B3 | Bajarildi | `neuro_model/` + `assessments/services/student_model.py`, yagona dvigatel `thesis_hybrid/1` |
-| P0-6 Yagona unlock servisi | B4 | Kutilmoqda (B4) | — |
+| P0-6 Yagona unlock servisi | B4 | Bajarildi | Yagona servis; to‘rtta eski implementatsiya olib tashlandi |
 | P1-1 Logni kengaytirish | B1 | Bajarildi | `888a96f`; `test_ledger.py`, `test_ledger_migration.py` |
 | P1-2 pyKT eksporti, rozilik | B8 | Kutilmoqda (B8) | — |
 | P1-3 Oflayn baholash | B8 | Kutilmoqda (B8) | — |
@@ -711,9 +808,9 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 | A4-3 Graf API: G_L qirralari `inherited` belgisi va ularni hosil qilgan E_P id'si bilan | B2 | Bajarildi | `curriculum/views/graph.py` (`nodes[].data.kind/pos/lev`, `leaf_edges`, `edges`, `warnings`), `79b907c`; test `test_graph_endpoint_response_format` |
 | A4-4 Graf API: o‘qituvchi kiritgan E_P qirralari alohida | B2 | Bajarildi | `curriculum/views/graph.py` (`nodes[].data.kind/pos/lev`, `leaf_edges`, `edges`, `warnings`), `79b907c`; test `test_graph_endpoint_response_format` |
 | A4-5 Graf API: ogohlantirishlar (ortiqcha qirralar, κ) | B2 | Bajarildi | `curriculum/views/graph.py` (`nodes[].data.kind/pos/lev`, `leaf_edges`, `edges`, `warnings`), `79b907c`; test `test_graph_endpoint_response_format` |
-| A4-6 Mavzu holatlari va P(L) | B4 | Kutilmoqda (B4) | — |
-| A4-7 Bo‘lim va kurslar uchun `mastered/total` (D22) | B4 | Kutilmoqda (B4) | — |
-| A4-8 Yopiq mavzuning yetishmayotgan prerekvizitlari | B4 | Kutilmoqda (B4) | — |
+| A4-6 Mavzu holatlari va P(L) | B4 | Bajarildi | Daraxt, DAG, dashboard, testlar ro‘yxati va `knowledge_states` bir xil `p_mastery`/`accuracy`/`status` qaytaradi |
+| A4-7 Bo‘lim va kurslar uchun `mastered/total` (D22) | B4 | Qisman | Backend: bo‘lim/kursda holat qatori yo‘q (D22), ular standart qiymatlar bilan keladi; `k / n` UI'da — 7-bosqich |
+| A4-8 Yopiq mavzuning yetishmayotgan prerekvizitlari | B4 | Bajarildi | 403 tanasi `{missing: [{topic_id, name, p_mastery}]}`, `pos` bo‘yicha tartiblangan |
 | A4-9 `GET /api/learning/mistakes/` (D25) | B6 | Kutilmoqda (B6) | Ma’lumot manbai tayyor: ledger'dagi `selected_choice`, `is_correct`, `source` (`888a96f`) |
 | A4-10 `GET /api/me/summary/` (D27) | B6 | Kutilmoqda (B6) | — |
 | A4-11 `GET /api/config/model/` (D29) | B6 | Kutilmoqda (B6) | Konstantalar bir joyda: `config/settings.py` `THESIS_MODEL` (shu jumladan `REVIEW_REPEAT_HOURS`) |
