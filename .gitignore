@@ -1,16 +1,28 @@
+# Python
 venv/
-.env
-db.sqlite3
-2026-06-02.txt
-DOCUMENTATION.md
-
-# Pycache & Byte-code
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .pytest_cache/
+.coverage
+htmlcov/
 
-# Media files
+# Local data and secrets (never commit)
+.env
+config/.env
+db.sqlite3
+backups/
 media/
 /media/
+
+# Editors and local tooling
+.idea/
+.vscode/
+.agents/
+graphify-out/
+
+# Personal notes
+2026-06-02.txt
+DOCUMENTATION.md

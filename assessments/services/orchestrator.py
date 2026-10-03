@@ -19,9 +19,9 @@ Engine resolution:
     without touching any orchestration code.
 
 Tree propagation:
-    When mastery_percentage >= MASTERY_THRESHOLD (85%), the orchestrator
-    uses django-tree-queries' ``get_children()`` CTE to fetch immediate
-    child topics and bulk-updates their ``is_unlocked`` flag to True.
+    When mastery_percentage >= MASTERY_THRESHOLD (70%), the orchestrator
+    uses django-mptt's ``get_children()`` (lft/rght range query) to fetch
+    immediate child topics and bulk-updates their ``is_unlocked`` flag to True.
 """
 
 from __future__ import annotations
