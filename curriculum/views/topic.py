@@ -93,7 +93,11 @@ class LearningPathTreeView(generics.ListAPIView):
 
         # Step 3: Compute DAG unlocked status
         prereqs_map: dict[int, list[int]] = defaultdict(list)
-        for t_id, p_id in TopicPrerequisite.objects.all().values_list("topic_id", "prerequisite_id"):
+        for t_id, p_id in (
+            TopicPrerequisite.objects
+            .filter(topic__is_archived=False, prerequisite__is_archived=False)
+            .values_list("topic_id", "prerequisite_id")
+        ):
             prereqs_map[t_id].append(p_id)
 
         raw_threshold = getattr(settings, "MASTERY_THRESHOLD", 0.70)

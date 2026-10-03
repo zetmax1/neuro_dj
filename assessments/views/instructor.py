@@ -3,6 +3,7 @@ import re
 import csv
 import openpyxl
 from django.db import transaction
+from django.db.models import ProtectedError
 from django.http import HttpResponse
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
@@ -19,16 +20,32 @@ class InstructorQuestionViewSet(viewsets.ModelViewSet):
     """
     ViewSet for instructors to manage the question bank.
     Restricted to instructors (D15).
+
+    D11: DELETE of a question that has recorded answers deactivates it
+    (200, ``{"archived": true}``) instead of deleting the answers' target.
+    Inactive questions are hidden unless ``?include_inactive=true``.
     """
     permission_classes = [IsInstructor]
     serializer_class = InstructorQuestionSerializer
-    
+
     def get_queryset(self):
         queryset = Question.objects.select_related("topic").prefetch_related("choices")
         topic_id = self.request.query_params.get("topic")
         if topic_id:
             queryset = queryset.filter(topic_id=topic_id)
+        if self.request.query_params.get("include_inactive", "").lower() not in ("1", "true"):
+            queryset = queryset.filter(is_active=True)
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        question = self.get_object()
+        try:
+            with transaction.atomic():
+                question.delete()
+        except ProtectedError:
+            Question.objects.filter(pk=question.pk).update(is_active=False)
+            return Response({"id": question.pk, "archived": True}, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def parse_excel_or_csv(file_obj, filename):

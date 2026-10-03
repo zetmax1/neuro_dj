@@ -13,12 +13,17 @@ class InstructorTopicSerializer(serializers.ModelSerializer):
         model = Topic
         fields = [
             "id", "name", "slug", "parent", "description",
-            "position", "is_unlocked", "instructor",
+            "position", "is_unlocked", "is_archived", "instructor",
             "pass_mark_percentage", "test_question_count",
             "total_duration_minutes",
             "created_at", "updated_at",
         ]
-        read_only_fields = ["total_duration_minutes"]
+        read_only_fields = ["total_duration_minutes", "is_archived"]
+
+    def validate_parent(self, parent):
+        if parent is not None and parent.is_archived:
+            raise serializers.ValidationError("An archived topic cannot receive new children.")
+        return parent
 
 
 

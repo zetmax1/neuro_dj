@@ -42,6 +42,7 @@ def get_learning_path_queryset(*, user) -> QuerySet[Topic]:
 
     return (
         Topic.objects
+        .filter(is_archived=False)
         .annotate(
             user_mastery_score=Coalesce(mastery_subquery, Value(0)),
             user_mastery_level=Coalesce(mastery_level_subquery, Value(0)),

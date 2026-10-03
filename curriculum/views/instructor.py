@@ -10,9 +10,11 @@ Duration aggregation:
   resources' duration_minutes) for the frontend to display dynamic course durations.
 """
 
-from django.db.models import IntegerField, Sum, Value
+from django.db import transaction
+from django.db.models import IntegerField, ProtectedError, RestrictedError, Sum, Value
 from django.db.models.functions import Coalesce
-from rest_framework import viewsets
+from rest_framework import status, viewsets
+from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from drf_spectacular.utils import extend_schema
 from accounts.permissions import IsInstructor
@@ -35,6 +37,12 @@ class InstructorTopicViewSet(viewsets.ModelViewSet):
 
     Duration aggregation:
       - Each topic is annotated with total_duration_minutes from its resources.
+
+    Archiving (D11):
+      - DELETE removes a topic only when nothing in its subtree is referenced
+        by recorded answers or test results; otherwise the whole subtree is
+        archived (200, ``{"archived": true}``) so the answer ledger stays intact.
+      - Archived topics are hidden unless ``?include_archived=true``.
     """
     permission_classes = [IsInstructor]
     serializer_class = InstructorTopicSerializer
@@ -50,6 +58,8 @@ class InstructorTopicViewSet(viewsets.ModelViewSet):
                 ),
             )
         )
+        if self.request.query_params.get("include_archived", "").lower() not in ("1", "true"):
+            queryset = queryset.filter(is_archived=False)
         # Non-staff instructors only see the topics they created.
         user = self.request.user
         if not (user.is_staff or user.is_superuser):
@@ -65,9 +75,23 @@ class InstructorTopicViewSet(viewsets.ModelViewSet):
         super().perform_update(serializer)
         self._invalidate_tree_cache()
 
-    def perform_destroy(self, instance):
-        super().perform_destroy(instance)
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        try:
+            # MPTT shifts lft/rght before Django checks PROTECT; the atomic
+            # block rolls that back when the delete is refused.
+            with transaction.atomic():
+                instance.delete()
+        except (ProtectedError, RestrictedError):
+            subtree = Topic.objects.get(pk=instance.pk).get_descendants(include_self=True)
+            archived = Topic.objects.filter(pk__in=subtree.values("pk")).update(is_archived=True)
+            self._invalidate_tree_cache()
+            return Response(
+                {"id": instance.pk, "archived": True, "archived_topics": archived},
+                status=status.HTTP_200_OK,
+            )
         self._invalidate_tree_cache()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def _invalidate_tree_cache(self):
         """Best-effort cache invalidation; LocMem has no pattern delete."""

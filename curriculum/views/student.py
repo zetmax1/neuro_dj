@@ -19,7 +19,7 @@ from curriculum.serializers.student import StudentTopicResourceSerializer, Stude
 class StudentTopicDetailView(generics.RetrieveAPIView):
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = StudentTopicSerializer
-    queryset = Topic.objects.annotate(
+    queryset = Topic.objects.filter(is_archived=False).annotate(
         total_duration_minutes=Coalesce(
             Sum("resources__duration_minutes"), Value(0), output_field=IntegerField(),
         ),
@@ -33,5 +33,5 @@ class StudentTopicResourceListView(generics.ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        topic = get_object_or_404(Topic, pk=self.kwargs["pk"])
+        topic = get_object_or_404(Topic, pk=self.kwargs["pk"], is_archived=False)
         return TopicResource.objects.filter(topic=topic).order_by("id")

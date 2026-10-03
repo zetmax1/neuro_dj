@@ -68,7 +68,7 @@ class DashboardOverviewView(APIView):
         user = request.user
 
         # ── Query 1: Topic total count (single COUNT) ─────────────────────
-        total_topics: int = Topic.objects.count()
+        total_topics: int = Topic.objects.filter(is_archived=False).count()
 
         # ── Query 2: Single optimized query to fetch all topics with user annotations ──
         # Subqueries for user state annotations on Topic
@@ -95,6 +95,7 @@ class DashboardOverviewView(APIView):
 
         all_topics = list(
             Topic.objects
+            .filter(is_archived=False)
             .annotate(
                 user_mastery_pct=Coalesce(mastery_pct_subquery, 0.0),
                 user_mastery_lvl=Coalesce(mastery_level_subquery, 0),
@@ -105,7 +106,11 @@ class DashboardOverviewView(APIView):
 
         # Build DAG prerequisite map for unlock checks across recommendations
         prereqs_map: dict[int, list[int]] = defaultdict(list)
-        for t_id, p_id in TopicPrerequisite.objects.values_list("topic_id", "prerequisite_id"):
+        for t_id, p_id in (
+            TopicPrerequisite.objects
+            .filter(topic__is_archived=False, prerequisite__is_archived=False)
+            .values_list("topic_id", "prerequisite_id")
+        ):
             prereqs_map[t_id].append(p_id)
 
         mastered_topic_ids: set[int] = {

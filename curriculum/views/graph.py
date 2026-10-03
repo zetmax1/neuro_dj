@@ -34,8 +34,12 @@ class PrerequisiteGraphView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request: Request) -> Response:
-        topics = list(Topic.objects.all().order_by("tree_id", "lft"))
-        prereqs = list(TopicPrerequisite.objects.all().select_related("topic", "prerequisite"))
+        topics = list(Topic.objects.filter(is_archived=False).order_by("tree_id", "lft"))
+        prereqs = list(
+            TopicPrerequisite.objects
+            .filter(topic__is_archived=False, prerequisite__is_archived=False)
+            .select_related("topic", "prerequisite")
+        )
 
         user = request.user if request.user and request.user.is_authenticated else None
 

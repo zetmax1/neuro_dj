@@ -31,9 +31,9 @@ class TopicPrerequisiteInline(TabularInline):
 
 @admin.register(Topic)
 class TopicAdmin(DraggableMPTTAdmin, ModelAdmin):
-    list_display = ["tree_actions", "indented_title", "slug", "parent", "instructor", "position"]
+    list_display = ["tree_actions", "indented_title", "slug", "parent", "instructor", "position", "is_archived"]
     list_display_links = ["indented_title"]
-    list_filter = ["parent", "instructor"]
+    list_filter = ["is_archived", "parent", "instructor"]
     search_fields = ["name", "slug"]
     prepopulated_fields = {"slug": ("name",)}
     inlines = [TopicResourceInline, TopicPrerequisiteInline]
