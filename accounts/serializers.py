@@ -5,6 +5,8 @@ from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
+from accounts.permissions import get_role
+
 User = get_user_model()
 
 
@@ -82,11 +84,7 @@ class UserDetailSerializer(serializers.Serializer):
     role = serializers.SerializerMethodField(read_only=True)
 
     def get_role(self, obj) -> str:
-        if obj.is_superuser or obj.groups.filter(name="Admin").exists():
-            return "admin"
-        if obj.is_staff or obj.groups.filter(name="Instructor").exists():
-            return "instructor"
-        return "student"
+        return get_role(obj)
 
 
 class UserUpdateSerializer(serializers.Serializer):

@@ -31,7 +31,7 @@ class PrerequisiteGraphView(APIView):
     formatted for React Flow graph visualization.
     """
 
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request: Request) -> Response:
         topics = list(Topic.objects.all().order_by("tree_id", "lft"))

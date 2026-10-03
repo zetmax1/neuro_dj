@@ -10,6 +10,7 @@ from rest_framework.routers import DefaultRouter
 from curriculum.views.topic import LearningPathTreeView
 from curriculum.views.graph import PrerequisiteGraphView
 from curriculum.views.instructor import InstructorTopicViewSet, InstructorResourceViewSet
+from curriculum.views.student import StudentTopicDetailView, StudentTopicResourceListView
 
 app_name = "curriculum"
 
@@ -30,6 +31,18 @@ urlpatterns = [
         "curriculum/prerequisite-graph/",
         PrerequisiteGraphView.as_view(),
         name="prerequisite_graph",
+    ),
+
+    # GET — Read-only topic details and resources for students
+    path(
+        "curriculum/topics/<int:pk>/",
+        StudentTopicDetailView.as_view(),
+        name="student_topic_detail",
+    ),
+    path(
+        "curriculum/topics/<int:pk>/resources/",
+        StudentTopicResourceListView.as_view(),
+        name="student_topic_resources",
     ),
 
     # Instructor APIs

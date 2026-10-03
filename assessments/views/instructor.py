@@ -4,11 +4,12 @@ import csv
 import openpyxl
 from django.db import transaction
 from django.http import HttpResponse
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from drf_spectacular.utils import extend_schema
+from accounts.permissions import IsInstructor
 from curriculum.models import Topic
 from assessments.models import Question, Choice
 from assessments.serializers.instructor import InstructorQuestionSerializer
@@ -17,9 +18,9 @@ from assessments.serializers.instructor import InstructorQuestionSerializer
 class InstructorQuestionViewSet(viewsets.ModelViewSet):
     """
     ViewSet for instructors to manage the question bank.
-    Restricted to Admin/Instructor users.
+    Restricted to instructors (D15).
     """
-    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    permission_classes = [IsInstructor]
     serializer_class = InstructorQuestionSerializer
     
     def get_queryset(self):
@@ -160,7 +161,7 @@ class ImportQuestionsView(APIView):
     Bulk imports test questions from uploaded Excel (.xlsx, .csv) or Word (.docx, .txt) files.
     RULE: The 1st answer option in the file for each question is marked as CORRECT. Options are shuffled when given to students.
     """
-    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    permission_classes = [IsInstructor]
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request):
@@ -231,7 +232,7 @@ class DownloadQuestionTemplateView(APIView):
     GET /api/assessments/instructor/templates/questions/?file_format=excel|word
     Downloads a sample template file ("shablon") with instructions that 1st option is ALWAYS the correct answer.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsInstructor]
 
     def perform_content_negotiation(self, request, force=False):
         # Override DRF content negotiation to prevent ?format=excel from triggering 404

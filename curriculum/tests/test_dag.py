@@ -44,7 +44,7 @@ class DAGTestSetup(TestCase):
     def setUpTestData(cls) -> None:
         cls.user = User.objects.create_user(
             email="student1@test.com",
-            password="password123",
+            password=None,
         )
 
         # Branch 1: Math
@@ -188,6 +188,9 @@ class TestPrerequisiteGraphAPI(DAGTestSetup):
 
         client = APIClient()
         url = "/api/curriculum/prerequisite-graph/"
+        self.assertEqual(client.get(url).status_code, status.HTTP_401_UNAUTHORIZED)
+
+        client.force_authenticate(user=self.user)
         response = client.get(url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
