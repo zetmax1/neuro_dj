@@ -26,6 +26,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils.timezone import now
 
+from accounts.demo import DemoPassword
 from curriculum.models import Topic, TopicPrerequisite
 from curriculum.services.graph import is_unlocked_dag
 from assessments.models import (
@@ -68,6 +69,8 @@ class Command(BaseCommand):
             self.stdout.write(
                 self.style.SUCCESS("[OK] Student model engine confirmed as 'hybrid_bkt_irt'.")
             )
+
+        demo_password = DemoPassword(self.stdout)
 
         with transaction.atomic():
             # 2. Build Curriculum Topics (MPTT Hierarchy)
@@ -339,8 +342,8 @@ class Command(BaseCommand):
                         "is_active": True,
                     },
                 )
-                if _created or not user.check_password("password123"):
-                    user.set_password("password123")
+                if _created or demo_password.from_env:
+                    user.set_password(demo_password.value)
                     user.save()
 
                 # Idempotent cleanup for this demo user
@@ -419,10 +422,8 @@ class Command(BaseCommand):
         self.stdout.write(
             self.style.SUCCESS(
                 "=== Thesis Demo Database Seeding Completed Successfully! ===\n"
-                "Demo Credentials:\n"
-                "  - Email: hybrid_demo@test.com  | Password: password123\n"
-                "  - Email: yuta@gmail.com        | Password: password123\n"
-                "  - Email: alex@neuro.learn      | Password: password123\n"
+                "Demo accounts: hybrid_demo@test.com, yuta@gmail.com, alex@neuro.learn\n"
+                "  (password: DEMO_PASSWORD, or the generated value printed above for new accounts)\n"
                 "DAG Prerequisite Convergence:\n"
                 "  - 'Demo Topic' converges from 'Binary Trees' and 'Graph Traversals'\n"
             )

@@ -44,6 +44,9 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
 
+    # Accounts created by the data simulator (decision D13); never research data.
+    is_simulated = models.BooleanField(default=False, db_index=True)
+
     # Soft delete fields
     is_deleted = models.BooleanField(default=False)
     deleted_at = models.DateTimeField(null=True, blank=True)

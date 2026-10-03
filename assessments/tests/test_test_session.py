@@ -20,7 +20,7 @@ class TestStratifiedTestSession(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email="student_session@test.com",
-            password="password123",
+            password=None,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)

@@ -58,7 +58,7 @@ class TestIRTEngineAbilityUpdate(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email="irt_test@test.com",
-            password="password123",
+            password=None,
         )
         self.topic = Topic.objects.create(name="Algebra", slug="algebra")
         self.question = Question.objects.create(
@@ -95,7 +95,7 @@ class TestHybridBKTIRTVSPlainBKT(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email="hybrid_test@test.com",
-            password="password123",
+            password=None,
         )
         self.topic = Topic.objects.create(name="Calculus", slug="calculus")
         self.question = Question.objects.create(
@@ -149,7 +149,7 @@ class TestAdaptiveQuestionSelectionIRT(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email="select_test@test.com",
-            password="password123",
+            password=None,
         )
         self.topic = Topic.objects.create(name="Geometry", slug="geometry")
 

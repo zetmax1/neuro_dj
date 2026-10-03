@@ -1,6 +1,6 @@
 import random
 from datetime import datetime, timedelta
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.utils.text import slugify
 from django.utils.timezone import now
 from django.db import transaction
@@ -14,12 +14,36 @@ from assessments.models import (
     DifficultyLevel, 
     MasteryLevel
 )
+from accounts.demo import DemoPassword, non_demo_users
 from accounts.models import CustomUser
 
 class Command(BaseCommand):
-    help = "Seeds the database with rich curriculum tree, resources, questions, and student progress data."
+    help = (
+        "DESTRUCTIVE: deletes ALL topics, questions, attempts and learner states, then "
+        "seeds a demo curriculum. Requires --yes-delete-all and refuses to run when "
+        "non-demo user accounts exist."
+    )
+
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--yes-delete-all",
+            action="store_true",
+            help="Confirm that every curriculum and assessment row may be deleted.",
+        )
 
     def handle(self, *args, **options):
+        if not options["yes_delete_all"]:
+            raise CommandError(
+                "seed_data deletes all curriculum and assessment data. "
+                "Re-run with --yes-delete-all to confirm."
+            )
+        real_users = non_demo_users().count()
+        if real_users:
+            raise CommandError(
+                f"Refusing to run: {real_users} non-demo user account(s) exist and their "
+                "learning data would be destroyed. Use a fresh database."
+            )
+        demo_password = DemoPassword(self.stdout)
         self.stdout.write("Starting database seeding...")
 
         with transaction.atomic():
@@ -276,7 +300,7 @@ class Command(BaseCommand):
             except CustomUser.DoesNotExist:
                 user = CustomUser.objects.create_user(
                     email="yuta@gmail.com",
-                    password="password123",
+                    password=demo_password.value,
                     first_name="Yuta",
                     last_name="Okkotsu"
                 )

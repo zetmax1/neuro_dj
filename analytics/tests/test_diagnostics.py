@@ -23,7 +23,7 @@ class TestTopicDiagnosticsEndpoint(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email="diag_user@test.com",
-            password="password123",
+            password=None,
         )
         self.topic = Topic.objects.create(name="Linear Algebra", slug="linear-algebra")
         self.q1 = Question.objects.create(

@@ -55,7 +55,7 @@ def test_concurrent_answer_submissions() -> None:
     Simulate two concurrent answer submissions for the same user and topic to verify
     that the select_for_update() row-level locking prevents race conditions.
     """
-    user = User.objects.create_user(email="concurrent@test.com", password="pwd")
+    user = User.objects.create_user(email="concurrent@test.com", password=None)
     topic = Topic.objects.create(name="Concurrency", slug="concurrency", is_unlocked=True)
     q = Question.objects.create(topic=topic, text="Q1?", difficulty=DifficultyLevel.MEDIUM)
     c_correct = Choice.objects.create(question=q, text="A", is_correct=True)
