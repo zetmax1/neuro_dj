@@ -2,6 +2,8 @@
 
 > **Foydalanuvchi ko‘rsatmasi (asl matn):** Backend ildizida ikkita fayl bor: NEUROLEARN_REMEDIATION.md (topshiriq) va NEUROLEARN_AUDIT.md (audit). Avval ikkalasini to‘liq o‘qi. Keyin topshiriqdagi "Ish qoidalari"ga amal qilib, 0-bosqichdan boshla. Har bir bosqich oxirida REMEDIATION_PROGRESS.md ni yangila, commit qil va menga qisqa hisobot ber. Keyingi bosqichga men "davom et" deganimdan keyin o‘t. Agar REMEDIATION_PROGRESS.md allaqachon mavjud bo‘lsa, ishni u yerda to‘xtagan joydan davom ettir.
 
+> **Foydalanuvchi ko‘rsatmasi, 1-bosqich frontend (asl matn):** frontendni ham yuqorida aytilgani kabi o'zgartir. Desktop/neuro/neuro --> location. Aniqlashtirish savoliga javob: “1-bosqichga moslash” va tutor uchun “D24 bo‘yicha flag ortiga”.
+
 > **Foydalanuvchi ko‘rsatmasi, 1-bosqich (asl matn):** Backend ildiziga NEUROLEARN_UI_ADDENDUM.md faylini qo‘shdim. Uni to‘liq o‘qi: undagi D20–D29 qarorlari endi NEUROLEARN_REMEDIATION.md ning bir qismi. Fayldagi 4-bo‘lim jadvalida qaysi backend qismi qaysi bosqichda kerakligi yozilgan: ularni o‘sha bosqichlarda bajar va REMEDIATION_PROGRESS.md dagi bog‘liqlik matritsasiga qo‘sh. 0-bosqichdagi Q0-5, Q0-6, Q0-7 qarorlarini tasdiqlayman. Endi 1-bosqichni boshla.
 
 Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/neuro`). Push qilinmagan.
@@ -11,7 +13,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | Bosqich | Holat | Backend commit'lari | Frontend commit'lari |
 |---|---|---|---|
 | 0 — Xavfsizlik, infratuzilma, ma’lumotlarni himoyalash | **Bajarildi** | `1d6f286`, `b44df84`, `f620171`, `332d56f`, `4067215` | `a751538`, `6c5a0a7` |
-| 1 — Ma’lumot ifloslanishini to‘xtatish, javoblar logi | **Bajarildi** | `8bc4cea` (addendum), `888a96f`, `960ba2c` | — (frontend o‘zgarmadi) |
+| 1 — Ma’lumot ifloslanishini to‘xtatish, javoblar logi | **Bajarildi** | `8bc4cea` (addendum), `888a96f`, `960ba2c` | `7b549fd`, `2fa1d99` |
 | 2 — Bilimlar bazasi modeli | Kutilmoqda | — | — |
 | 3 — Talaba modeli | Kutilmoqda | — | — |
 | 4 — Tayyorlik va holatlar | Kutilmoqda | — | — |
@@ -130,6 +132,12 @@ Yangi testlar:
   - `seed_data` → `source=seed`. Vaqt yozuv yaratilganda beriladi, keyin hech bir qatorning vaqti qayta yozilmaydi.
   - `seed_thesis_demo` → `source=seed` va `answered_at` `process_submission` orqali beriladi. Oldin “oxirgi qatorni” `update()` bilan qayta vaqtlardi. Demo akkauntlarda seed yozmagan javoblar bo‘lsa, `--reset-demo-answers` bayrog‘isiz to‘xtaydi (Q1-11).
   - `simulate_bkt_data` → `source=simulated`.
+- **Frontend (1-bosqichga moslash, Q1-18).**
+  - `deleteTopic`/`deleteQuestion` endi `{archived}` qaytaradi. Instruktor interfeysi “o‘chirildi” o‘rniga “arxivlandi / faolsizlantirildi” deb xabar beradi. Tasdiqlash oynasidagi “qaytarib bo‘lmaydi” matni ham tuzatildi.
+  - Backend rad etgan tahrirlarda (masalan, talaba tanlagan variantni olib tashlash) backend xabari ko‘rsatiladi: `src/lib/apiError.ts`.
+  - Tiplarga qo‘shildi: `submit_answer` → `source`, `attempt_no`; test natijasi → `session_id`; `is_archived`, `is_active`. `useAdaptiveQuiz` `isReviewRepeat` ni qaytaradi (7-bosqichda UI'da ishlatiladi).
+  - Mavzu sahifasi 404 bo‘lsa (arxivlangan mavzu), “mavzu endi mavjud emas” deb ko‘rsatadi.
+  - D24: tutor kodi qaytarildi va `VITE_ENABLE_TUTOR` (standart holatda o‘chiq) ortiga o‘tkazildi. Marshrut ham, menyu bandi ham faqat flag yoqilganda bor; sahifa lazy chunk sifatida yuklanadi (Q1-15).
 
 ### Tekshiruv natijalari
 
@@ -143,7 +151,10 @@ Yangi testlar:
 | `grep`: `AssessmentAttempt` yaratadigan joylar (testlar va migratsiyalardan tashqari) | Faqat `assessments/services/ledger.py:149` |
 | `grep`: `_maybe_skip_easy_questions`, `_cascade_mastery_to_descendants`, `_retrieve_prior`, `update(answered_at` / `update(created_at` | Prototip kodida yo‘q (faqat ularning yo‘qligini tekshiradigan testlarda bor) |
 | `submit_answer` SQL soni (birinchi / keyingi / `review_repeat`) | 22 / 19 → **25 / 20 / 15**. Qo‘shilganlari: advisory lock, D25 tekshiruvi, `max(attempt_no)`, ildiz so‘rovi. Easy-skip so‘rovlari yo‘qoldi. ≤ 12 byudjet — B10 |
-| Frontend | O‘zgartirilmadi (Q1-15) |
+| Frontend `eslint .` | 71 error, 12 warning — o‘zgarmadi. Yangi fayllar lint'dan toza o‘tdi |
+| Frontend `tsc --noEmit -p tsconfig.app.json` | 16 xato — o‘zgarmadi. Tahrirlangan fayllardagi xatolar oldindan bor edi (stash bilan solishtirildi) |
+| Frontend `vitest` | **10 passed** (avval 1; +9: `apiError`, delete natijalari, tutor flag) |
+| Frontend `vite build` | O‘tdi. Asosiy bundle 2.36 → 2.22 MB, tutor alohida `Tutor-*.js` (140 kB) chunk'ida |
 
 Yangi testlar:
 
@@ -156,7 +167,6 @@ Yangi testlar:
 ### Foydalanuvchi bajarishi kerak bo‘lgan ishlar
 
 - `seed_thesis_demo` endi dev bazada `--reset-demo-answers` bayrog‘isiz ishlamasligi mumkin: demo akkauntlarda `legacy` javoblar bo‘lishi mumkin. Ularni o‘chirish yoki saqlash — sizning qaroringiz.
-- Frontend repo'da bu sessiya qilmagan commit qilinmagan o‘zgarishlar bor (Q1-15). Ularga tegilmadi.
 
 ---
 
@@ -194,16 +204,17 @@ Yangi testlar:
 | Q1-12 | `answered_at`/`created_at` `auto_now_add` edi, shuning uchun seed'lar vaqtni keyin `update()` bilan o‘zgartirardi | `default=timezone.now`. Vaqtni faqat `seed`/`simulated` yozuvlari uchun berish mumkin (`record_attempt` tekshiradi). `UserKnowledgeHistory.created_at` javob vaqtiga teng qilinadi |
 | Q1-13 | `test_bayesian.py` dagi parallellik testi bitta savolni ikki marta yuborardi va `OperationalError` ni yutardi | D25 bo‘yicha ikkinchi javob `review_repeat` bo‘ladi. Test ikki xil savol bilan qayta yozildi va endi xatolarni yutmaydi. 10-bosqichdagi to‘liq to‘plam o‘zgarmaydi |
 | Q1-14 | `submit_answer` SQL soni oshdi (22 → 25) | Ma’lum va o‘lchangan. `record_attempt` advisory lock'ni qayta oladi (no-op so‘rov). Optimallash 10-bosqichdagi ≤ 12 byudjet bilan birga qilinadi |
-| Q1-15 | Frontend repo'da bu sessiya qilmagan o‘zgarishlar bor (`README.md`, `App.tsx`, landing, `Header`, tutor fayllari o‘chirilgan) | Ularga tegilmadi. 1-bosqich faqat backend'ga tegishli |
+| Q1-15 | Frontend repo'da bu sessiya qilmagan, commit qilinmagan o‘zgarishlar bor edi: tutor fayllari o‘chirilgan, landing/auth/profile/README matnlari o‘zgartirilgan | Foydalanuvchi “D24 bo‘yicha flag ortiga” variantini tanladi. O‘chirilgan fayllar qaytarildi va `VITE_ENABLE_TUTOR` ortiga o‘tkazildi (D24: “kod saqlanadi”). Matn o‘zgarishlari saqlanib, `7b549fd` ga kiritildi |
 | Q1-16 | Dev bazada 31 ta savol farzandli tugunlarga biriktirilgan (Y4 buzilishi) | 1-bosqichda `topic` savolning hozirgi tuguni sifatida saqlanadi. 2-bosqichdagi `kind` migratsiyasi spetsifikatsiyaga ko‘ra shunday tugunni topganda to‘xtaydi va foydalanuvchidan so‘raydi |
 | Q1-17 | Repoda kuzatilmaydigan `NEUROLEARN_VERIFICATION.md` bor | Bu mustaqil tekshiruvchi sessiyaning topshirig‘i. Commit qilinmadi, chunki bu so‘ralmagan. Uning V-C9, V-C12 va V-D1 talablari 1-bosqich testlarida hisobga olindi |
+| Q1-18 | “Frontendni ham yuqorida aytilgani kabi o‘zgartir” — hajmi noaniq edi: 1-bosqichga moslashmi yoki addendum UI'si (7-bosqich)mi | Foydalanuvchi “1-bosqichga moslash” variantini tanladi. Faqat 1-bosqich backend o‘zgarishlari bilan bog‘liq qismlar qilindi. Addendum sahifalari B2/B4/B6 API'lariga bog‘liq, ular 7-bosqichda qilinadi. Yangi xabarlar hozircha inglizcha, chunki interfeys hali inglizcha; 7-bosqichda D20 bo‘yicha i18n'ga o‘tadi |
 
 ---
 
 ## Bog‘liqlik matritsasi (audit topilmalari → vazifa)
 
 Holatlar: **Bajarildi**; **Qisman**; **Kutilmoqda (Bn)** — rejadagi n-bosqichda bajariladi; **Kechiktirildi — sababi**.
-Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (auth), `332d56f` (data), `4067215` (docs/CI), `8bc4cea` (addendum), `888a96f` (ledger), `960ba2c` (arxiv); frontend `a751538`, `6c5a0a7`.
+Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (auth), `332d56f` (data), `4067215` (docs/CI), `8bc4cea` (addendum), `888a96f` (ledger), `960ba2c` (arxiv); frontend `a751538`, `6c5a0a7`, `7b549fd` (tutor flag), `2fa1d99` (1-bosqichga moslash).
 
 ### 0-bo‘lim (asosiy 5 muammo)
 
@@ -229,7 +240,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 1.3 Env o‘zgaruvchilari yo‘q, `.env` ishlatilmaydi | P2-1 | Bajarildi | `config/settings.py:22-27`, `config/.env.example` |
 | 1.3 Ildizdagi `.env` da token | 3-qoida, 8.4-Q6 | Qisman | `.gitignore:13` da borligi tekshirildi; tokenni bekor qilish foydalanuvchida |
 | 1.3 `docker-compose` yo‘q | D1 | Bajarildi | `docker-compose.yml` |
-| 1.3 `@supabase/supabase-js` `package.json` da yo‘q, client ishlatilmaydi | D17 (B7) | Kutilmoqda (B7) | — |
+| 1.3 `@supabase/supabase-js` `package.json` da yo‘q, client ishlatilmaydi | D17 (B7) | Kutilmoqda (B7) | Tutor `VITE_ENABLE_TUTOR` ortida (`7b549fd`); ishlatilmaydigan client'ni olib tashlash — B7 |
 | 1.5 “updated” kabi commit xabarlari | B0 CI va hujjat | Bajarildi | Yangi commit'lar conventional formatda va ID'lar bilan |
 | 1.5 Untracked `.agents/`, `graphify-out/` | 8.4-Q8 | Bajarildi | `.gitignore:23-24` |
 
@@ -396,11 +407,11 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 7.1 `test_test_session.py:140` 100.0 ni tasdiqlaydi | B5 | Qisman | B1: baho `TestSessionResult` da, `mastery_percentage` o‘zgarmasligi tekshiriladi (`888a96f`); qayta o‘ynash bilan tenglik — B5 |
 | 7.1 Parallellik testi `OperationalError` ni yutadi | B10 | Qisman | `test_bayesian.py::test_concurrent_answer_submissions` endi xatoni yutmaydi; yangi `test_parallel_*` testlari (`888a96f`); to‘liq to‘plam — B10 |
 | 7.1 `accounts` testlari yo‘q | B10 | Qisman | `accounts/tests/test_permissions.py`, `test_security_settings.py` (`f620171`) |
-| 7.1 Frontend testi trivial | B7 | Kutilmoqda (B7) | — |
+| 7.1 Frontend testi trivial | B7 | Qisman | 9 ta yangi vitest testi (`apiError`, delete natijalari, tutor flag), `2fa1d99`, `7b549fd`; 7-bosqich testlari — B7 |
 | 7.2 Coverage 68% | B10 | Kutilmoqda (B10) | — |
 | 7.2 Lint 71 error | P2-6 (B7) | Kutilmoqda (B7) | Hozir 71 (o‘zgarmagan) |
 | 7.2 tsc 18 xato | P2-6 (B7) | Qisman | 16 xato qoldi |
-| 7.2 Bundle 2.36 MB | B7 | Kutilmoqda (B7) | — |
+| 7.2 Bundle 2.36 MB | B7 | Qisman | Tutor lazy chunk'ga ajratildi: asosiy bundle 2.22 MB (`7b549fd`); marshrutlar bo‘yicha `React.lazy` — B7 |
 | 7.3 `SECRET_KEY` git'da | P2-1 | Bajarildi | `config/settings.py:35-40`; eski kalit tarixda qoldi (buzilgan deb hisoblanadi) |
 | 7.3 `DEBUG=True` | P2-1 | Bajarildi | `config/settings.py:33` |
 | 7.3 `ALLOWED_HOSTS=["*"]` | P2-1 | Bajarildi | `config/settings.py:42-45` |
@@ -491,7 +502,7 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 | D21 Holatlar palitrasi `src/lib/status.ts`, WCAG AA | B7 | Kutilmoqda (B7) | — |
 | D22 Holat faqat `topic` turida, bo‘lim/kurs — `k / n` | B2 (`kind`), B4 (backend), B7 (UI) | Kutilmoqda (B2, B4, B7) | — |
 | D23 Soxta ma’lumot yo‘q, har bir son API'dan | B6 (endpoint'lar), B7 (grep) | Kutilmoqda (B6, B7) | — |
-| D24 `VITE_ENABLE_TUTOR=false`, menyuda yo‘q | B7 | Kutilmoqda (B7) | — |
+| D24 `VITE_ENABLE_TUTOR=false`, menyuda yo‘q | B7 | Bajarildi | `src/lib/features.ts`, `src/App.tsx`, `src/components/layout/Header.tsx`, `7b549fd`; test `src/lib/features.test.ts` |
 | D25 Xatolar backend'dan, “Qayta yechish”, `review_repeat` | B1 (ledger), B6 (endpoint), B7 (UI, `mistakeStorage` olib tashlash) | Qisman | B1 qismi bajarildi (A4-1); savol tanlash oynadagi savollarni oxiriga qo‘yadi (`question_selection.py`, test `test_next_question_prefers_questions_outside_the_window`) |
 | D26 LLM tushuntirishlari hozir amalga oshirilmaydi, faqat `Question.explanation` | — | Kechiktirildi — D26 bo‘yicha 8–10-bosqichlardan keyingi alohida bosqich (dizayn 5-bo‘limda) | Hozir tushuntirish manbai faqat `Question.explanation` |
 | D27 Profil haqiqiy ma’lumotda (`/api/me/summary/`) | B6, B7 | Kutilmoqda (B6, B7) | — |
