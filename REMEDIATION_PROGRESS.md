@@ -18,7 +18,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 1 — Ma’lumot ifloslanishini to‘xtatish, javoblar logi | **Bajarildi** | `8bc4cea` (addendum), `888a96f`, `960ba2c` | `7b549fd`, `2fa1d99` |
 | 2 — Bilimlar bazasi modeli | **Bajarildi** | `5e5cb09`, `79b907c` | `c259646` |
 | 2.1 — Tekshiruvdagi FAIL'larni tuzatish (D30–D32, D37, D38) | **Bajarildi** | `cb41a67` | — |
-| 3 — Talaba modeli | Kutilmoqda | — | — |
+| 3 — Talaba modeli | **Bajarildi** | `b1d3a08` | — |
 | 4 — Tayyorlik va holatlar | Kutilmoqda | — | — |
 | 5 — Test sessiyasi modeldan o‘tadi | Kutilmoqda | — | — |
 | 6 — Trayektoriya va API | Kutilmoqda | — | — |
@@ -306,6 +306,86 @@ Uchalasi ham tuzatishdan **oldingi** xatti-harakatni tasdiqlaydigan testlar: D30
 **Xulosa:** V-B4 va V-B6 bo‘yicha talablar bajarildi (guard'lar yopildi, versiya invarianti va `updated_at` tuzatildi), lekin shu uchta test o‘zgartirilmagan holida PASS bo‘la olmaydi, chunki ular eski xatti-harakatning dalili edi. Boshqa B tekshiruvlari (V-B1, V-B2, V-B3, V-B5) regressiyaga uchramadi: 691 passed.
 ---
 
+## 3-bosqich hisoboti (talaba modeli)
+
+Qamradi: P0-5, TM1–TM6, ES4–ES6; audit 4.4–4.7 va savol tanlashdagi θ nomuvofiqligi. Oldindan berilgan qarorlar: D33–D36 va `NEUROLEARN_B2FIX_B3.md` ning “Qo‘shimcha aniqlik” bo‘limi.
+
+### Nima qilindi
+
+- **Sof model (7-qoida).** `neuro_model/` ga Django'siz modullar qo‘shildi:
+  - `irt.py` — σ, γ_G, γ_S, chegaralangan P(G)/P(S);
+  - `bkt.py` — p̂, Bayes posteriori, PT o‘tishi (`posterior` alohida qaytariladi, chunki 2.5-tasdiq aynan unga tegishli);
+  - `elo.py` — p = σ(θ−b), K(n) = α/(1+βn), θ va b yangilanishi, θ clamp;
+  - `init.py` — P(L0): ω vaznli m̄, (1−λ)P0 + λm̄, c = τ − C_OFFSET;
+  - `student.py` — Algoritm 2.4 bitta sof funksiyada (`observe`), ablatsiya bayroqlari bilan;
+  - `calibrate.py` — chegaralangan grid search va log-likelihood.
+  - Statik skan: `neuro_model/tests/test_purity.py` har bir modulni `ast` bilan tahlil qiladi va `django`/`curriculum`/`assessments`/… importi yo‘qligini tasdiqlaydi (matn izlash emas, shuning uchun izohdagi “django” so‘zi soxta ogohlantirish bermaydi).
+- **a_q = 0 aniq klassik BKT beradi.** σ(γ_G) = G0/G_MAX bo‘lgani uchun a_q = 0 da P(G) = G0 va P(S) = S0 **aynan** chiqadi. Shuning uchun klassik BKT alohida dvigatel emas, bayroq bilan hosil bo‘ladi (D34) va buni test taqqoslab tasdiqlaydi.
+- **Modellar.**
+  - `TopicModelParams` (P0, PT, G0, S0, `source`, `fitted_at`). Qatori yo‘q mavzu `settings.THESIS_MODEL` standartlarini ishlatadi, shuning uchun jadvalda faqat haqiqatan moslangan qiymatlar turadi. `G0 < G_MAX` va `S0 < S_MAX` `clean()` da tekshiriladi (chegaralar env orqali o‘zgarishi mumkin, shuning uchun DB cheklovi emas); parametrdan mustaqil oraliqlar DB cheklovlarida.
+  - `UserAbility` endi `(user, course)` va `n_answers` bilan. Mavjud 6 ta `(user, topic)` qatori **ko‘chirilmadi, o‘chirildi** (D33) — migratsiya o‘chirilgan qatorlar sonini chop etadi.
+  - `Question.n_answers` qo‘shildi, 0 dan boshlanadi; legacy javoblar bo‘yicha backfill qilinmadi.
+  - `AlgorithmChoice` ga `thesis_hybrid` qo‘shildi; eski qiymatlar o‘zgarmas tahliliy ledger'dagi mavjud qatorlar uchun ro‘yxatda qoldirildi.
+- **Yagona dvigatel (D34).** `assessments/services/engines/` paketi va `services/base.py` olib tashlandi (`bayesian`, `irt`, `hybrid_bkt_irt`, `streak` va chiziqli modifier'lar bilan birga). O‘rniga `assessments/services/student_model.py` — `neuro_model.student` ning Django tomoni. `STUDENT_MODEL_ENGINE` sozlamasi olib tashlandi; `settings.THESIS_FLAGS` (`use_irt`, `use_prereq_init`) qo‘shildi.
+- **P(L) manbai — ledger.** Dvigatel P(L) ni holat qatoridan emas, javoblar logidan o‘qiydi: `engine_version` `thesis_hybrid` bilan boshlanadigan oxirgi qator. Sabab: holat qatorlarida olib tashlangan dvigatellarning va legacy importlarning qiymatlari bor; ledger esa append-only va har qatorda qaysi dvigatel yozganini saqlaydi. Shu tanlov `rebuild_student_states` ni jonli yo‘l bilan bir xil natija berishini ta’minlaydi.
+- **Orchestrator.** Algoritm 2.4 ning tartibi dvigatelning o‘zida: P(G)/P(S) **eski** θ va b dan, p̂ bashorat qilingan holida yoziladi, Elo faqat keyin harakatlanadi. Bitta snapshot butun submission uchun olinadi, shuning uchun qobiliyat qatorining kursi, P(L0) ning prerekvizitlari va ledger'ning `kb_version` i bir-biriga qarama-qarshi bo‘lishi mumkin emas. `streak` hisoblagichi endi orchestrator'da yuritiladi (faqat ko‘rsatish uchun).
+- **Savol tanlash.** `|b_q − θ_s|` eng kichik, tenglikda `id`. θ_s mavzuni saqlagan **kursdan** olinadi — tanlash va Elo yangilanishi bir xil qatorni o‘qiydi (audit `question_selection.py:66`). Yaqinda javob berilganlar oxirgi navbatda (D25), to‘g‘ri javob berilganlar qayta berilmaydi.
+- **Buyruqlar.**
+  - `rebuild_student_states` (D35): ledger'ni `(answered_at, id)` bo‘yicha xronologik qayta o‘ynab, P(L), θ va b_q ni tiklaydi. Standart qamrov `adaptive` + `test_session`; `--include-legacy` `seed`/`simulated`/`legacy` ni qo‘shadi; `review_repeat` hech qachon o‘ynatilmaydi. Boshlang‘ich nuqta ledger'dan olinadi (eng erta qatorning `theta_before` va `b_before` qiymatlari), hisoblagichlar 0 dan. P(L0) joriy KB va joriy parametrlar bilan qayta hisoblanadi, prerekvizitlarning P(L) qiymati esa o‘sha nuqtadagi qayta o‘ynalgan qiymat — ya’ni jonli dvigatel ko‘rgan kirishning aynan o‘zi. `--dry-run` va `--user` bor. Ledger'ga yozmaydi.
+  - `calibrate_bkt` (D36): standart — `neuro_model/calibrate.py` dagi chegaralangan grid search (`G0 < G_MAX`, `S0 < S_MAX`), tashqi bog‘liqliksiz va deterministik. `--method=pybkt` pyBKT EM'ni ishlatadi; pyBKT faqat `requirements-dev.txt` da, o‘rnatilmagan bo‘lsa buyruq tushunarli xabar bilan grid search'ga qaytadi. Faqat `adaptive` + `test_session` javoblarida o‘qiydi; `--min-answers` (standart 30) dan kam javobli mavzu standart holatda qoldiriladi va sababi chop etiladi. `--dry-run`, `--topic`, `--include-generated` bor.
+- **`docs/THESIS_MAPPING.md` yaratildi.** II bobning har bir tushunchasi uchun kod va test manzili, hamda **farqlar** ro‘yxati: F1 θ clamp (D6), F2 diskret `MasteryLevel` (4-bosqichda yopiladi), F3 `review_repeat` siyosati (D25), F4 kesh kalitidagi `instance_token` (D31), F5 grid search.
+
+### 4-bo‘lim etalon qiymatlari
+
+Hammasi 1e-3 aniqlikda o‘tadi — sof funksiyalarda (`neuro_model/tests/test_student.py`) va ledger orqali uchidan-uchiga (`assessments/tests/test_student_model.py`):
+
+| Tekshiruv | Kutilgan | Natija |
+|---|---|---|
+| BKT ketma-ketligi (P0=0.3, G=0.2, S=0.1, T=0.1) | 0.6927 / 0.9192 / 0.9828 / 0.9965 | mos |
+| Qiyin savol, b=1.5 | 0.1272 / 0.0731 / 0.6070 / 0.9246 / 0.2005 | mos |
+| Oson savol, b=−0.5 | 0.2534 / 0.0269 / 0.6852 / 0.8669 / 0.1461 | mos |
+| a=0 (klassik BKT) | 0.20 / 0.05 / 0.65 / 0.8892 / 0.1771 | mos |
+| Elo (θ=0.5, b=1.5, K=0.4) | 0.2689 / 0.7924 / 1.2076 | mos |
+| P(L0) prerekvizitlardan | 0.636 va 0.35 | mos |
+| 2.5-tasdiq (xossa testi) | P(G)+P(S) < 1 ⇒ P(L\|1) > P(L) > P(L\|0) | o‘tdi (posterior uchun, 28 ta kombinatsiya) |
+
+Qo‘shimcha tasdiqlangan xossalar: `a_q = 0` da P(G) = G0 va P(S) = S0 aynan; chegaralangan P(G)/P(S) hech qachon G_MAX/S_MAX dan oshmaydi, shuning uchun 2.5 har qanday savol uchun bajariladi; PT o‘tishidan keyin noto‘g‘ri javobda ham P(L) o‘sishi mumkin (klassik BKT xatti-harakati, test hujjatlashtiradi); p̂ `theta_before` dan hisoblanadi va `theta_after` bilan hisoblangan qiymatdan farq qiladi.
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| `venv/bin/pytest` (prototip) | **566 passed**, 13 subtests (3-bosqichdan oldin 523) |
+| `venv/bin/python manage.py check` | toza (0 silenced) |
+| `venv/bin/python manage.py makemigrations --check --dry-run` | No changes detected |
+| `neuro_model` yolg‘iz | 395 passed (shu jumladan 300 ta tasodifiy graf holati) |
+| `venv/bin/pytest --ds=verification.settings verification/tests -q` | **689 passed, 5 failed** |
+
+Tekshiruv suite'iga tegilmadi.
+
+### Tekshiruvdagi FAIL'lar
+
+Uchtasi B2.1 dan qolgan va o‘sha bo‘limda asoslangan (`test_v_b4_removing_the_version_row_...`, `test_v_b6_the_cache_follows_the_version`, `test_v_b6_update_weight_on_a_missing_relation_is_not_a_kb_error`).
+
+Qolgan ikkitasi — **yangi va kutilgan**: `test_na.py::test_na_group_a_student_model_is_not_implemented` va `test_na.py::test_pending_stages[3]`. `verification/tests/test_na.py` ning o‘z izohida yozilgani kabi: “these tests start failing the moment a stage lands, which is the signal that the matching verification group must be written instead of skipped.” U `neuro_model` da `graph.py` dan boshqa fayl yo‘qligini va `STUDENT_MODEL_ENGINE != "thesis_hybrid"` ni tasdiqlardi; ikkalasi ham endi noto‘g‘ri. Ikkinchisi 3-bosqich “Kutilmoqda” bo‘lib turishini talab qiladi, u esa yuqoridagi jadvalda endi “Bajarildi”.
+
+**Demak V guruhlari qayta yozilishi kerak:** V-A1…V-A4 (sof talaba modeli) va V-D1. Bu mustaqil tekshiruvchi sessiyaning vazifasi; prototip tomonida kutilgan qiymatlar allaqachon test sifatida yozilgan (yuqoridagi jadval).
+
+### Ataylab qilingan tanlovlar (spetsifikatsiyada ochiq qolgan joylar)
+
+- **`S0 < S_MAX` qat’iy.** 4-bo‘limdagi BKT ketma-ketligi S = 0.1 ni ishlatadi, bu esa `S_MAX` ning o‘zi; γ_S chegarada aniqlanmagan. Uchidan-uchiga testda S0 chegaraga pastdan yaqinlashtirildi (`0.099999`), sof testda esa `bkt.step` to‘g‘ridan-to‘g‘ri S = 0.1 bilan chaqiriladi. Natija ikkalasida ham etalon qiymatlarga mos.
+- **`n_answers` bayroqlardan qat’i nazar o‘sadi.** `use_irt=False` bo‘lganda θ va b qotib turadi, lekin hisoblagichlar harakatlanadi: K(n) berilgan javoblar bo‘yicha kichrayishi kerak, aks holda bayroqni yoqqanda qadam noto‘g‘ri kattalikdan boshlanadi.
+- **Rebuild qamrovdan tashqaridagi holatni o‘chirmaydi.** `seed` javobi berilganda jonli yo‘l holat yozadi; standart rebuild uni qayta o‘ynamaydi va **o‘chirmaydi** ham — faqat qamrovdagisini qayta quradi. Buni test hujjatlashtiradi.
+- **Diskret `MasteryLevel` saqlandi.** Hozirgi interfeys shu maydonni ko‘rsatadi; 4-bosqich uni τ/δ gisterezisi bilan almashtiradi (F2).
+- **Diagnostika endpoint'i yaxshilandi.** `theta_at_time` endi ledger'dagi haqiqiy `theta_after` dan olinadi (ilgari har bir qator uchun joriy θ qaytarilardi). Bu 3-bosqich ochgan imkoniyat.
+
+### Foydalanuvchi bajarishi kerak bo‘lgan ishlar
+
+- **Dev bazasiga migratsiya.** `venv/bin/python manage.py migrate` — `assessments.0009_student_model` dev bazadagi 6 ta `(user, topic)` `UserAbility` qatorini o‘chiradi (D33) va sonini chop etadi. Bu qaytarib bo‘lmaydigan amal, shuning uchun sizning muhitingizda bajarilmadi.
+- **Dev demo ma’lumotini qayta qurish (ixtiyoriy).** Migratsiyadan keyin `venv/bin/python manage.py rebuild_student_states --include-legacy` demo holatlarini yangi model bilan tiklaydi.
+- **pyBKT (ixtiyoriy).** `calibrate_bkt --method=pybkt` kerak bo‘lsa: `venv/bin/pip install -r requirements-dev.txt`. Standart grid search uchun hech narsa kerak emas.
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -368,7 +448,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 |---|---|---|---|
 | #1 Test oqimi BKT'ni chetlab o‘tadi, 0–100 shkala | P0-1 (B5, B7) | Kutilmoqda (B5, B7) | — |
 | #2 KB modeli: MPTT, G_L yo‘q, Y2/Y3, qulf yo‘q | P0-4, P1-6, P1-7 (B2) | Bajarildi | `curriculum/services/kb.py`, `neuro_model/graph.py`, `5e5cb09`, `79b907c`; testlar `test_kb.py`, `test_kb_concurrency.py` |
-| #3 Talaba modeli II bobga zid | P0-5 (B3) | Kutilmoqda (B3) | — |
+| #3 Talaba modeli II bobga zid | P0-5 (B3) | Bajarildi | `neuro_model/` (bkt, irt, elo, init, student), `assessments/services/student_model.py`; testlar `neuro_model/tests/test_student.py`, `assessments/tests/test_student_model.py` |
 | #4 Unlock 4 xil, global `is_unlocked`, cascade | P0-3, P0-6 (B4), P0-2 (B1) | Qisman | Cascade olib tashlandi (`888a96f`, test `test_mastering_a_section_does_not_touch_descendants`); unlock — B4 |
 | #5 Log yaroqsiz, sun’iy yozuvlar; maxfiy ma’lumotlar repoda | P0-2, P1-1 (B1); P2-1 (B0) | Bajarildi | Maxfiy qism: `config/settings.py:33-60`, README (B0). Log: `assessments/models.py` (`AssessmentAttempt`), `assessments/services/ledger.py`, `888a96f`; testlar `test_ledger.py` |
 
@@ -443,19 +523,19 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 4.3 Ochiq mavzu qayta yopiladi | TY5 (B4) | Kutilmoqda (B4) | — |
 | 4.3 Yopiq mavzuga javob berish mumkin | D9 (B4) | Kutilmoqda (B4) | — |
 | 4.3 Chegara 3 joyda har xil | TY1, D6 (B4) | Qisman | D6 konstantalari bir joyda (`config/settings.py:266-285`); eski chegaralar B4 da olib tashlanadi |
-| 4.4 BKT parametrlari global | TM1 (B3) | Kutilmoqda (B3) | — |
+| 4.4 BKT parametrlari global | TM1 (B3) | Bajarildi | `TopicModelParams` (P0, PT, G0, S0, `source`); qatori yo‘q mavzu `settings.THESIS_MODEL` standartlarini oladi |
 | 4.4 `_retrieve_prior` `algorithm_used` ni filtrlamaydi | B1 | Bajarildi | `_retrieve_prior` o‘chirildi, prior holatdan: `assessments/services/engines/bayesian.py:prior_from_state`, `888a96f`; test `test_hybrid_trace_is_stored_and_prior_comes_from_state` |
 | 4.4 Test sessiyasi tarixga yozmaydi | D7 (B5) | Kutilmoqda (B5) | B1: javoblar ledger'da `session` FK bilan, baho `TestSessionResult` da (`888a96f`) |
 | 4.4 Tarix attempt'ga FK'siz | B1 | Bajarildi | `UserKnowledgeHistory.attempt` (OneToOne), `888a96f`; eski qatorlar bog‘lanmagan (Q1-10) |
-| 4.5 Chiziqli G/S | TM2, ES4 (B3) | Kutilmoqda (B3) | — |
-| 4.5 P(G) 0.5 gacha chiqadi | TM2 (B3) | Kutilmoqda (B3) | — |
-| 4.6 θ talaba×mavzu uchun | TM3, ES5 (B3) | Kutilmoqda (B3) | — |
-| 4.6 b yangilanmaydi | TM4 (B3) | Kutilmoqda (B3) | — |
-| 4.6 K o‘zgarmas | TM4, ES6 (B3) | Kutilmoqda (B3) | — |
-| 4.6 θ cheklanmagan | D6 `THETA_CLAMP` (B3) | Kutilmoqda (B3) | Konstanta `config/settings.py:276` |
-| 4.6 Tanlash va yangilashda θ nomuvofiq | B3 savol tanlash | Kutilmoqda (B3) | — |
+| 4.5 Chiziqli G/S | TM2, ES4 (B3) | Bajarildi | `neuro_model/irt.py` — P(G)=G_MAX·σ(γ_G+a(θ−b)), P(S)=S_MAX·σ(γ_S−a(θ−b)); chiziqli modifier'lar olib tashlandi |
+| 4.5 P(G) 0.5 gacha chiqadi | TM2 (B3) | Bajarildi | P(G) < `G_MAX`=0.30 har qanday kirishda; test `test_guess_and_slip_never_exceed_their_bounds` |
+| 4.6 θ talaba×mavzu uchun | TM3, ES5 (B3) | Bajarildi | `UserAbility` endi `(user, course)`; eski 6 qator o‘chirildi (D33, migratsiya `0009_student_model`) |
+| 4.6 b yangilanmaydi | TM4 (B3) | Bajarildi | `Question.irt_difficulty` har javobda Elo bilan siljiydi; test `test_elo_moves_the_learner_and_the_item` |
+| 4.6 K o‘zgarmas | TM4, ES6 (B3) | Bajarildi | `neuro_model/elo.py::k_factor` — K(n)=ELO_ALPHA/(1+ELO_BETA·n); `n_answers` talaba va savol uchun alohida |
+| 4.6 θ cheklanmagan | D6 `THETA_CLAMP` (B3) | Bajarildi | `neuro_model/elo.py` θ ni ±`THETA_CLAMP` bilan cheklaydi; farq sifatida `docs/THESIS_MAPPING.md` F1 da qayd etildi |
+| 4.6 Tanlash va yangilashda θ nomuvofiq | B3 savol tanlash | Bajarildi | `question_selection.ability_of()` θ ni kursdan oladi — tanlash va Elo bir xil qatorni o‘qiydi |
 | 4.6 p̂ saqlanmaydi | TM6, TM7 (B1, B3) | Qisman | `AssessmentAttempt.p_hat` va boshqa model maydonlari yoziladi (`888a96f`); II bob formulasi — B3 |
-| 4.7 P(L0) o‘zgarmas 0.15 | TM5 (B3) | Kutilmoqda (B3) | — |
+| 4.7 P(L0) o‘zgarmas 0.15 | TM5 (B3) | Bajarildi | `neuro_model/init.py::initial_mastery` — (1−λ)P0 + λm̄, c = τ − C_OFFSET |
 | 4.7 Avlodlarga P=1.0 cascade | P0-2, D8 (B1) | Bajarildi | `_cascade_mastery_to_descendants` o‘chirildi (`888a96f`); test `test_mastering_a_section_does_not_touch_descendants` |
 | 4.8 Kahn FIFO, lev yo‘q | GR2 (B2) | Bajarildi | `neuro_model/graph.py:topological_order` (heap, `(pos, id)`, lev), `5e5cb09` |
 | 4.8 Sikl qoldig‘i jim qo‘shiladi | GR2 (B2) | Bajarildi | `CycleError(remaining)`, `5e5cb09`; test `test_cycle_error_lists_unordered_topics` |
@@ -483,12 +563,12 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | GR1 Versiyaga bog‘langan kesh | B2 | Bajarildi | `get_snapshot` (versiya kaliti, ikki marta versiya o‘qish), `79b907c` |
 | GR2 Kahn + ustuvor navbat + lev + CycleError | B2 | Bajarildi | `topological_order`, `5e5cb09` |
 | GR3 Desc*, ortiqcha qirralar, κ | B2 | Bajarildi | `descendant_bitsets`, `redundant_edges`, `order_conflicts`, `5e5cb09`; warnings endpoint `79b907c` |
-| TM1 Mavzu bo‘yicha BKT parametrlari | B3 | Kutilmoqda (B3) | Standart qiymatlar `config/settings.py:277-280` |
-| TM2 Sigmoid G/S | B3 | Kutilmoqda (B3) | Konstantalar `G_MAX`, `S_MAX`, `A_Q` tayyor |
-| TM3 θ_s kurs bo‘yicha, b_q savol bo‘yicha | B3 | Kutilmoqda (B3) | — |
-| TM4 Elo K(n) | B3 | Kutilmoqda (B3) | `ELO_ALPHA`, `ELO_BETA` tayyor |
-| TM5 Prerekvizitli P(L0) | B3 | Kutilmoqda (B3) | `LAMBDA`, `C_OFFSET` tayyor |
-| TM6 Algoritm 2.4 tartibi | B3 | Kutilmoqda (B3) | — |
+| TM1 Mavzu bo‘yicha BKT parametrlari | B3 | Bajarildi | `TopicModelParams` + `calibrate_bkt`; standartlar `config/settings.py` |
+| TM2 Sigmoid G/S | B3 | Bajarildi | `neuro_model/irt.py`; a_q=0 da P(G)=G0, P(S)=S0 aynan |
+| TM3 θ_s kurs bo‘yicha, b_q savol bo‘yicha | B3 | Bajarildi | `UserAbility(user, course)` va `Question.irt_difficulty` |
+| TM4 Elo K(n) | B3 | Bajarildi | `neuro_model/elo.py`; `UserAbility.n_answers`, `Question.n_answers` |
+| TM5 Prerekvizitli P(L0) | B3 | Bajarildi | `neuro_model/init.py`; etalon 0.636 va 0.35 test sifatida |
+| TM6 Algoritm 2.4 tartibi | B3 | Bajarildi | `neuro_model/student.py::observe`; test `test_p_hat_uses_theta_before_not_theta_after` |
 | TM7 Log maydonlari | B1 | Qisman | Maydonlar, cheklovlar va yozish yo‘li tayyor (`888a96f`). `kb_version` B2 da, `readiness_score`/`was_ready` B4 da to‘ldiriladi, II bob qiymatlari B3 dan |
 | TY1 Histerezis M (τ, δ) | B4 | Kutilmoqda (B4) | `TAU`, `DELTA` tayyor |
 | TY2 R faqat G_L orqali, fallback'siz | B4 | Kutilmoqda (B4) | — |
@@ -518,9 +598,9 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | ES1 DFS tugunlar grafida | B2 | Bajarildi | G_L bo‘yicha BFS, `5e5cb09` |
 | ES2 θ=0.70 + fallback | B4 | Kutilmoqda (B4) | — |
 | ES3 MPTT | B2 | Bajarildi | tree-queries, `79b907c` |
-| ES4 Chiziqli G/S | B3 | Kutilmoqda (B3) | — |
-| ES5 θ talaba×mavzu | B3 | Kutilmoqda (B3) | — |
-| ES6 η=0.3 | B3 | Kutilmoqda (B3) | — |
+| ES4 Chiziqli G/S | B3 | Bajarildi | chiziqli G/S olib tashlandi, o‘rniga chegaralangan sigmoid |
+| ES5 θ talaba×mavzu | B3 | Bajarildi | θ endi kurs bo‘yicha (D33) |
+| ES6 η=0.3 | B3 | Bajarildi | K(n) = ELO_ALPHA/(1+ELO_BETA·n), o‘zgarmas η emas |
 | ES7 Alohida tavsiya funksiyalari | B6 | Kutilmoqda (B6) | — |
 | ES8 Simulyatsiya va baholash | D13 (B0, B1, B8) | Qisman | `is_simulated` va alohida `sim-` daraxti (`332d56f`); `source=simulated` (`888a96f`, test `test_simulator_labels_its_rows`); generator — B8 |
 
@@ -585,7 +665,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | P0-2 Cascade va easy-skip | B1 | Bajarildi | `888a96f`; `test_ledger.py` |
 | P0-3 Talabaga xos tayyorlik | B4 | Kutilmoqda (B4) | — |
 | P0-4 G_L, Y2, Y3, qulf | B2 | Bajarildi | `5e5cb09`, `79b907c` |
-| P0-5 Talaba modeli | B3 | Kutilmoqda (B3) | — |
+| P0-5 Talaba modeli | B3 | Bajarildi | `neuro_model/` + `assessments/services/student_model.py`, yagona dvigatel `thesis_hybrid/1` |
 | P0-6 Yagona unlock servisi | B4 | Kutilmoqda (B4) | — |
 | P1-1 Logni kengaytirish | B1 | Bajarildi | `888a96f`; `test_ledger.py`, `test_ledger_migration.py` |
 | P1-2 pyKT eksporti, rozilik | B8 | Kutilmoqda (B8) | — |
@@ -613,7 +693,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | Q2 `db.sqlite3` da real ma’lumot bormi? | 2-qoida | Bajarildi (qaror) | Bor deb hisoblanadi; zaxira olindi, hisobotga faqat qatorlar soni chiqarildi |
 | Q3 PostgreSQL | D1 | Bajarildi | `docker-compose.yml`, `b44df84` |
 | Q4 Kurs modeli | D2 (B2) | Bajarildi | Kurs = ildiz (`kind=course`), `79b907c`; θ kurs bo‘yicha — B3 |
-| Q5 α, β, λ va parametrlar manbasi | D6, `calibrate_bkt` (B3) | Qisman | Konstantalar `config/settings.py:266-285`; kalibrlash — B3 |
+| Q5 α, β, λ va parametrlar manbasi | D6, `calibrate_bkt` (B3) | Bajarildi | Konstantalar `config/settings.py` `THESIS_MODEL`; kalibrlash `calibrate_bkt` (grid search, ixtiyoriy pyBKT) |
 | Q6 `.env` dagi token | 3-qoida | Qisman | Fayl gitignored; bekor qilish foydalanuvchida |
 | Q7 `token_blacklist` | D16 | Bajarildi | `config/settings.py:86`, test |
 | Q8 `graphify-out/`, `.agents/` | B0 | Bajarildi | `.gitignore` (kuzatilmaydi) |
