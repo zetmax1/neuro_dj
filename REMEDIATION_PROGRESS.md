@@ -27,7 +27,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 7 — Frontend | **Bajarildi** | `81f745b` (D16, foydalanuvchilar) | `c2bb542` |
 | 7.1 — Konstruktor tuzilmasi, qidiruv, skrinshot skripti (D39–D41) | **Bajarildi** | `f7bd3af` | `02e3b2f` |
 | 8 — Eksperimentlar va rozilik (8a + 8b) | Kutilmoqda | — | — |
-| 8a — Rozilik va eksport (D42–D45) | Kutilmoqda | — | — |
+| 8a — Rozilik va eksport (D42–D45) | **Bajarildi** | `dc3c35c` | `3345a52` |
 | 8b — Eksperimentlar quvuri (ochiq ma’lumotlar birinchi) | Kutilmoqda | — | — |
 | 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
@@ -780,6 +780,122 @@ Tekshiruvdagi 10 ta FAIL: 3 tasi B2.1 dan qolgan, 7 tasi `test_na.py` signali (b
 - **`npm install` kerak emas** — yangi runtime bog‘liqligi qo‘shilmadi. Playwright faqat skrinshot uchun va ixtiyoriy.
 ---
 
+## 8a-bosqich hisoboti (rozilik va eksport)
+
+Qamradi: `NEUROLEARN_B8_PLAN.md` 3-bo‘limi — D42, D43, D44, D45. Shuningdek `NEUROLEARN_REMEDIATION.md` 8-bosqichining “Rozilik” va “Eksport” bloklari, D11 ning hard-delete qismi, addendum A4-13 va 2.7/2.8 ning rozilik qismlari.
+
+Backend commit: `dc3c35c`. Frontend commit: `3345a52`.
+
+### Nega 8a birinchi
+
+Bu kichik ish, lekin u haqiqiy talaba ma’lumotini yig‘ishni ochadi. Yig‘ish haftalar davom etadi va uni tezlashtirib bo‘lmaydi, shuning uchun u imkon qadar erta boshlanishi kerak. 8b esa ochiq ma’lumotlarda mahalliy ma’lumotsiz ham ishlay oladi.
+
+### D42 — Rozilik
+
+Uchta maydon (`accounts/migrations/0005_research_consent.py`): `research_consent` (standart `False`), `research_consent_at`, `research_pseudonym`.
+
+- **Standart holatda yo‘q.** Rozilik faqat talabaning aniq harakati bilan beriladi: ro‘yxatdan o‘tishdagi ixtiyoriy belgi yoki profil sahifasidagi tugma. Hech bir endpoint rozilikka bog‘lanmagan — buni test ham tekshiradi (`test_consent_is_not_a_condition_of_using_the_platform`).
+- **`PATCH /api/me/consent/`** (addendum A4-13) — alohida endpoint, profil tahriridan ajratilgan. Sababi aniq: rozilik — talabaning o‘z ma’lumoti haqidagi qarori, va u ismni saqlashning yon ta’siri sifatida o‘zgarishi mumkin emas. Yo‘lda id yo‘q, shuning uchun bu endpoint bilan boshqa birov nomidan rozilik berib bo‘lmaydi.
+- **`research_consent_at` ikki tomonga ham qo‘yiladi.** Bekor qilish ham fakt. Ro‘yxatdan o‘tishda belgilanmasa, maydon `NULL` qoladi: “hech qachon rozilik bermagan” bilan “soat 10:04 da bekor qilgan” bir narsa emas.
+- **Matn beshta gapdan iborat** (`consent.*` lug‘atda): qanday ma’lumot (javoblar va ularning vaqti), nima uchun (magistrlik dissertatsiyasi), ism va email chiqmasligi, majburiy emasligi va bekor qilish mumkinligi. Oxirgi gapda ochiq aytiladi: bekor qilish **keyingi** eksportlardan chiqaradi, allaqachon olingan fayllar o‘zgarmaydi. Backend ularni qayta yozolmaydi, shuning uchun boshqa narsa aytish yolg‘on bo‘lardi; test aynan shu satrni tekshiradi.
+- **Foydalanuvchilar sahifasida** rozilik ustuni va filtri bor (addendum 2.7), lekin **faqat o‘qish uchun**: rozilikni boshqa birov nomidan belgilay oladigan administrator uni ma’nosiz qilib qo‘yadi.
+
+### D43 — Psevdonim
+
+`secrets.token_hex(8)` — 16 ta hex belgi, foydalanuvchi qatori yaratilganda beriladi, unique.
+
+- **Id, email yoki ismdan hosil qilinmaydi.** Ulardan hisoblanadigan psevdonim foydalanuvchilar ro‘yxati oqib ketganda qayta hisoblanishi mumkin — bu esa psevdonim oldini olishi kerak bo‘lgan yagona narsa.
+- **Hammaga beriladi**, rozilik berilgan-berilmaganidan qat’i nazar: psevdonimning o‘zi oshkor qilish emas, va keyinroq berilgan rozilik yangi identifikator talab qilmaydi.
+- **Interfeysga ham, API'ga ham chiqmaydi.** `UserDetailSerializer` va rozilik serializeri uni o‘z ichiga olmaydi.
+- **Migratsiya uch qadamda.** Callable default'li maydon qo‘shilganda Django uni **bir marta** hisoblab, barcha qatorlarga bir xil qiymat yozadi — unique ustun uchun bu xato, va unique bo‘lmasa ham noto‘g‘ri. Shuning uchun: ustun `null` bo‘lib keladi, `RunPython` har bir qatorga o‘zining qiymatini yozadi, keyin ustun unique va `NOT NULL` bo‘ladi. Test buni ham tekshiradi (`test_every_existing_account_got_its_own_pseudonym`).
+
+### D11 — Hard-delete nimani bildiradi
+
+30 kundan keyin o‘chirilayotgan hisob ikki tarmoqqa bo‘linadi (`accounts/tasks.py`):
+
+- **Rozilik yo‘q** → qator butunlay o‘chiriladi. `AssessmentAttempt.user` CASCADE, ya’ni javoblar ham ketadi. Bu ataylab: bu ma’lumot hech qachon tadqiqot ma’lumoti bo‘lmagan.
+- **Rozilik bor** → shaxs ma’lumoti olib tashlanadi, qator qoladi (`CustomUser.anonymise()`). Qatorni o‘chirish talaba ishlatishga rozi bo‘lgan javoblarni ham olib ketardi, eksport esa psevdonimdan boshqa hech narsa olib chiqmagan edi. Ya’ni bu yerda olib tashlanadigan narsa — aynan eksport allaqachon chiqarmagan narsa: email va ism. Email `anon-<psevdonim>@removed.invalid` ga aylanadi (`.invalid` — RFC 2606 bo‘yicha zahiralangan, hech qayerga yetib bormaydi), parol ishlatib bo‘lmaydigan qilinadi.
+
+Buning o‘tkir cheti ochiq aytiladi va test bilan yozilgan: **rozilikni bekor qilib, keyin hisobni o‘chirgan talabaning javoblari o‘chiriladi** (`test_withdrawing_consent_before_deletion_removes_the_answers`). Anonimlashtirilgan qator keyingi tunda qayta ishlanmaydi.
+
+Vazifa endi bitta son emas, ikkita qaytaradi (`{"anonymised": n, "deleted": m}`): bular turli hodisalar va umumiy son qaysi biri bo‘lganini yashiradi.
+
+### D44 — Eksport qamrovi
+
+`export_research_data` — bitta buyruq, bitta papka, to‘rtta fayl.
+
+Qabul qilinadigan javob: `source ∈ {adaptive, test_session}`, `engine_version` `thesis_hybrid` bilan boshlanadi, foydalanuvchida `research_consent=True` va `is_simulated=False`, mavzu arxivlanmagan. Chiqarib tashlanadi: `legacy`, `seed`, `simulated`, `review_repeat`.
+
+`--include-simulated` faqat quvurni sinash uchun: u simulyatsiya hisoblarini roziligidan qat’i nazar kiritadi, buyruq ogohlantirish chop etadi, `metadata.json` da `thesis_result: false` turadi va papka nomiga `-simulated` qo‘shiladi. D13 bo‘yicha bunday natija dissertatsiya natijasi emas, shuning uchun uni fayl nomidan ham adashtirib bo‘lmaydi.
+
+Fayllar:
+
+| Fayl | Nima bor |
+|---|---|
+| `pykt_sequences.txt` | Har bir talaba uchun besh satr: `psevdonim,uzunlik` / savol id'lari / tushuncha id'lari / javoblar (0/1) / vaqtlar (ms). Bu modelda tushuncha — mavzu, shuning uchun “concepts” mavzu id'lari |
+| `attempts.csv` | Ledger ustunlari: p̂, P(G), P(S), P(L) oldin→keyin, θ oldin→keyin, b oldin→keyin, `attempt_no`, `readiness_score`, `was_ready`, manba, versiyalar. Qiymatlar ledger'dan, qayta hisoblanmaydi |
+| `knowledge_base.json` | Daraxt (`kind`, `parent`, `position`, `pos`, `depth`, `lev`), E_P (ω bilan), G_L (`inherited`, `via`) |
+| `metadata.json` | Eksport sanasi, filtrlar, qatorlar va talabalar soni, rozilik bermagani uchun chiqarib tashlanganlar soni, `kb_version`, `engine_version`, kod commit'i, identifikator izohi, pyKT fayl shartnomasi |
+
+**Fayllarda faqat psevdonim.** Ichki `user_id` ham yo‘q: u bazadagi har bir jadval bilan bog‘lanadi, ya’ni uni chiqarish psevdonimni bekor qiladi.
+
+`metadata.json` — dissertatsiyada “natijalar qaysi ma’lumotdan olingan” degan savolga javob beradigan fayl, shuning uchun u filtrlarni ham, sonlarni ham, versiyalarni ham, commit'ni ham yozadi.
+
+### D45 — Nazorat
+
+- `--dry-run` faqat sonlarni chop etadi va hech narsa yozmaydi.
+- Eksport qilingan talabalar soni va rozilik bermagani uchun chiqarib tashlanganlar soni **alohida** ko‘rsatiladi. Ikkalasi bir xil bazaga nisbatan o‘lchanadi: rozilikdan boshqa barcha filtrlardan o‘tgan javoblar.
+- Bo‘sh eksport bo‘sh papka emas, xato: `--dry-run` bilan sonlarni ko‘rish taklif qilinadi.
+- `exports/` `.gitignore` ga qo‘shildi — tadqiqot ma’lumoti commit qilinmaydi.
+
+### Testlar
+
+Backend, 33 yangi test:
+
+- `accounts/tests/test_research_consent.py` (19) — rozilik standart holatda yo‘qligi; ro‘yxatdan o‘tish belgi bilan va belgisiz; endpoint orqali berish va bekor qilish, `research_consent_at` ikki tomonga; psevdonim API'ga chiqmasligi; boshqa hisobga rozilik qo‘yib bo‘lmasligi; profil tahriri rozilikni o‘zgartirmasligi; rozilik majburiy emasligi; anonimga 401; admin uchun rozilik filtri; psevdonimning shakli, hosil qilinmasligi, yagonaligi va har bir mavjud qatorda borligi; D11 ning ikki tarmog‘i, retention oynasi, qayta ishlanmaslik va bekor qilgandan keyin o‘chirish.
+- `assessments/tests/test_research_export.py` (14) — D45 nomlagan uchta tekshiruv (email/ism/`user_id` yo‘qligi, rozilik bermagan talaba yo‘qligi, `review_repeat` yo‘qligi); `seed`/`simulated`/`legacy` chiqarilishi; `--include-simulated` belgilanishi; arxivlangan mavzu; kurs filtri; `--dry-run`; bo‘sh eksport xatosi; to‘rtta faylning mazmuni; test sessiyasi javobi ham eksport qilinishi.
+
+Frontend, 5 yangi test (`src/pages/Profile.consent.test.tsx`): kartadagi to‘rt fakt va bekor qilish haqidagi gap; rozilik berish va bekor qilish tugmalari; sana; psevdonim ko‘rsatilmasligi; rozilik o‘qilmaganda profilning qolgan qismi ishlashi.
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| Backend: `venv/bin/pytest` | **789 passed**, 13 subtests (7.1 da 756) |
+| Backend: `manage.py check` | 0 issues |
+| Backend: `manage.py makemigrations --check --dry-run` | No changes detected (migratsiya `0005_research_consent`) |
+| `pytest --ds=verification.settings verification/tests` | **683 passed, 11 failed** — 7.1 da 684/10. Yangi FAIL: `test_na_group_e_experiments_and_consent_are_not_implemented` |
+| Frontend: `npx tsc --noEmit` | **0 xato** |
+| Frontend: `npx eslint .` | **0 error**, 8 warning (o‘zgarmadi) |
+| Frontend: `npm test` | **90 passed** (14 fayl; 7.1 da 85/13) |
+| Frontend: `npm run build` | o‘tdi |
+| `manage.py export_research_data --dry-run` | sonlarni chop etadi, hech narsa yozmaydi |
+
+Tekshiruvdagi yangi FAIL — harnessning o‘z signali, nosozlik emas. `test_na.py` 5-qoida bo‘yicha yozilgan: bosqich qo‘lga tushganda N/A testi ataylab buziladi va bu “endi shu guruh uchun haqiqiy tekshiruv yozilishi kerak” degani. E guruhi rozilik (8a) va eksperimentlarni (8b) birga qamraydi, shuning uchun u 8b bilan birga yoziladi. Qolgan 10 ta FAIL 7.1 dagi bilan bir xil.
+
+### Ataylab qilingan tanlovlar
+
+- **Rozilik uchun alohida endpoint.** Profil tahririga qo‘shish osonroq bo‘lardi, lekin unda rozilik ismni saqlashning yon ta’siri bo‘lib qolardi. Test shu yo‘lni yopadi.
+- **Psevdonim hammaga, yaratilishda beriladi.** Faqat rozilik berganlarga berish mantiqli ko‘rinadi, lekin unda psevdonim mavjudligining o‘zi rozilik belgisi bo‘lib qolardi, va keyinroq berilgan rozilik yangi identifikator talab qilardi.
+- **Psevdonim API'ga chiqmaydi.** Shaffoflik uchun uni talabaga ko‘rsatish mumkin edi, lekin unda talaba o‘zini eksport qatori bilan bog‘lay oladi — va bu bog‘lanishni boshqa birov bilan ulashishi ham mumkin.
+- **Anonimlashtirish, o‘chirish emas (rozilik bo‘lganda).** Qatorni o‘chirish javoblarni ham olib ketardi. Shu bilan birga, rozilikni bekor qilish o‘chirishga yo‘l ochadi — bu ataylab va matnda aytilgan.
+- **Rozilik ustuni admin uchun faqat o‘qish.** Boshqa birov nomidan belgilanadigan rozilik — rozilik emas.
+- **pyKT formati aniq yozilgan va metadata'da hujjatlashtirilgan.** Fayl shartnomasi (besh satr, nima qayerda) `metadata.json` da turadi va 8b dagi yuklovchi uni o‘rnatilgan `pykt-toolkit` versiyasiga nisbatan tekshiradi. Bu yerda taxmin qilib qo‘yish emas, shartnomani yozib qo‘yish tanlandi.
+- **Auth sahifasi lug‘atga ulandi.** `auth.*` kalitlari 7-bosqichda yozilgan edi, lekin sahifa ularni ishlatmagan. Rozilik matni o‘zbek tilida, uning atrofidagi forma ingliz tilida bo‘lishi mantiqsiz bo‘lardi, shuning uchun 15 ga yaqin satr mavjud kalitlarga ulandi. Bu D42 ning harfidan tashqari kichik qo‘shimcha.
+
+### Bajarilmagani
+
+- **Addendum 2.8 ning qolgan ikki bandi** — hisobni o‘chirish va parolni almashtirish. Ular D42–D45 ga kirmaydi, shuning uchun qilinmadi. Hisobni o‘chirish uchun backend allaqachon bor (`DELETE /api/accounts/profile/`), interfeys yo‘q.
+- **pyKT formatining pyKT kutubxonasiga nisbatan tekshirilishi** — 8b dagi yuklovchining ishi, chunki u o‘rnatilgan versiyaga bog‘liq. Hozir shartnoma `metadata.json` da yozilgan.
+- **Haqiqiy eksport olinmadi.** Dev bazasida rozilik bergan talaba va javoblar yo‘q; buyruq `--dry-run` bilan 0/0 qaytaradi, bu to‘g‘ri.
+
+### Foydalanuvchi bajarishi kerak bo‘lgan ishlar
+
+- **Migratsiya.** `venv/bin/python manage.py migrate accounts` — `0005_research_consent` mavjud hisoblarga psevdonim beradi. Ishga tushirildi: dev bazasida qo‘llandi.
+- **Ma’lumot yig‘ishni boshlash.** Rozilik oqimi tayyor. Talabalar ro‘yxatdan o‘tganda yoki profil sahifasida rozilik berishlari kerak; `GET /api/accounts/users/?consent=true` kimlar bergani ko‘rsatadi.
+- **Eksport.** `venv/bin/python manage.py export_research_data --dry-run` sonlarni ko‘rsatadi, keyin bayroqsiz ishga tushirilsa `exports/research-<sana>/` ga yoziladi. Bu papka gitignored.
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -1077,7 +1193,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | P2-5 Rollarni bir xil qilish | B0 (backend), B7 (frontend) | Qisman | `accounts/permissions.py`, `f620171` |
 | P2-6 Frontend lint/tsc, o‘lik kod | B7 | Qisman | `arms_cache` va CI (`a751538`); qolgani B7 |
 | P2-7 Xavfli seed buyruqlari | B0 | Bajarildi | `332d56f` |
-| P2-8 CASCADE va hard-delete | B0 (simulator), B1, B8 | Qisman | `simulate --clear` cheklandi (`332d56f`); PROTECT va arxivlash (`888a96f`, `960ba2c`); hard-delete siyosati — B8 |
+| P2-8 CASCADE va hard-delete | B0 (simulator), B1, 8a | Bajarildi | `simulate --clear` cheklandi (`332d56f`); PROTECT va arxivlash (`888a96f`, `960ba2c`); hard-delete siyosati D11 bo‘yicha: rozilik bo‘lsa javoblar psevdonim bilan qoladi, aks holda o‘chiriladi (`accounts/tasks.py`, `CustomUser.anonymise`, `dc3c35c`) |
 
 ### 8.4 (javob topilmagan savollar)
 
@@ -1112,7 +1228,7 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 | A4-10 `GET /api/me/summary/` (D27) | B6 | Bajarildi | `MeSummaryView` — kurs bo‘yicha k/n va θ, urinishlar, aniqlik, takrorlash soni, haftalik faollik javob vaqtlaridan. XP/achievements/study_hours yo‘q (D27) |
 | A4-11 `GET /api/config/model/` (D29) | B6 | Bajarildi | `ModelConfigView` — τ, δ, G_MAX, S_MAX, a_q, Elo, λ, c, clamp, standartlar, holatlar va trayektoriya guruhlari |
 | A4-12 `GET /api/learning/topics/<id>/history/` — p̂, P(G), P(S), p_before, p_after, natija, vaqt | B6 | Bajarildi | `TopicHistoryView` — har bir urinish uchun p̂, P(G), P(S), P(L) oldin→keyin, θ va b oldin→keyin, tayyorlik, natija, vaqt; qiymatlar ledger'dan (qayta hisoblanmaydi) |
-| A4-13 `PATCH /api/me/consent/` | B8 | Kutilmoqda (B8) | — |
+| A4-13 `PATCH /api/me/consent/` | B8 → 8a | Bajarildi | `accounts/views.py` (`ResearchConsentView`), `config/urls.py`; alohida endpoint — rozilik profil tahririning yon ta'siri bo'lmasligi uchun; `research_consent_at` ikki tomonga ham qo'yiladi (`dc3c35c`); test `accounts/tests/test_research_consent.py` |
 
 **1-bo‘lim: qarorlar**
 
@@ -1139,10 +1255,10 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 | 2.4 Kurslar sahifasi O‘quv yo‘liga birlashadi | B7 | Bajarildi | `pages/Courses.tsx` o‘chirildi, menyudan olib tashlandi; kurslar ro‘yxati O‘quv yo‘lida va bosh sahifadagi bilim xaritasida (`c2bb542`) |
 | 2.5 Mavzu sahifasi: “Qanday hisoblandi” paneli (τ, urinishlar jadvali, Rasch) | B6 (history), B7 | Bajarildi | `components/topic/DiagnosticsPanel.tsx` — τ chizig‘i, urinishlar jadvali (p̂, P(G), P(S), P(L) oldin→keyin), θ kurs bo‘yicha, “Rasch (a = 1)” (`c2bb542`) |
 | 2.6 Kurs konstruktori: outline + muharrir, prerekvizit muharriri, sikl/Y2/κ ko‘rsatish | B2, B7, 7.1 (D39) | Bajarildi | Prerekvizit muharriri: konstruktorning 5-qadami — React Flow, meros qirralari uzuq va faqat o‘qish, sikl zanjiri qizil, κ va ortiqcha qirralar paneli (`c2bb542`). Outline + muharrir: `CourseStructureEditor` — chapda daraxt, o‘ngda tugun muharriri, tur va tartib, prerekvizitlar alohida yorliq (D39, `02e3b2f`); backend — `kb.reorder_sibling`, `topics/<id>/reorder/`, `question_count`/`child_count` (`f7bd3af`) |
-| 2.7 Foydalanuvchilar: email prefiksi, rol filtri, simulyatsiya nishoni, faolsizlantirish, rozilik ustuni | B7, B8 | Kutilmoqda (B7, B8) | `is_simulated` maydoni bor (`332d56f`) |
-| 2.8 Profil: real ma’lumot, rozilik, hisobni o‘chirish, parol | B6, B7, B8 | Kutilmoqda (B6, B7, B8) | — |
+| 2.7 Foydalanuvchilar: email prefiksi, rol filtri, simulyatsiya nishoni, faolsizlantirish, rozilik ustuni | B7, 8a | Bajarildi | Email prefiksi, rol filtri va berish, simulyatsiya nishoni va yashirish, faolsizlantirish (`c2bb542`). Rozilik ustuni va `?consent=` filtri — faqat o'qish uchun, chunki boshqa birov nomidan belgilanadigan rozilik rozilik emas (`dc3c35c`, `3345a52`) |
+| 2.8 Profil: real ma’lumot, rozilik, hisobni o‘chirish, parol | B6, B7, 8a | Qisman | Real ma'lumot `GET /api/me/summary/` dan (`c2bb542`). Rozilik kartasi: beshta fakt va bitta tugma, bekor qilish keyingi eksportlarga tegishli ekani ochiq aytilgan (`3345a52`, test `Profile.consent.test.tsx`). Hisobni o'chirish va parolni almashtirish D42–D45 ga kirmaydi — qilinmadi; backend `DELETE /api/accounts/profile/` bor, interfeys yo'q |
 | 2.9 Quiz: test natijasi (P(L) oldin → keyin, ochilgan mavzular), mashq rejimi, klaviatura | B5, B7 | Bajarildi | Test natijasida baho va model holati alohida; mashq rejimi bir vaqtda bitta savol, darhol tushuntirish, holat o‘zgarsa toast; klaviatura A–D va Enter (`c2bb542`) |
-| 2.10 Xatolar ustida ishlash: `GET /api/learning/mistakes/`, guruhlash, “ko‘rib chiqilgan” belgisi | B6, B7 | Kutilmoqda (B6, B7) | Ledger o‘zgarmas (`888a96f`), shuning uchun “ko‘rib chiqilgan” belgisi B6 da alohida jadvalda saqlanadi |
+| 2.10 Xatolar ustida ishlash: `GET /api/learning/mistakes/`, guruhlash, “ko‘rib chiqilgan” belgisi | B6, B7 | Bajarildi | `MistakesView` va `MistakeReview` (`3add9ef`); sahifa mavzular bo‘yicha guruhlangan, “tozalash” tugmasi yo‘q, faqat “ko‘rib chiqildi” belgisi (`c2bb542`) |
 | 2.11 Umumiy: loading/bo‘sh/xato holatlari, konsol, responsive, `React.lazy`, `data-testid`, `docs/ui/` skrinshotlari | B7, 7.1 (D41) | Qisman | loading/bo‘sh/xato holatlari, `React.lazy` barcha marshrutlarda, `data-testid` asosiy elementlarda (`c2bb542`). Skrinshotlar: `scripts/screenshots.mjs` — 13 sahifa × 1440/1280/768 px, o‘zbek tili, deterministik, `manifest.json` bilan; `docs/ui/README.md` (D41, `02e3b2f`, `f7bd3af`). PNG fayllar hali olinmagan — brauzer va to‘ldirilgan baza foydalanuvchi mashinasida |
 | 3 Qabul: mock massivlar yo‘q; bir mavzu barcha sahifalarda bir xil holat va P(L) (vitest/Playwright); “2PL”, “PROOF”, “70%”, “dynamically match” matnlari yo‘q | B7 | Bajarildi | Mock massivlar yo‘q; bir mavzu to‘rtta sahifada bir xil holat va P(L) — `src/test/one-vocabulary.test.tsx`; taqiqlangan matnlar yo‘q (`c2bb542`) |
 | 5 LLM tushuntirishlari dizayni (o‘qituvchi tasdiqlaydi, kesh, eksperimentga ta’sir nazorati) | — | Kechiktirildi — D26: 8–10-bosqichlardan keyin, flag ortida | — |

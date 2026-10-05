@@ -129,18 +129,49 @@ Backend tomoni: `accounts/auth_cookies.py` (cookie va CSRF), `accounts/permissio
 | Tur o‘zgarishi mumkinligini oldindan aytadigan hisoblagichlar (D39, Y4) | `curriculum/views/instructor.py` (`question_count`, `child_count`, `_duration_subquery`), `curriculum/serializers/instructor.py` | `test_structure_editor.py::test_the_counters_say_which_kind_changes_are_possible`, `::test_the_counters_do_not_distort_the_duration` |
 | `GET /api/learning/search/?q=` — nom bo‘yicha, arxivsiz, 20 ta, `pos` tartibida (D40) | `assessments/views/learning.py` (`TopicSearchView`, `SEARCH_LIMIT`) | `assessments/tests/test_topic_search.py` |
 
-## 8. Keyingi bosqichlar
+## 8. Rozilik, anonimlashtirish va eksport (8a-bosqich)
+
+Himoyada etika savoliga javob shu jadvalda: har bir da’vo qaysi faylda
+amalga oshirilgan va qaysi test uni ushlab turadi.
+
+| Talab | Kod | Test |
+|---|---|---|
+| Rozilik standart holatda yo‘q, faqat talabaning aniq harakati bilan beriladi (D42) | `accounts/models.py` (`research_consent`, standart `False`), `accounts/migrations/0005_research_consent.py` | `accounts/tests/test_research_consent.py::test_a_new_account_has_not_consented` |
+| Rozilik ro‘yxatdan o‘tishda ixtiyoriy belgi (D42) | `accounts/serializers.py` (`UserRegistrationSerializer.research_consent`), `neuro/src/pages/Auth.tsx` | `::test_registration_works_without_the_checkbox`, `::test_registration_can_carry_the_checkbox` |
+| Rozilik profil sahifasida boshqariladi (D42, addendum 2.8) | `neuro/src/pages/Profile.tsx` (`ConsentCard`), `neuro/src/api/auth.api.ts` (`consentApi`) | `neuro/src/pages/Profile.consent.test.tsx` |
+| `PATCH /api/me/consent/` (A4-13); `false` — bekor qilish | `accounts/views.py` (`ResearchConsentView`), `config/urls.py` | `::test_consent_is_given_and_withdrawn_through_the_endpoint` |
+| Rozilik o‘zgarishi `research_consent_at` bilan qayd etiladi, ikki tomonga ham | `accounts/serializers.py` (`ResearchConsentSerializer.update`) | `::test_consent_is_given_and_withdrawn_through_the_endpoint` |
+| Rozilik majburiy emas: bermagan talaba tizimdan to‘liq foydalanadi (D42) | — (hech bir endpoint rozilikka bog‘lanmagan) | `::test_consent_is_not_a_condition_of_using_the_platform` |
+| Rozilikni profil tahriri orqali o‘zgartirib bo‘lmaydi | Alohida serializer va endpoint | `::test_the_profile_update_path_cannot_flip_consent` |
+| Psevdonim tasodifiy va qaytarib bo‘lmaydi, id/email/ismdan hosil qilinmaydi (D43) | `accounts/models.py` (`new_pseudonym`, `secrets.token_hex(8)`) | `::test_a_pseudonym_is_not_derived_from_the_account`, `::test_pseudonyms_differ_between_accounts` |
+| Psevdonim foydalanuvchi qatori yaratilganda beriladi, har biriga o‘zi (D43) | Maydon `default=new_pseudonym`; migratsiya uch qadamda to‘ldiradi | `::test_a_pseudonym_is_assigned_when_the_row_is_created`, `::test_every_existing_account_got_its_own_pseudonym` |
+| Psevdonim interfeysga va API'ga chiqmaydi | `UserDetailSerializer` va `ResearchConsentSerializer` uni o‘z ichiga olmaydi | `::test_the_endpoint_never_leaks_the_pseudonym` |
+| Eksportda faqat psevdonim; email, ism va ichki `user_id` yo‘q (D43, D45) | `assessments/management/commands/export_research_data.py` (`CSV_COLUMNS`) | `assessments/tests/test_research_export.py::test_no_email_no_name_and_no_user_id_appear_anywhere` |
+| Rozilik bermagan talaba eksportda yo‘q (D44, D45) | Buyruqning `consented` filtri | `::test_a_learner_without_consent_is_not_in_the_export` |
+| `review_repeat` qatorlari eksportda yo‘q (D44, D45) | `EXPERIMENT_SOURCES` | `::test_review_repeat_rows_are_not_exported` |
+| `legacy`, `seed`, `simulated` chiqarib tashlanadi; `--include-simulated` faqat quvurni sinash uchun (D13, D44) | Buyruqning `eligible()` va `--include-simulated` bayrog‘i | `::test_seed_simulated_and_legacy_rows_are_excluded`, `::test_include_simulated_is_marked_as_not_a_thesis_result` |
+| Arxivlangan mavzu eksportdan chiqadi (D44) | `topic__is_archived=False` | `::test_an_archived_topic_leaves_the_export` |
+| Chiqish fayllari: pyKT, xom CSV, KB grafi JSON, `metadata.json` (D44) | `write_pykt`, `write_csv`, `write_graph`, `write_metadata` | `::test_the_pykt_file_is_one_block_per_learner`, `::test_the_csv_carries_the_numbers_the_model_used`, `::test_the_graph_file_holds_the_tree_e_p_and_g_l`, `::test_the_metadata_says_which_data_the_results_came_from` |
+| `--dry-run` faqat sonlarni chop etadi; eksport qilinganlar va rozilik bermaganlar alohida (D45) | Buyruqning `report()` va `--dry-run` | `::test_dry_run_reports_the_numbers_and_writes_nothing` |
+| Hard-delete: rozilik bo‘lsa javoblar psevdonim bilan qoladi, aks holda o‘chiriladi (D11) | `accounts/tasks.py` (`gdpr_hard_delete_users`), `accounts/models.py` (`anonymise`) | `::test_a_consenting_learner_is_anonymised_and_their_answers_survive`, `::test_a_learner_without_consent_is_deleted_with_their_answers`, `::test_withdrawing_consent_before_deletion_removes_the_answers` |
+| Rozilik ustuni va filtri foydalanuvchilar sahifasida, faqat o‘qish uchun (addendum 2.7) | `accounts/views.py` (`?consent=`), `neuro/src/pages/admin/UserManagement.tsx` | `::test_an_admin_can_filter_the_user_list_by_consent` |
+
+Bekor qilish haqida matnda ochiq aytiladigan narsa: u **keyingi** eksportlardan
+chiqaradi, allaqachon olingan fayllar o‘zgarmaydi (D42). Buni backend bajara
+olmaydi, shuning uchun interfeys ham shunday deydi va test shu satrni
+tekshiradi (`Profile.consent.test.tsx`).
+
+## 9. Keyingi bosqichlar
 
 | Ish | Bosqich |
 |---|---|
-| Rozilik, psevdonim va eksport (D42–D45) | 8a |
 | Eksperimentlar va ablatsiya (`use_irt`, `use_prereq_init` allaqachon tayyor) | 8b |
 | Saqlash usullari benchmarki | 9 |
 | Yakuniy sinovlar va hisobot | 10 |
 
 ---
 
-## 9. Farqlar — koddagi, II bobda yo‘q narsalar
+## 10. Farqlar — koddagi, II bobda yo‘q narsalar
 
 Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
 
