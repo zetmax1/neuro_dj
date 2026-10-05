@@ -22,6 +22,7 @@ from assessments.views.learning import (
     ModelConfigView,
     PathToTopicView,
     TopicHistoryView,
+    TopicSearchView,
     TrajectoryView,
 )
 from assessments.views.instructor import (
@@ -105,6 +106,12 @@ urlpatterns = [
         "learning/topics/<int:topic_id>/history/",
         TopicHistoryView.as_view(),
         name="topic_history",
+    ),
+    # GET — Active nodes by name, with status and P(L) (D40)
+    path(
+        "learning/search/",
+        TopicSearchView.as_view(),
+        name="topic_search",
     ),
     # GET — The profile, on real data only (D27)
     path(

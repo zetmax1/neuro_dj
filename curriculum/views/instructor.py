@@ -12,12 +12,20 @@ Ownership filtering:
 Duration aggregation:
   The topic queryset is annotated with total_duration_minutes (Sum of related
   resources' duration_minutes) for the frontend to display dynamic course durations.
+
+Counters for the node editor (D39):
+  ``question_count`` and ``child_count`` tell the structure editor in advance
+  which ``kind`` changes the KB service will accept — a section with children
+  cannot become a topic (topics are leaves) and a topic holding questions
+  cannot become a section (Y4). The duration is a subquery so that the two
+  counts, which join other tables, cannot multiply its sum.
 """
 
-from django.db.models import IntegerField, Q, Sum, Value
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Sum, Value
 from django.db.models.functions import Coalesce
 from drf_spectacular.utils import extend_schema
 from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -32,6 +40,22 @@ from curriculum.serializers.instructor import (
 )
 from curriculum.services import kb
 from curriculum.services.graph import get_snapshot
+
+
+def _duration_subquery():
+    """Σ duration_minutes of a node's resources, as a subquery (see module docstring)."""
+    return Coalesce(
+        Subquery(
+            TopicResource.objects
+            .filter(topic=OuterRef("pk"))
+            .values("topic")
+            .annotate(total=Sum("duration_minutes"))
+            .values("total")[:1],
+            output_field=IntegerField(),
+        ),
+        Value(0),
+        output_field=IntegerField(),
+    )
 
 
 class KBErrorMixin:
@@ -67,10 +91,12 @@ class InstructorTopicViewSet(KBErrorMixin, viewsets.ModelViewSet):
         queryset = (
             Topic.objects
             .annotate(
-                total_duration_minutes=Coalesce(
-                    Sum("resources__duration_minutes"),
-                    Value(0),
-                    output_field=IntegerField(),
+                total_duration_minutes=_duration_subquery(),
+                # distinct=True: the two joins below produce a row per pair,
+                # so a plain count would multiply.
+                question_count=Count("questions", distinct=True),
+                child_count=Count(
+                    "children", distinct=True, filter=Q(children__is_archived=False),
                 ),
             )
             .order_by("position", "id")
@@ -96,6 +122,25 @@ class InstructorTopicViewSet(KBErrorMixin, viewsets.ModelViewSet):
                 status=status.HTTP_200_OK,
             )
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=["post"], url_path="reorder")
+    def reorder(self, request: Request, pk=None) -> Response:
+        """
+        POST {"direction": "up" | "down"} — move the node one slot among its
+        siblings (D39). The whole row is renumbered in one KB change, so the
+        answer is the siblings in their new order. 400 with reason ``at_edge``
+        when the node is already first or last.
+        """
+        instance = self.get_object()
+        siblings = kb.reorder_sibling(instance, direction=str(request.data.get("direction", "")))
+        return Response({
+            "id": instance.pk,
+            "parent": instance.parent_id,
+            "siblings": [
+                {"id": node.pk, "name": node.name, "position": node.position}
+                for node in siblings
+            ],
+        })
 
 
 @extend_schema(tags=["Instructor Management"])

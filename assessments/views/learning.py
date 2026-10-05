@@ -7,6 +7,7 @@ Endpoints:
   - GET  /api/learning/mistakes/                      — wrong answers (D25)
   - POST /api/learning/mistakes/<attempt_id>/reviewed/ — mark one as reviewed
   - GET  /api/learning/topics/<topic_id>/history/     — the model's own trace
+  - GET  /api/learning/search/?q=<text>               — topics by name (D40)
   - GET  /api/me/summary/                             — the profile, real data (D27)
   - GET  /api/config/model/                           — the chapter II constants (D29)
 
@@ -31,7 +32,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from curriculum.models import Topic
+from curriculum.models import Topic, TopicKind
 from curriculum.services.graph import get_snapshot
 
 from assessments.models import (
@@ -48,6 +49,9 @@ logger = logging.getLogger(__name__)
 
 # The window the profile's weekly activity covers.
 ACTIVITY_DAYS = 7
+
+# D40: how many nodes the search panel returns at most.
+SEARCH_LIMIT = 20
 
 
 @extend_schema(tags=["Student Learning"])
@@ -296,6 +300,71 @@ class TopicHistoryView(APIView):
             "theta": _theta_of(user=request.user, course_id=snapshot.root_of(topic.pk)),
             "missing": [dict(item) for item in missing],
             "attempts": attempts,
+        })
+
+
+@extend_schema(tags=["Student Learning"])
+class TopicSearchView(APIView):
+    """
+    GET /api/learning/search/?q=<text>
+
+    Active knowledge-base nodes whose name contains ``q``, case-insensitively
+    (D40). This is the search the removed ``KnowledgeSearch`` page only
+    pretended to do: there is no concept list in the code, the names come from
+    the knowledge base, and a node the learner cannot see — archived, or under
+    an archived ancestor — is not in the snapshot and so is not a result.
+
+    A result carries the node's course and, for a topic, this learner's status
+    and P(L); a section or a course has neither (D22). The list comes back in
+    programme order (``pos``, D4) and is cut at ``SEARCH_LIMIT``, so the same
+    query always answers with the same nodes in the same order.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        query = (request.query_params.get("q") or "").strip()
+        if not query:
+            return Response({"q": "", "limit": SEARCH_LIMIT, "count": 0, "results": []})
+
+        snapshot = get_snapshot()
+        # The snapshot already holds exactly the active, rooted nodes, so the
+        # database never returns a node the knowledge base does not have.
+        rows = sorted(
+            Topic.objects
+            .filter(pk__in=list(snapshot.pos), name__icontains=query)
+            .values_list("id", "name", "slug", "kind"),
+            key=lambda row: snapshot.pos[row[0]],
+        )[:SEARCH_LIMIT]
+
+        states = (
+            readiness.states_for(user=request.user, snapshot=snapshot)
+            if any(row[3] == TopicKind.TOPIC for row in rows)
+            else {}
+        )
+        course_ids = {snapshot.root_of(row[0]) for row in rows}
+        course_names = dict(Topic.objects.filter(pk__in=course_ids).values_list("pk", "name"))
+
+        results = []
+        for topic_id, name, slug, kind in rows:
+            state = states.get(topic_id) if kind == TopicKind.TOPIC else None
+            course_id = snapshot.root_of(topic_id)
+            results.append({
+                "topic_id": topic_id,
+                "name": name,
+                "slug": slug,
+                "kind": kind,
+                "course_id": course_id,
+                "course_name": course_names.get(course_id),
+                "status": state.status if state is not None else None,
+                "p_mastery": state.p_mastery if state is not None else None,
+            })
+
+        return Response({
+            "q": query,
+            "limit": SEARCH_LIMIT,
+            "count": len(results),
+            "results": results,
         })
 
 

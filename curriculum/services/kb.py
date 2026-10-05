@@ -57,6 +57,7 @@ __all__ = [
     "ensure_prerequisite",
     "move_node",
     "remove_prerequisite",
+    "reorder_sibling",
     "update_node",
     "update_weight",
 ]
@@ -252,6 +253,45 @@ def move_node(node: Topic | int, new_parent: Topic | int, position: int | None =
     changes: dict[str, Any] = {"parent_id": parent_id}
     changes["position"] = _next_position(parent_id) if position is None else position
     return update_node(node, **changes)
+
+
+SIBLING_DIRECTIONS: tuple[str, ...] = ("up", "down")
+
+
+def reorder_sibling(node: Topic | int, *, direction: str) -> list[Topic]:
+    """
+    Move a node one slot up or down among its active siblings (D39).
+
+    The whole sibling row is renumbered 0..n-1 inside one KB change, so no
+    intermediate state has two nodes at the same ``position`` and the version
+    is bumped exactly once. Two separate position writes would leave the order
+    wrong between the requests and bump the version twice for one move.
+
+    Returns the siblings in their new order. A node already first (``up``) or
+    last (``down``) is refused with reason ``at_edge``.
+    """
+    if direction not in SIBLING_DIRECTIONS:
+        raise KBError("direction", f"The direction must be one of {list(SIBLING_DIRECTIONS)}.")
+    pk = getattr(node, "pk", node)
+    with _kb_change():
+        current = _active(pk, lock=True)
+        siblings = list(
+            Topic.objects
+            .filter(parent_id=current.parent_id, is_archived=False)
+            .order_by("position", "id")
+        )
+        index = next(i for i, sibling in enumerate(siblings) if sibling.pk == current.pk)
+        target = index - 1 if direction == "up" else index + 1
+        if not 0 <= target < len(siblings):
+            edge = "first" if direction == "up" else "last"
+            raise KBError("at_edge", f"Node {pk} is already {edge} among its siblings.")
+        siblings[index], siblings[target] = siblings[target], siblings[index]
+        for position, sibling in enumerate(siblings):
+            if sibling.position != position:
+                sibling.position = position
+                sibling.save(update_fields=["position"])
+        _fresh()  # positions feed pos and the Algorithm 2.2 order
+    return siblings
 
 
 def archive_node(node: Topic | int) -> int:

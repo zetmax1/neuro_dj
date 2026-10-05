@@ -13,6 +13,11 @@ class InstructorTopicSerializer(serializers.ModelSerializer):
     validates the tree (Y1–Y3, kinds) and bumps the KB version.
     """
     total_duration_minutes = serializers.IntegerField(read_only=True, default=0)
+    # D39: what the structure editor needs to know before offering a kind
+    # change — a section with children is not a leaf, and a topic holding
+    # questions cannot become a section (Y4).
+    question_count = serializers.IntegerField(read_only=True, default=0)
+    child_count = serializers.IntegerField(read_only=True, default=0)
     kind = serializers.ChoiceField(
         choices=TopicKind.choices,
         required=False,
@@ -27,10 +32,12 @@ class InstructorTopicSerializer(serializers.ModelSerializer):
             "id", "name", "slug", "parent", "kind", "description",
             "position", "is_archived", "instructor",
             "pass_mark_percentage", "test_question_count",
-            "total_duration_minutes",
+            "total_duration_minutes", "question_count", "child_count",
             "created_at", "updated_at",
         ]
-        read_only_fields = ["total_duration_minutes", "is_archived"]
+        read_only_fields = [
+            "total_duration_minutes", "question_count", "child_count", "is_archived",
+        ]
 
     def validate_parent(self, parent):
         if parent is not None and parent.is_archived:
