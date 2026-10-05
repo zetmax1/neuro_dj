@@ -95,18 +95,40 @@ qatlami faqat holatni yuklaydi, chaqiradi va saqlaydi.
 | A4-11 `GET /api/config/model/` (D29) | `ModelConfigView` — τ, δ va boshqa konstantalar | `test_the_model_config_is_the_single_source` |
 | A4-12 `GET /api/learning/topics/<id>/history/` | `TopicHistoryView` — p̂, P(G), P(S), P(L) oldin→keyin, θ, b, natija, vaqt | `test_the_history_reports_what_the_model_used` |
 
-## 7. Keyingi bosqichlar
+## 7. Frontend qatlami (7-bosqich)
+
+Interfeys modelni qayta hisoblamaydi: har bir son backend'dan keladi va faqat bir joyda matnga aylanadi.
+
+| Talab | Kod (`neuro/src/`) | Test |
+|---|---|---|
+| Sonlar matnga aylanadigan yagona joy (audit 3.4) | `lib/format.ts` — ehtimollik [0,1] foizga, baho allaqachon foiz | `lib/format.test.ts` |
+| Holat palitrasi, 2.3–2.4-rasmlar (D21) | `lib/status.ts` — 5 holat, `LEGEND_ORDER`, hex qiymatlar SVG uchun | `lib/status.test.ts` |
+| Sabablar kod sifatida, matn lug‘atda (TR3, D20) | `lib/reasons.ts` — `{code, params}` → i18n kalit | `lib/reasons.test.ts` |
+| KB xatolari (sikl zanjiri, yopiq mavzu) | `lib/kbError.ts` — `cycleTopics(error)` grafda qizil zanjir | `lib/kbError.test.ts` |
+| Ikki qatlamli graf, `lev` ustunlari (2.2–2.3-rasmlar) | `hooks/useGraphLayout.ts` — `twoLayer()`, `lev` standart, dagre ixtiyoriy | — (vizual) |
+| Mavzu tuguni holatni backend'dan oladi | `components/learning-path/CustomTopicNode.tsx` | `test/one-vocabulary.test.tsx` |
+| Prerekvizit muharriri, Algoritm 2.1 UI'da | `components/instructor/PrerequisiteEditor.tsx` — `onConnect`, ω, κ paneli | — |
+| “Qanday hisoblandi” (D28) | `components/topic/DiagnosticsPanel.tsx` — τ chizig‘i, p̂/P(G)/P(S)/P(L) jadvali | — |
+| Trayektoriya A–D guruhlarda sabablari bilan | `components/common/TrajectoryList.tsx` | `components/common/TrajectoryList.test.tsx` |
+| Mashq rejimi: natija va tushuntirish ekranda qoladi | `hooks/useAdaptiveQuiz.ts` — `advance()` gacha turadi | — |
+| Refresh token httpOnly cookie'da (D16) | `api/client.ts` — `withCredentials`, `ensureCsrfToken()`, 401 da bitta qayta urinish; `store/authStore.ts` hech narsa saqlamaydi | `accounts/tests/test_auth_cookies.py` (backend) |
+| Soxta ma’lumot yo‘q (D23) | olib tashlangan: `KnowledgeSearch`, `mistakeStorage`, `sampleQuestions`, `Profile` massivlari | `test/one-vocabulary.test.tsx` |
+| O‘zbek/ingliz pariteti (D20) | `locales/uz.json`, `locales/en.json` — 321 kalit | `locales/locales.test.ts` |
+| Bitta mavzu barcha sahifalarda bir xil holat (qabul sharti) | — | `test/one-vocabulary.test.tsx` |
+
+Backend tomoni: `accounts/auth_cookies.py` (cookie va CSRF), `accounts/permissions.py` (`IsAdminRole` — `is_staff` emas, API qaytargan rol), `accounts/serializers.py` (`UserAdminUpdateSerializer`).
+
+## 8. Keyingi bosqichlar
 
 | Ish | Bosqich |
 |---|---|
-| Frontend: sahifalar, i18n (D20), skrinshotlar | 7 |
 | Eksperimentlar, ablatsiya va rozilik (`use_irt`, `use_prereq_init` allaqachon tayyor) | 8 |
 | Saqlash usullari benchmarki | 9 |
 | Yakuniy sinovlar va hisobot | 10 |
 
 ---
 
-## 8. Farqlar — koddagi, II bobda yo‘q narsalar
+## 9. Farqlar — koddagi, II bobda yo‘q narsalar
 
 Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
 

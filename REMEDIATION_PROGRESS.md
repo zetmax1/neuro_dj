@@ -22,7 +22,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 4 — Tayyorlik va holatlar | **Bajarildi** | `0b15802` | — |
 | 5 — Test sessiyasi modeldan o‘tadi | **Bajarildi** | `620d4e1` | — |
 | 6 — Trayektoriya va API | **Bajarildi** | `3add9ef` | — |
-| 7 — Frontend | Kutilmoqda | — | — |
+| 7 — Frontend | **Bajarildi** | `81f745b` (D16, foydalanuvchilar) | `c2bb542` |
 | 8 — Eksperimentlar va rozilik | Kutilmoqda | — | — |
 | 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
@@ -592,6 +592,100 @@ Uchtasi B2.1 dan (asoslangan), oltitasi `test_na.py` ning o‘z signali: `test_p
 | `GET /api/analytics/overview/` | `recommendations` (`recommended_next`, `needs_revision`, `ready_to_advance`, `coming_soon`) | `trajectory` — `{groups: {A, B, C, D}, next}` |
 ---
 
+## 7-bosqich hisoboti (frontend)
+
+Qamradi: P0-1 (UI), TR5, P2-5, P2-6, D16, D17, D19; audit 3.2–3.4, 7.2, 7.3. Addendum: D20–D29 va 2.1–2.11 sahifa talablari.
+
+Backend commit: `81f745b` (D16 va foydalanuvchi boshqaruvi API). Frontend commit: `c2bb542` (99 fayl).
+
+### Backend tomoni (D16 va foydalanuvchilar)
+
+- **Refresh token httpOnly cookie'da.** Audit 7.3: ikkala JWT `localStorage` da edi — sahifadagi har qanday skript o‘qiy olardi. Endi access token javob tanasida (SPA xotirada saqlaydi), refresh token esa `HttpOnly` cookie'da: `/api/accounts/token/` yo‘liga chegaralangan, DEBUG tashqarisida `Secure`, standart `SameSite=Lax`.
+- **CSRF.** Brauzer cookie'ni o‘zi yuborgani uchun `login`, `refresh` va `logout` Django'ning CSRF tekshiruvidan o‘tadi. Login ham: aks holda hujumchi o‘z sessiyasini qurbon brauzeriga o‘rnatishi mumkin (login CSRF). SPA tokenni `GET /api/accounts/csrf/` dan oladi.
+- **Rotatsiya va blacklist.** Har bir `refresh` yangi cookie beradi va eskisini bloklaydi; `logout` joriy tokenni bloklab, cookie'ni tozalaydi va idempotent.
+- **Foydalanuvchi boshqaruvi (addendum 2.7).** Ruxsat endi `is_staff` emas, API qaytargan `admin` roli (`IsAdminRole`) — eski `IsAdminUser` `Admin` guruhidagi, lekin xodim bo‘lmagan adminni kiritmasdi va xodim o‘qituvchini kiritardi. `PATCH` rolni `Instructor`/`Admin` guruhlari orqali beradi va `is_active` ni almashtiradi. Guruh mexanizmi ifodalay olmaydigan holatlar yarim bajarilmaydi, rad etiladi: superfoydalanuvchi har doim admin, xodim kamida o‘qituvchi, admin o‘z rolini o‘zgartira olmaydi. Ro‘yxat `is_simulated` ni qaytaradi va rol/simulyatsiya bo‘yicha filtrlanadi (D13).
+
+### Frontend: uchta “yagona manba”
+
+- **Sonlar matnga aylanadigan bitta joy** — `src/lib/format.ts`. Ikki shkala aniq ajratildi: `p_mastery`, `accuracy`, p̂ — [0,1] dagi ehtimolliklar, foiz sifatida ko‘rsatiladi; test bahosi esa allaqachon foiz. Audit 3.4 topgan ikki xato aynan shu aralashuvdan kelib chiqqan edi: ehtimollikni o‘z soni sifatida chop etish (“0.8%”) va bahoni qayta ko‘paytirish (“100%”).
+- **Holat palitrasi** — `src/lib/status.ts` (D21). 2.3 va 2.4-rasmlardagi ranglar; graf tugunlari, kartalar, heatmap va legenda bir xil manbadan oladi. `CustomTopicNode` ilgari `mastery_percentage >= 70` deb taqqoslardi — ehtimollikni 70 bilan — va 3 ta holati bor edi. Endi 5 ta holat backend'dan keladi. Yopiq matn `slate-700`: avval o‘qib bo‘lmas darajada och edi (audit topilmasi).
+- **Sabablar** — `src/lib/reasons.ts` (TR3, D20). Backend `{code, params}` qaytaradi, matn esa `uz.json`/`en.json` da. Test sabab kodining interfeysga chiqib ketmasligini tasdiqlaydi.
+
+### Sahifalar
+
+| Sahifa | Nima qilindi |
+|---|---|
+| **Bosh sahifa** | 4 ta KPI: o‘zlashtirilgan k/n, takrorlash kerak, ochiq, oxirgi 7 kundagi javoblar. Streak va “weekly goal” olib tashlandi (tezisga aloqasi yo‘q), P(L) o‘rtachasi ham (mazmunsiz). “Keyingi qadam” trayektoriya API'sidan: birinchi element katta tugma, qolganlari A–D guruhlarida sabablari bilan. Kurs ildizi endi tavsiya sifatida chiqmaydi — servis faqat mavzu qaytaradi. Heatmap D21 palitrasidagi holatlar to‘ri. |
+| **O‘quv yo‘li** | **“Ikki qatlam” standart rejim** (2.2 va 2.3-rasmlar): kurs va bo‘limlar — ramka, mavzular ularning ichida. DAG rejimi mavzularni `lev` ustunlariga, ustun ichida `pos` bo‘yicha joylashtiradi — deterministik. dagre ixtiyoriy rejim sifatida qoldi, lekin standart emas: u aloqasiz tugun qo‘shilganda ham siljiydi, ya’ni bir grafning ikki skrinshoti bir-biriga mos kelmaydi. Meros G_L qirralari uzuq chiziqda, tugma ortida. Tugunni bosganda yon panel: holat, P(L), yetishmayotgan prerekvizitlar o‘z P(L) bilan, “Mashq qilish” va “Shu mavzugacha yo‘l”. Yo‘l Need(g) ni ajratib ko‘rsatadi, qolganini xiralashtiradi. |
+| **Mashq va testlar** | Ikki rejim alohida kartada tushuntirildi. Yopiq mavzu kartasi faol emas: qulf va nimasi yetishmayotgani. Doimiy “Medium” nishoni olib tashlandi; qiyinlik, ko‘rsatilsa, savollarning o‘rtacha b qiymatidan. Easy/Medium/Hard filtri o‘rniga holat bo‘yicha filtr. |
+| **Quiz** | **Mashq rejimi** (`useAdaptiveQuiz`): bir vaqtda bitta savol, javobdan keyin natija va `Question.explanation` ekranda **qoladi** — eski hook 1.5 soniyada avtomatik o‘tib, o‘zi olgan tushuntirishni yashirardi. Holat o‘zgarsa va yangi mavzu ochilsa toast. Qiyinlik nishoni yo‘q: savol `|b_q − θ_s|` bo‘yicha tanlangan, bucket yorlig‘i uni noto‘g‘ri tasvirlaydi. Klaviatura: A–D tanlaydi, Enter tasdiqlaydi. **Test rejimi** natijasida baho va model holati alohida bo‘limlarda (D7). |
+| **Mavzu sahifasi** | Kontent kengligi boshqa sahifalar bilan bir xil. “Qanday hisoblandi” paneli: τ chizig‘i (`config/model` dan), P(L) grafigi (to‘g‘ri javob — to‘ldirilgan nuqta, xato — bo‘sh), urinishlar jadvali (p̂, P(G), P(S), P(L) oldin→keyin, vaqt), θ kurs bo‘yicha, “Rasch (a = 1)”. “BKT + IRT PROOF” kartasi va “2PL” yorlig‘i yo‘q. |
+| **Xatolar ustida ishlash** | `GET /api/learning/mistakes/` dan: mavzular bo‘yicha guruhlangan, har xato uchun savol, talaba javobi, to‘g‘ri javob, o‘qituvchi tushuntirishi, sana va keyinroq to‘g‘ri yechilganmi. “Tozalash” tugmasi yo‘q — faqat “ko‘rib chiqildi” belgisi. `lib/mistakeStorage.ts` o‘chirildi. |
+| **Profil** | `GET /api/me/summary/` dan: kurs bo‘yicha k/n va θ, urinishlar, aniqlik, takrorlash soni, haftalik faollik. Qo‘lda yozilgan `weeklyActivity`, `masteryData`, `achievements`, `recentHistory` massivlari va ular bilan birga XP, achievements, “study hours” olib tashlandi — ularni haqiqiy ma’lumotdan hisoblab bo‘lmaydi (D27). Ismi bo‘lmasa “Learner” emas, “ism kiritilmagan” deyiladi. |
+| **Kurs konstruktori** | **5-qadam “Prerekvizitlar”** qo‘shildi — dissertatsiyaning markaziy qismi, UI'da umuman yo‘q edi. React Flow muharriri: `onConnect` Algoritm 2.1 orqali qirra qo‘shadi, ω tahrirlanadi, qirra o‘chiriladi. Rad etilganda `reason` kodidan tushunarli xabar, sikl bo‘lsa `chain` grafda **qizil** chiziladi — o‘qituvchi sikl qayerda yopilganini ko‘radi. Meros qirralari uzuq va faqat o‘qish uchun. Ortiqcha qirralar va κ alohida panelda, avtomatik tuzatilmaydi (GR3). |
+| **Foydalanuvchilar** | Email prefiksi “Unnamed User” o‘rniga, rol filtri va rol berish, simulyatsiya nishoni va ularni yashirish filtri, faolsizlantirish (qaytariladigan). |
+| **Landing** | Matni modelga mos qayta yozildi: “Dynamic quizzes adjust difficulty in real-time” kabi da’volar va `/features`, `/pricing`, `/about`, `/privacy` havolalari (mavjud bo‘lmagan sahifalar) olib tashlandi. |
+| **Kurslar va Qidiruv** | `pages/Courses.tsx` olib tashlandi (addendum 2.4: O‘quv yo‘li va bilim xaritasini takrorlardi). `pages/KnowledgeSearch.tsx` ham — u 12 ta soxta tushunchani qattiq yozib qo‘ygan edi (D23). |
+
+### Soxta ma’lumot yo‘q (D23)
+
+`grep` bilan tekshirildi va test bilan majburlanadi. Olib tashlangan massivlar: `KnowledgeSearch` (12 ta tushuncha + `didYouMeanMap` + trendlar), `MasteryHeatmap.masteryData`, `Profile` (4 ta massiv), `mistakeStorage`, `sampleQuestions.ts`, landing'dagi marketing matni.
+
+### Til (D20)
+
+`react-i18next`, `src/locales/uz.json` va `en.json` — **321 kalit, ikki tilda bir xil**. Testlar: kalit pariteti, bo‘sh satr yo‘qligi, gap ichida faqat birinchi harf katta (atamalar va model belgilaridan tashqari), taqiqlangan matnlar yo‘qligi. Atamalar D20 bo‘yicha: o‘zlashtirilgan, o‘rganilmoqda, ochiq, yopiq, takrorlash kerak, prerekvizit, mashq, test.
+
+### Sifat va hajm
+
+| Ko‘rsatkich | Oldin | Keyin |
+|---|---|---|
+| lint | 71 error, 12 warning | **0 error**, 8 warning |
+| tsc (`tsconfig.app.json`) | 16 xato | **0** |
+| vitest | 4 fayl, 10 test | **11 fayl, 71 test** |
+| Kirish chunk (`index-*.js`) | 2 219.5 kB (gzip 617.8) | **182.7 kB (gzip 58.7)** |
+| Landing chunk | — (kirishda edi) | 3.7 kB (gzip 1.4) |
+| CSS | 123.3 kB (gzip 20.7) | 90.4 kB (gzip 15.8) |
+| Chunk soni | 3 | 66 |
+
+Eng katta chunk endi `Hero3DBackground` (850 kB): u landing sahifasining dekorativ three.js foni va **matndan keyin** yuklanadi. Qolganlari: `Course` (recharts), `useGraphLayout` (React Flow + dagre) — ikkisi ham faqat kerakli sahifada.
+
+8 ta lint ogohlantirishi: 7 tasi shadcn `ui/` fayllarida (komponent va variantlarini bir faylda eksport qiladi — vendor kodi), 1 tasi avvaldan bor `AuthContext`.
+
+### Ataylab qilingan tanlovlar
+
+- **dagre standart emas.** `lev` joylashuvi deterministik: bir xil graf har doim bir xil ko‘rinadi, bu esa dissertatsiyaga skrinshot olish uchun zarur. dagre ixtiyoriy rejim sifatida qoldi.
+- **three.js saqlandi, lekin lazy.** 850 kB faqat fon uchun ko‘p, lekin dizaynni buzmaslik uchun olib tashlanmadi — matndan keyin yuklanadi, ya’ni birinchi tashrif o‘qiladigan sahifani oladi, WebGL runtime'ni emas.
+- **`any` emas, `unknown`.** `catch (err: any)` larning hammasi `unknown` ga o‘tkazildi va xato tanasi `getApiErrorMessage` / `kbErrorMessage` orqali o‘qiladi — ya’ni xato shakli bitta joyda tasvirlangan.
+- **Playwright qo‘shilmadi.** Spetsifikatsiya “vitest yoki Playwright” deydi; qabul sharti (bir mavzu barcha sahifalarda bir xil holat) vitest bilan `src/test/one-vocabulary.test.tsx` da yozildi. Playwright brauzer binary'lari va CI sozlamasini talab qiladi.
+- **`AuthContext` tipi `ReturnType<typeof useAuth>` ga aylantirildi** — `logout` endi async (cookie'ni serverda bloklash kerak), qo‘lda yozilgan interfeys esa undan ajralib qolardi.
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| Frontend: `npx eslint .` | **0 error**, 8 warning |
+| Frontend: `npx tsc -p tsconfig.app.json --noEmit` | **0 xato** |
+| Frontend: `npm test` | **71 passed** (11 fayl) |
+| Frontend: `npm run build` | o‘tdi; kirish chunk 182.7 kB |
+| Backend: `venv/bin/pytest` | **735 passed**, 13 subtests (7-bosqichdan oldin 706) |
+| Backend: `check` / `makemigrations --check` | toza / No changes |
+| `venv/bin/pytest --ds=verification.settings verification/tests -q` | **685 passed, 9 failed** (o‘zgarmadi) |
+
+Tekshiruvdagi 9 ta FAIL 6-bosqichdagi bilan bir xil: 3 tasi B2.1 dan, 6 tasi `test_na.py` signali. Frontend o‘zgarishlari backend tekshiruviga ta’sir qilmadi.
+
+### Bajarilmagani
+
+- **`docs/ui/` skrinshotlari** (addendum 2.11): har bir sahifaning 1440 px, o‘zbek tilidagi skrinshoti. Buning uchun ishlaydigan brauzer va to‘ldirilgan dev bazasi kerak — bu muhitda bajarilmadi. 1280/768 px responsive tekshiruvi ham shunday.
+- **Konsolda xato yo‘qligi** brauzerda tekshirilmadi; vitest ichida React Router'ning v7 future-flag ogohlantirishlari chiqadi (xato emas).
+
+### Foydalanuvchi bajarishi kerak bo‘lgan ishlar
+
+- **Backend migratsiyalari.** 3-, 4- va 6-bosqich migratsiyalari hali qo‘llanmagan bo‘lsa: `venv/bin/python manage.py migrate`. D16 sxemani o‘zgartirmaydi.
+- **Frontend env.** `cp .env.example .env` va kerak bo‘lsa `VITE_API_URL` ni to‘g‘rilash. Backend `config/.env` da `FRONTEND_ORIGINS` frontend manzilini o‘z ichiga olishi kerak — cookie va CSRF shunga bog‘liq.
+- **`npm install`** — `i18next` va `react-i18next` qo‘shildi.
+- **Skrinshotlar.** Dev server va to‘ldirilgan baza bilan `docs/ui/` ga sahifa skrinshotlarini oling (addendum 2.11, dissertatsiyaning 3.1-bo‘limi uchun).
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -652,7 +746,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| #1 Test oqimi BKT'ni chetlab o‘tadi, 0–100 shkala | P0-1 (B5, B7) | Qisman | Backend bajarildi: har bir test javobi `apply_one_answer` orqali Algoritm 2.4 dan o‘tadi, baho esa 0–100 shkalada faqat `TestSessionResult` da. UI — B7 |
+| #1 Test oqimi BKT'ni chetlab o‘tadi, 0–100 shkala | P0-1 (B5, B7) | Bajarildi | Backend: har bir test javobi `apply_one_answer` orqali Algoritm 2.4 dan o‘tadi. UI: mashq va test rejimlari aniq ajratildi, `useAdaptiveQuiz` ulandi, baho va P(L) alohida ko‘rsatiladi (`c2bb542`) |
 | #2 KB modeli: MPTT, G_L yo‘q, Y2/Y3, qulf yo‘q | P0-4, P1-6, P1-7 (B2) | Bajarildi | `curriculum/services/kb.py`, `neuro_model/graph.py`, `5e5cb09`, `79b907c`; testlar `test_kb.py`, `test_kb_concurrency.py` |
 | #3 Talaba modeli II bobga zid | P0-5 (B3) | Bajarildi | `neuro_model/` (bkt, irt, elo, init, student), `assessments/services/student_model.py`; testlar `neuro_model/tests/test_student.py`, `assessments/tests/test_student_model.py` |
 | #4 Unlock 4 xil, global `is_unlocked`, cascade | P0-3, P0-6 (B4), P0-2 (B1) | Qisman | Cascade olib tashlandi (`888a96f`, test `test_mastering_a_section_does_not_touch_descendants`); unlock — B4 |
@@ -672,7 +766,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 1.3 Env o‘zgaruvchilari yo‘q, `.env` ishlatilmaydi | P2-1 | Bajarildi | `config/settings.py:22-27`, `config/.env.example` |
 | 1.3 Ildizdagi `.env` da token | 3-qoida, 8.4-Q6 | Qisman | `.gitignore:13` da borligi tekshirildi; tokenni bekor qilish foydalanuvchida |
 | 1.3 `docker-compose` yo‘q | D1 | Bajarildi | `docker-compose.yml` |
-| 1.3 `@supabase/supabase-js` `package.json` da yo‘q, client ishlatilmaydi | D17 (B7) | Kutilmoqda (B7) | Tutor `VITE_ENABLE_TUTOR` ortida (`7b549fd`); ishlatilmaydigan client'ni olib tashlash — B7 |
+| 1.3 `@supabase/supabase-js` `package.json` da yo‘q, client ishlatilmaydi | D17 (B7) | Bajarildi | `src/integrations/supabase/` butunlay o‘chirildi; `package.json` da supabase yo‘q (`c2bb542`) |
 | 1.5 “updated” kabi commit xabarlari | B0 CI va hujjat | Bajarildi | Yangi commit'lar conventional formatda va ID'lar bilan |
 | 1.5 Untracked `.agents/`, `graphify-out/` | 8.4-Q8 | Bajarildi | `.gitignore:23-24` |
 
@@ -699,17 +793,17 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
 | 3.1 Talaba sahifasi o‘qituvchi endpoint'idan foydalanadi | D15 | Bajarildi | `src/pages/Course.tsx:63-66`, `6c5a0a7` |
-| 3.1 `AdminRoute` faqat `is_staff` ni tekshiradi | P2-5 (B7) | Kutilmoqda (B7) | — |
-| 3.2 Tokenlar `localStorage` da | D16 (B7) | Kutilmoqda (B7) | — |
-| 3.2 react-query ishlatilmaydi | D19 (B7) | Kutilmoqda (B7) | — |
-| 3.3 Prerekvizit muharriri yo‘q | B7 | Kutilmoqda (B7) | — |
-| 3.3 `KnowledgeGraph.tsx` o‘lik kod | P2-6 (B7) | Kutilmoqda (B7) | — |
-| 3.4 3 ta holat (5 ta kerak) | TR1, TR5 (B7) | Kutilmoqda (B7) | — |
-| 3.4 Bir tugun — ikki xil son | D5 (B4, B7) | Kutilmoqda (B4, B7) | — |
-| 3.4 Yopiq tugunda umumiy toast | TY4 (B4, B7) | Kutilmoqda (B4, B7) | — |
-| 3.4 Tavsiya sabablari frontend'da qattiq yozilgan | TR3 (B6, B7) | Kutilmoqda (B6, B7) | — |
-| 3.4 “0.8%” / “100%” shkala xatosi | D5, P0-1 (B5, B7) | Qisman | Backend: `p_mastery` ehtimollik, `grade_percentage` foiz — ikkisi alohida maydon va test ularning teng bo‘lmasligini tekshiradi. UI — B7 |
-| 3.4 `useAdaptiveQuiz` ulanmagan | P0-1 (B7) | Kutilmoqda (B7) | — |
+| 3.1 `AdminRoute` faqat `is_staff` ni tekshiradi | P2-5 (B7) | Bajarildi | `AdminRoute` o‘rniga `RoleRoute allow={[...]}` — API qaytargan `role` bo‘yicha; `is_staff` bo‘lmagan o‘qituvchi konstruktorga kiradi (`c2bb542`) |
+| 3.2 Tokenlar `localStorage` da | D16 (B7) | Bajarildi | Access token faqat xotirada (Zustand), refresh token httpOnly cookie'da; `localStorage` da token yo‘q (`c2bb542`, backend `81f745b`) |
+| 3.2 react-query ishlatilmaydi | D19 (B7) | Bajarildi | Barcha data hook'lari `@tanstack/react-query` da (`src/hooks/useLearningData.ts`); bitta so‘rov kaliti — ikki sahifa bir xil javobni o‘qiydi (`c2bb542`) |
+| 3.3 Prerekvizit muharriri yo‘q | B7 | Bajarildi | `src/components/instructor/PrerequisiteEditor.tsx` — `onConnect` qirra qo‘shadi, vazn tahrirlanadi, qirra o‘chiriladi, sikl zanjiri qizil, ogohlantirishlar paneli (`c2bb542`) |
+| 3.3 `KnowledgeGraph.tsx` o‘lik kod | P2-6 (B7) | Bajarildi | `KnowledgeGraph.tsx`, `QuizEngine.tsx`, `sampleQuestions.ts`, supabase client va 11 ta eskirgan komponent o‘chirildi (`c2bb542`) |
+| 3.4 3 ta holat (5 ta kerak) | TR1, TR5 (B7) | Bajarildi | 5 ta holat `src/lib/status.ts` palitrasidan; `CustomTopicNode` endi backend holatini o‘qiydi, `>= 70` taqqoslashi olib tashlandi (`c2bb542`) |
+| 3.4 Bir tugun — ikki xil son | D5 (B4, B7) | Bajarildi | Bitta lug‘at: `p_mastery` va `accuracy` — ikkisi ham [0,1], `lib/format` orqali; test bir mavzu to‘rtta sahifada bir xil matn berishini tasdiqlaydi (`c2bb542`) |
+| 3.4 Yopiq tugunda umumiy toast | TY4 (B4, B7) | Bajarildi | Yopiq mavzuda yetishmayotgan prerekvizitlar nomi va P(L) bilan ko‘rsatiladi (`MissingPrerequisites`), 403 tanasi shu ro‘yxatni beradi (`c2bb542`) |
+| 3.4 Tavsiya sabablari frontend'da qattiq yozilgan | TR3 (B6, B7) | Bajarildi | Sabablar `{code, params}` sifatida keladi va `src/lib/reasons.ts` orqali `uz.json`/`en.json` dan matnga aylanadi (`c2bb542`) |
+| 3.4 “0.8%” / “100%” shkala xatosi | D5, P0-1 (B5, B7) | Bajarildi | `lib/format.ts`: `formatProbability` ehtimollik uchun, `formatGrade` foiz uchun. Test “0.8%” va qayta ko‘paytirilgan “100%” xatolarini qotirib qo‘yadi (`c2bb542`) |
+| 3.4 `useAdaptiveQuiz` ulanmagan | P0-1 (B7) | Bajarildi | `useAdaptiveQuiz` qayta yozildi va QuizSession'ning mashq rejimiga ulandi; javobdan keyin tushuntirish ekranda qoladi (`c2bb542`) |
 
 ### 4-bo‘lim (algoritmlar)
 
@@ -786,7 +880,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | TR2 A–D guruhlari | B6 | Bajarildi | `neuro_model/trajectory.py::trajectory`; A — ta’sir ↓ va P ↑, B/C/D topologik tartibda |
 | TR3 Sabablar | B6 | Bajarildi | `Reason(code, params)`; test sabab matn emas, kod va sonlar ekanini tasdiqlaydi |
 | TR4 Need_s(g) | B6 | Bajarildi | `need` va `path_to`; etalon Need(t7) = {t4, t6}, yo‘l t4 → t6 → t7 |
-| TR5 Frontend'da ko‘rsatish | B7 | Kutilmoqda (B7) | — |
+| TR5 Frontend'da ko‘rsatish | B7 | Bajarildi | `NextStepCard` va `TrajectoryGroups` — A–D guruhlari sabablari bilan bosh sahifada va O‘quv yo‘lida (`c2bb542`) |
 | EX1 Anonim pyKT eksporti | B8 | Kutilmoqda (B8) | — |
 | EX2 Oflayn baholash | B8 | Kutilmoqda (B8) | — |
 | EX3 Metrikalar | B8 | Kutilmoqda (B8) | — |
@@ -841,8 +935,8 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 7.1 `accounts` testlari yo‘q | B10 | Qisman | `accounts/tests/test_permissions.py`, `test_security_settings.py` (`f620171`) |
 | 7.1 Frontend testi trivial | B7 | Qisman | 9 ta yangi vitest testi (`apiError`, delete natijalari, tutor flag), `2fa1d99`, `7b549fd`; 7-bosqich testlari — B7 |
 | 7.2 Coverage 68% | B10 | Kutilmoqda (B10) | — |
-| 7.2 Lint 71 error | P2-6 (B7) | Kutilmoqda (B7) | Hozir 71 (o‘zgarmagan) |
-| 7.2 tsc 18 xato | P2-6 (B7) | Qisman | 16 xato qoldi |
+| 7.2 Lint 71 error | P2-6 (B7) | Bajarildi | lint: 71 error → **0 error** (8 ogohlantirish qoldi: 7 tasi shadcn `ui/` fayllarida, 1 tasi `AuthContext`) (`c2bb542`) |
+| 7.2 tsc 18 xato | P2-6 (B7) | Bajarildi | tsc: 16 xato → **0** (`c2bb542`) |
 | 7.2 Bundle 2.36 MB | B7 | Qisman | Tutor lazy chunk'ga ajratildi: asosiy bundle 2.22 MB (`7b549fd`); marshrutlar bo‘yicha `React.lazy` — B7 |
 | 7.3 `SECRET_KEY` git'da | P2-1 | Bajarildi | `config/settings.py:35-40`; eski kalit tarixda qoldi (buzilgan deb hisoblanadi) |
 | 7.3 `DEBUG=True` | P2-1 | Bajarildi | `config/settings.py:33` |
@@ -851,7 +945,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 7.3 `X_FRAME_OPTIONS="ALLOWALL"` | P2-1 | Bajarildi | `config/settings.py:54`, `config/media.py` |
 | 7.3 Demo parollar git'da | P2-1 | Bajarildi | `README.md`, `accounts/demo.py`, `332d56f` |
 | 7.3 `.env` dagi token | 3-qoida | Qisman | gitignored ekani tekshirildi; bekor qilish foydalanuvchida |
-| 7.3 JWT `localStorage` da | D16 (B7) | Kutilmoqda (B7) | — |
+| 7.3 JWT `localStorage` da | D16 (B7) | Bajarildi | D16 bajarildi: refresh token httpOnly cookie'da, access token xotirada, CSRF har bir xavfli so‘rovda (`c2bb542`, backend `81f745b`) |
 | 7.3 AllowAny endpoint'lar | D15 | Bajarildi | `f620171`; test `test_anonymous_access_is_rejected` |
 | 7.3 Talaba o‘qituvchi endpoint'larini o‘qiydi | D15 | Bajarildi | test `test_student_cannot_read_instructor_endpoints` |
 | 7.3 Talaba yopiq mavzuga javob beradi | D9 (B4) | Bajarildi | 403 `{missing: [...]}` uchta endpoint'da; servis `TopicClosed` beradi |
@@ -930,31 +1024,31 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| D20 Til: o‘zbek (lotin) asosiy, `react-i18next`, `uz.json`/`en.json`, atamalar va bosh harf qoidasi | B7 | Kutilmoqda (B7) | — |
-| D21 Holatlar palitrasi `src/lib/status.ts`, WCAG AA | B7 | Kutilmoqda (B7) | — |
+| D20 Til: o‘zbek (lotin) asosiy, `react-i18next`, `uz.json`/`en.json`, atamalar va bosh harf qoidasi | B7 | Bajarildi | `react-i18next`, `src/locales/uz.json` va `en.json` — 321 kalit, parite test bilan majburlangan; gap ichida faqat birinchi harf katta qoidasi ham test bilan (`c2bb542`) |
+| D21 Holatlar palitrasi `src/lib/status.ts`, WCAG AA | B7 | Bajarildi | `src/lib/status.ts` — yagona palitra; yopiq matn slate-700 (WCAG AA), avval o‘qilmas darajada och edi (`c2bb542`) |
 | D22 Holat faqat `topic` turida, bo‘lim/kurs — `k / n` | B2 (`kind`), B4 (backend), B7 (UI) | Qisman | B2 qismi (`kind`) bajarildi, `79b907c`; holatlar — B4, UI — B7 |
-| D23 Soxta ma’lumot yo‘q, har bir son API'dan | B6 (endpoint'lar), B7 (grep) | Kutilmoqda (B6, B7) | — |
+| D23 Soxta ma’lumot yo‘q, har bir son API'dan | B6 (endpoint'lar), B7 (grep) | Bajarildi | Profil, xatolar, heatmap va qidiruv sahifasidagi soxta massivlar olib tashlandi; `grep` toza, buni test ham tekshiradi (`c2bb542`) |
 | D24 `VITE_ENABLE_TUTOR=false`, menyuda yo‘q | B7 | Bajarildi | `src/lib/features.ts`, `src/App.tsx`, `src/components/layout/Header.tsx`, `7b549fd`; test `src/lib/features.test.ts` |
 | D25 Xatolar backend'dan, “Qayta yechish”, `review_repeat` | B1 (ledger), B6 (endpoint), B7 (UI, `mistakeStorage` olib tashlash) | Qisman | B1 qismi bajarildi (A4-1); savol tanlash oynadagi savollarni oxiriga qo‘yadi (`question_selection.py`, test `test_next_question_prefers_questions_outside_the_window`) |
 | D26 LLM tushuntirishlari hozir amalga oshirilmaydi, faqat `Question.explanation` | — | Kechiktirildi — D26 bo‘yicha 8–10-bosqichlardan keyingi alohida bosqich (dizayn 5-bo‘limda) | Hozir tushuntirish manbai faqat `Question.explanation` |
-| D27 Profil haqiqiy ma’lumotda (`/api/me/summary/`) | B6, B7 | Kutilmoqda (B6, B7) | — |
-| D28 Menyu rolga qarab | B7 | Kutilmoqda (B7) | Backend `role` maydoni tayyor (`accounts/permissions.py:get_role`, `f620171`) |
-| D29 Noto‘g‘ri da’volar olib tashlanadi, konstantalar `GET /api/config/model/` dan | B6, B7 | Kutilmoqda (B6, B7) | — |
+| D27 Profil haqiqiy ma’lumotda (`/api/me/summary/`) | B6, B7 | Bajarildi | Profil `GET /api/me/summary/` dan; XP, achievements va “study hours” olib tashlandi — ularni haqiqiy ma’lumotdan hisoblab bo‘lmaydi (`c2bb542`) |
+| D28 Menyu rolga qarab | B7 | Bajarildi | Menyu `user.role` bo‘yicha: talaba 4 band, o‘qituvchi + konstruktor, admin + foydalanuvchilar. “Kurslar” va “Qidiruv” olib tashlandi (`c2bb542`) |
+| D29 Noto‘g‘ri da’volar olib tashlanadi, konstantalar `GET /api/config/model/` dan | B6, B7 | Bajarildi | “2PL”, “PROOF”, “70%”, “dynamically match” yo‘q (test tekshiradi); τ `GET /api/config/model/` dan; savol modeli “Rasch (a = 1)” (`c2bb542`) |
 
 **2–3-bo‘limlar: sahifalar va qabul shartlari (7-bosqich)**
 
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
-| 2.1 Bosh sahifa: KPI'lar, “Keyingi qadam” (A–D), holatlar issiqlik xaritasi | B6, B7 | Kutilmoqda (B6, B7) | — |
-| 2.2 O‘quv yo‘li: “Ikki qatlam” rejimi, `lev`/`pos` joylashuvi, yon panel, Need(g) yo‘li, legenda | B2, B4, B6, B7 | Kutilmoqda (B7) | — |
-| 2.3 Mashq va testlar: ikki rejim, yopiq karta va 403, qiyinlik o‘rtacha b dan | B4, B7 | Kutilmoqda (B4, B7) | — |
-| 2.4 Kurslar sahifasi O‘quv yo‘liga birlashadi | B7 | Kutilmoqda (B7) | — |
-| 2.5 Mavzu sahifasi: “Qanday hisoblandi” paneli (τ, urinishlar jadvali, Rasch) | B6 (history), B7 | Kutilmoqda (B6, B7) | Ma’lumot ustunlari ledger'da (`888a96f`) |
-| 2.6 Kurs konstruktori: outline + muharrir, prerekvizit muharriri, sikl/Y2/κ ko‘rsatish | B2, B7 | Kutilmoqda (B2, B7) | — |
+| 2.1 Bosh sahifa: KPI'lar, “Keyingi qadam” (A–D), holatlar issiqlik xaritasi | B6, B7 | Bajarildi | 4 ta KPI (o‘zlashtirilgan k/n, takrorlash, ochiq, 7 kundagi javoblar); streak va “weekly goal” olib tashlandi; “Keyingi qadam” A–D; heatmap holatlar to‘ri (`c2bb542`) |
+| 2.2 O‘quv yo‘li: “Ikki qatlam” rejimi, `lev`/`pos` joylashuvi, yon panel, Need(g) yo‘li, legenda | B2, B4, B6, B7 | Bajarildi | “Ikki qatlam” standart rejim (ramkalar + ichidagi mavzular), DAG `lev` ustunlari `pos` tartibida, yon panel, Need(g) ajratib ko‘rsatish, legenda (`c2bb542`) |
+| 2.3 Mashq va testlar: ikki rejim, yopiq karta va 403, qiyinlik o‘rtacha b dan | B4, B7 | Bajarildi | Ikki rejim alohida kartada; yopiq karta faol emas va yetishmayotganini aytadi; doimiy “Medium” nishoni olib tashlandi, qiyinlik o‘rtacha b dan; filtr holat bo‘yicha (`c2bb542`) |
+| 2.4 Kurslar sahifasi O‘quv yo‘liga birlashadi | B7 | Bajarildi | `pages/Courses.tsx` o‘chirildi, menyudan olib tashlandi; kurslar ro‘yxati O‘quv yo‘lida va bosh sahifadagi bilim xaritasida (`c2bb542`) |
+| 2.5 Mavzu sahifasi: “Qanday hisoblandi” paneli (τ, urinishlar jadvali, Rasch) | B6 (history), B7 | Bajarildi | `components/topic/DiagnosticsPanel.tsx` — τ chizig‘i, urinishlar jadvali (p̂, P(G), P(S), P(L) oldin→keyin), θ kurs bo‘yicha, “Rasch (a = 1)” (`c2bb542`) |
+| 2.6 Kurs konstruktori: outline + muharrir, prerekvizit muharriri, sikl/Y2/κ ko‘rsatish | B2, B7 | Bajarildi | Konstruktorga 5-qadam “Prerekvizitlar” qo‘shildi: React Flow muharriri, meros qirralari uzuq va faqat o‘qish, sikl zanjiri qizil, κ va ortiqcha qirralar paneli (`c2bb542`) |
 | 2.7 Foydalanuvchilar: email prefiksi, rol filtri, simulyatsiya nishoni, faolsizlantirish, rozilik ustuni | B7, B8 | Kutilmoqda (B7, B8) | `is_simulated` maydoni bor (`332d56f`) |
 | 2.8 Profil: real ma’lumot, rozilik, hisobni o‘chirish, parol | B6, B7, B8 | Kutilmoqda (B6, B7, B8) | — |
-| 2.9 Quiz: test natijasi (P(L) oldin → keyin, ochilgan mavzular), mashq rejimi, klaviatura | B5, B7 | Kutilmoqda (B5, B7) | Test bahosi `TestSessionResult` da (`888a96f`) |
+| 2.9 Quiz: test natijasi (P(L) oldin → keyin, ochilgan mavzular), mashq rejimi, klaviatura | B5, B7 | Bajarildi | Test natijasida baho va model holati alohida; mashq rejimi bir vaqtda bitta savol, darhol tushuntirish, holat o‘zgarsa toast; klaviatura A–D va Enter (`c2bb542`) |
 | 2.10 Xatolar ustida ishlash: `GET /api/learning/mistakes/`, guruhlash, “ko‘rib chiqilgan” belgisi | B6, B7 | Kutilmoqda (B6, B7) | Ledger o‘zgarmas (`888a96f`), shuning uchun “ko‘rib chiqilgan” belgisi B6 da alohida jadvalda saqlanadi |
-| 2.11 Umumiy: loading/bo‘sh/xato holatlari, konsol, responsive, `React.lazy`, `data-testid`, `docs/ui/` skrinshotlari | B7 | Kutilmoqda (B7) | — |
-| 3 Qabul: mock massivlar yo‘q; bir mavzu barcha sahifalarda bir xil holat va P(L) (vitest/Playwright); “2PL”, “PROOF”, “70%”, “dynamically match” matnlari yo‘q | B7 | Kutilmoqda (B7) | — |
+| 2.11 Umumiy: loading/bo‘sh/xato holatlari, konsol, responsive, `React.lazy`, `data-testid`, `docs/ui/` skrinshotlari | B7 | Qisman | loading/bo‘sh/xato holatlari, `React.lazy` barcha marshrutlarda, `data-testid` asosiy elementlarda (`c2bb542`). `docs/ui/` skrinshotlari va 1280/768 px tekshiruvi — brauzer kerak, bajarilmadi |
+| 3 Qabul: mock massivlar yo‘q; bir mavzu barcha sahifalarda bir xil holat va P(L) (vitest/Playwright); “2PL”, “PROOF”, “70%”, “dynamically match” matnlari yo‘q | B7 | Bajarildi | Mock massivlar yo‘q; bir mavzu to‘rtta sahifada bir xil holat va P(L) — `src/test/one-vocabulary.test.tsx`; taqiqlangan matnlar yo‘q (`c2bb542`) |
 | 5 LLM tushuntirishlari dizayni (o‘qituvchi tasdiqlaydi, kesh, eksperimentga ta’sir nazorati) | — | Kechiktirildi — D26: 8–10-bosqichlardan keyin, flag ortida | — |
