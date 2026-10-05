@@ -2,6 +2,8 @@
 
 > **Foydalanuvchi ko‘rsatmasi (asl matn):** Backend ildizida ikkita fayl bor: NEUROLEARN_REMEDIATION.md (topshiriq) va NEUROLEARN_AUDIT.md (audit). Avval ikkalasini to‘liq o‘qi. Keyin topshiriqdagi "Ish qoidalari"ga amal qilib, 0-bosqichdan boshla. Har bir bosqich oxirida REMEDIATION_PROGRESS.md ni yangila, commit qil va menga qisqa hisobot ber. Keyingi bosqichga men "davom et" deganimdan keyin o‘t. Agar REMEDIATION_PROGRESS.md allaqachon mavjud bo‘lsa, ishni u yerda to‘xtagan joydan davom ettir.
 
+> **Foydalanuvchi ko‘rsatmasi, 7.1 va 8-bosqich (asl matn):** Backend ildiziga NEUROLEARN_B8_PLAN.md faylini qo‘shdim. Uni to‘liq o‘qi: D39–D45 qarorlari endi topshiriqning bir qismi. 0–7-bosqichlarni qabul qilaman, barcha Q qarorlari tasdiqlanadi. Avval fayldagi 2-bo‘limni — 7.1 ni — bajar (D39 kurs konstruktorining tuzilmasi, D40 haqiqiy qidiruv, D41 skrinshot skripti). Tugagach to‘xta. Keyin “davom et” deganimdan so‘ng 8a ni (D42–D45: rozilik va eksport) boshla. 8b ni alohida boshlaymiz.
+
 > **Foydalanuvchi ko‘rsatmasi, 2-bosqich (asl matn):** davom et. Keyin: qolgan joyidan davom etilsin. Aniqlashtirish savollariga javoblar: “Algorithm” kursidagi 31 ta savol — “Savollarni o‘chirish”; savoli yo‘q barglar — “topic”.
 
 > **Foydalanuvchi ko‘rsatmasi, 1-bosqich frontend (asl matn):** frontendni ham yuqorida aytilgani kabi o'zgartir. Desktop/neuro/neuro --> location. Aniqlashtirish savoliga javob: “1-bosqichga moslash” va tutor uchun “D24 bo‘yicha flag ortiga”.
@@ -23,7 +25,10 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 5 — Test sessiyasi modeldan o‘tadi | **Bajarildi** | `620d4e1` | — |
 | 6 — Trayektoriya va API | **Bajarildi** | `3add9ef` | — |
 | 7 — Frontend | **Bajarildi** | `81f745b` (D16, foydalanuvchilar) | `c2bb542` |
-| 8 — Eksperimentlar va rozilik | Kutilmoqda | — | — |
+| 7.1 — Konstruktor tuzilmasi, qidiruv, skrinshot skripti (D39–D41) | **Bajarildi** | `f7bd3af` | `02e3b2f` |
+| 8 — Eksperimentlar va rozilik (8a + 8b) | Kutilmoqda | — | — |
+| 8a — Rozilik va eksport (D42–D45) | Kutilmoqda | — | — |
+| 8b — Eksperimentlar quvuri (ochiq ma’lumotlar birinchi) | Kutilmoqda | — | — |
 | 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
 
@@ -686,6 +691,95 @@ Tekshiruvdagi 9 ta FAIL 6-bosqichdagi bilan bir xil: 3 tasi B2.1 dan, 6 tasi `te
 - **Skrinshotlar.** Dev server va to‘ldirilgan baza bilan `docs/ui/` ga sahifa skrinshotlarini oling (addendum 2.11, dissertatsiyaning 3.1-bo‘limi uchun).
 ---
 
+## 7.1-bosqich hisoboti (konstruktor tuzilmasi, qidiruv, skrinshot skripti)
+
+Qamradi: `NEUROLEARN_B8_PLAN.md` 2-bo‘limi — D39, D40, D41. Addendum 2.6 ning qolgan yarmi va 2.11.
+
+Backend commit: `f7bd3af`. Frontend commit: `02e3b2f`.
+
+### D39 — Kurs konstruktorining tuzilmasi
+
+Addendum 2.6 ikki narsani talab qilgan: prerekvizit muharriri (7-bosqichda bajarildi) va “outline + muharrir” tuzilmasi (bajarilmagan edi). Sabab oddiy: konstruktorda ikki xil ish bor va ularning shakli bir-biriga qarama-qarshi. **Yangi kurs yaratish** — ketma-ketlik: kurs, keyin ichidagi tugunlar, keyin materiallar, keyin savollar. **Mavjud kursni tuzatish** — ketma-ketlik emas: bitta tugunga borib, bitta maydonni o‘zgartirish. Shuning uchun sahifa tepasida ikki rejim tugmasi paydo bo‘ldi; wizard o‘zgarmadi, yonига tuzilma muharriri qo‘shildi.
+
+**Tahrirlash rejimi** (`components/instructor/CourseStructureEditor.tsx`): chapda kurs daraxti, o‘ngda tanlangan tugun muharriri, tepada ikki yorliq — “Tuzilma” va “Prerekvizitlar”. Tahrirlanadigan maydonlar KB servisi qabul qiladiganlarning o‘zi: nom, slug, tavsif, ota tugun, tur, o‘tish bali, testdagi savollar soni. Drag-and-drop yo‘q (D39): tartib ikki tugma bilan, ota tugun esa ro‘yxatdan tanlanadi.
+
+**Tartib — bitta so‘rov, bitta versiya.** Yangi `POST /api/curriculum/instructor/topics/<id>/reorder/ {"direction": "up"|"down"}` va uning ortidagi `kb.reorder_sibling()`. Bu alohida endpoint, chunki `position` ni ikkita `PATCH` bilan almashtirish ikki muammo tug‘diradi: so‘rovlar orasida ikki qo‘shni bir xil `position` da qoladi (tartib `(position, id)` bo‘yicha, ya’ni natija id ga qarab hal bo‘ladi) va bitta ko‘chirish uchun KB versiyasi ikki marta oshadi. Servis butun qatorni bitta KB o‘zgarishida 0..n−1 ga qayta raqamlaydi, shuning uchun seed qoldirgan bo‘shliqlar ham tozalanadi. Chetdagi tugun `at_edge` sababi bilan 400 oladi; interfeys tugmani o‘chirib qo‘yadi, lekin boshqa o‘qituvchi bir vaqtda tartibni o‘zgartirsa xabar ko‘rinadi.
+
+**Tur o‘zgarishi faqat servis ruxsat berganda.** `section ↔ topic` o‘zgarishi `kb.update_node` da allaqachon tekshirilardi, lekin interfeys buni oldindan bila olmasdi va o‘qituvchi 400 olardi. Endi instruktor ro‘yxati har bir tugun uchun `question_count` va `child_count` qaytaradi: ichida tugun bor bo‘lim barg bo‘la olmaydi, savoli bor mavzu bo‘lim bo‘la olmaydi (Y4). Tur tanlagich bunday hollarda o‘chirilgan va ostida sababi yozilgan — matn rad etishning o‘z matni, ya’ni bitta qoida uchun bitta ibora (D20). Kurs turi hech qachon o‘zgarmaydi: kurs — har doim ildiz.
+
+Bu ikki hisoblagich `Count(..., distinct=True)` bilan olinadi, `total_duration_minutes` esa subquery'ga ko‘chirildi. Sababi texnik, lekin jiddiy: bitta `Sum` va ikkita `Count` bir queryset'da uchta JOIN hosil qiladi va `Sum` savollar sonига ko‘payib ketadi. Test shuni tekshiradi (`test_the_counters_do_not_distort_the_duration`).
+
+### D40 — Haqiqiy mavzu qidiruvi
+
+`GET /api/learning/search/?q=` — faol tugunlar orasidan nom bo‘yicha `icontains`, natija `pos` tartibida, 20 ta bilan cheklangan. Arxivlangan tugun ham, arxivlangan ajdodi bor tugun ham chiqmaydi: so‘rov snapshot'dagi id'lar bo‘yicha filtrlanadi, snapshot esa aynan faol va ildizga ulangan tugunlardan iborat. Mavzu uchun shu talabaning holati va P(L) qaytadi, bo‘lim va kurs uchun ikkisi ham `null` (D22) — bo‘lmagan qiymat taxmin qilinmaydi (D23).
+
+Interfeysda bu — sahifa emas, yuqori paneldagi panel (`components/layout/TopicSearch.tsx`). Natijani bosganda `/learning-path?topic=<id>` ga o‘tiladi va O‘quv yo‘li o‘sha tugunni tanlaydi: mavzu o‘z grafida, prerekvizitlari va unga olib boradigan yo‘l bilan birga o‘qiladi. Parametr bir marta ishlatiladi va URL'dan olib tashlanadi, aks holda “orqaga” tugmasi va keyingi tanlov bir-biri bilan kurashadi.
+
+Olib tashlangan `KnowledgeSearch` sahifasi 12 ta soxta tushunchani qattiq yozib qo‘ygan edi. Qidiruvning o‘zi foydali edi, soxta ma’lumot esa muammo edi — shuning uchun qidiruv qaytdi, ma’lumot esa bilimlar bazasidan keladi.
+
+### D41 — Skrinshot skripti
+
+`neuro/neuro/scripts/screenshots.mjs` (Playwright) — 13 sahifa × 3 kenglik (1440, 1280, 768), o‘zbek tilida. Skript 7.1 ning natijasi; rasmlarni foydalanuvchi oladi, chunki ishlaydigan brauzer, frontend, backend va `seed_thesis_demo` bilan to‘ldirilgan baza kerak.
+
+Skript deterministik bo‘lishga qurilgan, chunki dissertatsiyadagi rasmni himoyada qayta olish mumkin bo‘lishi kerak: viewport va piksel zichligi qotirilgan, mavzu har doim yorug‘ (mashinaning sozlamasi ta’sir qilmaydi), animatsiya va o‘tishlar o‘chirilgan, kursor va fokus halqasi yashirilgan, har kadrdan oldin tarmoq **va** ilovaning yuklash indikatori kutiladi. Graf sahifalari `lev` joylashuvida — 7-bosqichdagi tanlov aynan shu uchun qilingan edi.
+
+Rol bilan bog‘liq joy ochiq aytilgan: o‘qituvchi va admin sahifalari rolni talab qiladi (D15), talaba akkaunti bilan ular `/dashboard` ga qaytariladi. Skript bunday sahifani rasmga olmaydi — `manifest.json` ga sababi bilan “skipped” deb yozadi, ya’ni skript ikki marta ishga tushiriladi. `manifest.json` da yana: sana, kengliklar, piksel zichligi, mavzu id'si, frontend commit'i va har bir faylning sahifasi — 3.1-bo‘limdagi rasm qaysi ishga tushirishdan kelganini aytadigan yagona manba.
+
+Playwright ilovaning bog‘liqligi emas: u brauzer binary'larini yuklab oladi va CI'da keraksiz. Skript uni dinamik import qiladi va yo‘q bo‘lsa o‘rnatish buyrug‘ini chiqaradi. `docs/ui/README.md` — to‘liq ketma-ketlik (baza, server, frontend, skript) va kutilayotgan fayl ro‘yxati.
+
+### Testlar
+
+Backend, 21 yangi test:
+
+- `curriculum/tests/test_structure_editor.py` (11) — tartib ikki tomonga va orqaga, bitta versiya oshishi, bo‘shliqli `position` larning qayta raqamlanishi, `at_edge` va noto‘g‘ri yo‘nalish, bo‘lim/kurs/ildiz darajasidagi tartib, arxivlangan qo‘shni slot egallamasligi, talabaga 403; hisoblagichlar va ular `total_duration_minutes` ni buzmasligi.
+- `assessments/tests/test_topic_search.py` (10) — katta-kichik harfga bog‘liq bo‘lmagan qismiy moslik, bo‘sh so‘rov hamma narsani qaytarmasligi, mavzuda holat va P(L), bo‘lim va kursda yo‘qligi, yangi talabada yopiq mavzu, arxivlangan tugun va arxivlangan ost-daraxt, `pos` tartibi va 20 ta cheklov, bir xil so‘rovning bir xil javobi, anonimga 401, so‘rovlar byudjeti moslik soniga qarab o‘smasligi (ES7).
+
+Frontend, 14 yangi test (2 yangi fayl):
+
+- `components/instructor/CourseStructureEditor.test.tsx` (8) — daraxt qo‘shnilar tartibida, tartib tugmalari aynan chetlarda o‘chirilgan, bitta so‘rov, bitta tugunni wizard'siz tahrirlash, servis rad etadigan tur o‘zgarishi taklif qilinmasligi va sababi, kursga tur va ota tugun taklif qilinmasligi, prerekvizit muharriri yorliq sifatida, kurs yo‘qligi holati.
+- `components/layout/TopicSearch.test.tsx` (6) — nom, kurs, holat nishoni va P(L) foiz sifatida; bo‘limda holat yo‘qligi; natijani bosganda `?topic=7`; moslik yo‘qligi haqida xabar; yozilmagunicha so‘rov yuborilmasligi; xato holatida bo‘sh ro‘yxat emas, xato xabari.
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| Backend: `venv/bin/pytest` | **756 passed**, 13 subtests (7-bosqichda 735) |
+| Backend: `manage.py check` | 0 issues |
+| Backend: `manage.py makemigrations --check --dry-run` | No changes detected (migratsiya qo‘shilmadi) |
+| `pytest --ds=verification.settings verification/tests` | **684 passed, 10 failed** — o‘zgarishdan oldin ham aynan shunday |
+| Frontend: `npx tsc --noEmit` | **0 xato** |
+| Frontend: `npx eslint .` | **0 error**, 8 warning (o‘zgarmadi; hammasi vendor `ui/` va `AuthContext`) |
+| Frontend: `npm test` | **85 passed** (13 fayl; 7-bosqichda 71/11) |
+| Frontend: `npm run build` | o‘tdi |
+| `node scripts/screenshots.mjs --list` / argument tekshiruvi | sahifalar ro‘yxati; noto‘g‘ri sahifa, akkauntsiz ishga tushirish va Playwright yo‘qligi tushunarli xabar bilan to‘xtaydi |
+
+Tekshiruvdagi 10 ta FAIL: 3 tasi B2.1 dan qolgan, 7 tasi `test_na.py` signali (bosqich bajarilgach bu testlar ataylab buziladi — 5-qoida). 7.1 dan oldin ham 684/10 edi, ya’ni o‘zgarish ularga ta’sir qilmadi.
+
+### Migratsiya yo‘q
+
+7.1 sxemani o‘zgartirmaydi: `reorder` mavjud `position` ustunini yozadi, hisoblagichlar — annotatsiya, qidiruv — o‘qish. `makemigrations --check` toza.
+
+### Ataylab qilingan tanlovlar
+
+- **Tartib uchun alohida endpoint, `PATCH position` emas.** Yuqorida sababi: ikki so‘rov oralig‘ida tartib aniqlanmagan holatga tushadi va versiya ikki marta oshadi. Atomar amal bitta so‘rov bo‘lishi kerak.
+- **Hisoblagichlar barcha savollarni sanaydi, faqat faollarini emas.** `kb._has_questions()` ham shunday qiladi; interfeysning taxmini servisning qaroriga aynan mos kelishi kerak, aks holda tanlagich yoqilgan bo‘lib, so‘rov 400 qaytaradi.
+- **Qidiruv barcha turlarni qaytaradi.** Faqat mavzularni qaytarish osonroq bo‘lardi, lekin o‘qituvchi ham, talaba ham bo‘lim nomi bo‘yicha qidiradi; bo‘lim esa O‘quv yo‘lidagi ramka sifatida tanlanadi. Holat va P(L) esa faqat mavzuda bo‘ladi (D22).
+- **Bo‘sh so‘rov — bo‘sh natija.** `q` bo‘sh bo‘lganda birinchi 20 tugunni qaytarish qidiruvni ro‘yxatga aylantiradi; panel esa qidiruv.
+- **Playwright devDependency emas.** U brauzer binary'larini postinstall'da yuklab oladi; CI va `npm ci` uchun bu keraksiz. Skript uni dinamik import qiladi.
+- **Rasmlar repoga qo‘shilmadi.** Ularni olish uchun brauzer kerak va ular demo bazasi holatiga bog‘liq; `docs/ui/README.md` nima qilish kerakligini yozadi.
+
+### Bajarilmagani
+
+- **`docs/ui/` dagi PNG fayllar.** Skript tayyor, rasmlar yo‘q — ular foydalanuvchi mashinasida olinadi (D41 shunday deydi).
+- **Wizard matni ingliz tilida qoldi.** D39 “hozirgi wizard o‘zgarishsiz qoladi” deydi, shuning uchun faqat sahifa sarlavhasi lug‘atga o‘tkazildi. Tuzilma muharriri va qidiruv to‘liq o‘zbek tilida.
+
+### Foydalanuvchi bajarishi kerak bo‘lgan ishlar
+
+- **Dev bazasida kurs ma’lumoti yo‘q.** Tekshirganda `neurolearn` bazasida 0 mavzu va 1 foydalanuvchi bor. 7.1 ni brauzerda ko‘rish uchun: `venv/bin/python manage.py seed_thesis_demo` (demo akkauntlarning seed'dan tashqari javoblari bo‘lsa, buyruq `--reset-demo-answers` talab qiladi). `db.sqlite3` va `backups/` tegilmadi.
+- **Skrinshotlar.** `docs/ui/README.md` dagi ketma-ketlik: Playwright o‘rnatish, backend va frontend'ni ishga tushirish, skriptni talaba va staff akkaunti bilan ikki marta ishga tushirish.
+- **`npm install` kerak emas** — yangi runtime bog‘liqligi qo‘shilmadi. Playwright faqat skrinshot uchun va ixtiyoriy.
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -1027,12 +1121,12 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 | D20 Til: o‘zbek (lotin) asosiy, `react-i18next`, `uz.json`/`en.json`, atamalar va bosh harf qoidasi | B7 | Bajarildi | `react-i18next`, `src/locales/uz.json` va `en.json` — 321 kalit, parite test bilan majburlangan; gap ichida faqat birinchi harf katta qoidasi ham test bilan (`c2bb542`) |
 | D21 Holatlar palitrasi `src/lib/status.ts`, WCAG AA | B7 | Bajarildi | `src/lib/status.ts` — yagona palitra; yopiq matn slate-700 (WCAG AA), avval o‘qilmas darajada och edi (`c2bb542`) |
 | D22 Holat faqat `topic` turida, bo‘lim/kurs — `k / n` | B2 (`kind`), B4 (backend), B7 (UI) | Qisman | B2 qismi (`kind`) bajarildi, `79b907c`; holatlar — B4, UI — B7 |
-| D23 Soxta ma’lumot yo‘q, har bir son API'dan | B6 (endpoint'lar), B7 (grep) | Bajarildi | Profil, xatolar, heatmap va qidiruv sahifasidagi soxta massivlar olib tashlandi; `grep` toza, buni test ham tekshiradi (`c2bb542`) |
+| D23 Soxta ma’lumot yo‘q, har bir son API'dan | B6 (endpoint'lar), B7 (grep), 7.1 (D40) | Bajarildi | Profil, xatolar, heatmap va qidiruv sahifasidagi soxta massivlar olib tashlandi; `grep` toza, buni test ham tekshiradi (`c2bb542`). Qidiruv `GET /api/learning/search/` ustida qaytdi: nomlar bilimlar bazasidan, holat va P(L) talaba holatidan, bo‘lmagan qiymat `null` (D40, `f7bd3af`, `02e3b2f`) |
 | D24 `VITE_ENABLE_TUTOR=false`, menyuda yo‘q | B7 | Bajarildi | `src/lib/features.ts`, `src/App.tsx`, `src/components/layout/Header.tsx`, `7b549fd`; test `src/lib/features.test.ts` |
 | D25 Xatolar backend'dan, “Qayta yechish”, `review_repeat` | B1 (ledger), B6 (endpoint), B7 (UI, `mistakeStorage` olib tashlash) | Qisman | B1 qismi bajarildi (A4-1); savol tanlash oynadagi savollarni oxiriga qo‘yadi (`question_selection.py`, test `test_next_question_prefers_questions_outside_the_window`) |
 | D26 LLM tushuntirishlari hozir amalga oshirilmaydi, faqat `Question.explanation` | — | Kechiktirildi — D26 bo‘yicha 8–10-bosqichlardan keyingi alohida bosqich (dizayn 5-bo‘limda) | Hozir tushuntirish manbai faqat `Question.explanation` |
 | D27 Profil haqiqiy ma’lumotda (`/api/me/summary/`) | B6, B7 | Bajarildi | Profil `GET /api/me/summary/` dan; XP, achievements va “study hours” olib tashlandi — ularni haqiqiy ma’lumotdan hisoblab bo‘lmaydi (`c2bb542`) |
-| D28 Menyu rolga qarab | B7 | Bajarildi | Menyu `user.role` bo‘yicha: talaba 4 band, o‘qituvchi + konstruktor, admin + foydalanuvchilar. “Kurslar” va “Qidiruv” olib tashlandi (`c2bb542`) |
+| D28 Menyu rolga qarab | B7 | Bajarildi | Menyu `user.role` bo‘yicha: talaba 4 band, o‘qituvchi + konstruktor, admin + foydalanuvchilar. “Kurslar” va “Qidiruv” sahifalari olib tashlandi (`c2bb542`); qidiruv 7.1 da yuqori panelga panel sifatida qaytdi, sahifa sifatida emas (D40) |
 | D29 Noto‘g‘ri da’volar olib tashlanadi, konstantalar `GET /api/config/model/` dan | B6, B7 | Bajarildi | “2PL”, “PROOF”, “70%”, “dynamically match” yo‘q (test tekshiradi); τ `GET /api/config/model/` dan; savol modeli “Rasch (a = 1)” (`c2bb542`) |
 
 **2–3-bo‘limlar: sahifalar va qabul shartlari (7-bosqich)**
@@ -1044,11 +1138,11 @@ Addendum `NEUROLEARN_REMEDIATION.md` ning bir qismi (`8bc4cea`). UI masalalarida
 | 2.3 Mashq va testlar: ikki rejim, yopiq karta va 403, qiyinlik o‘rtacha b dan | B4, B7 | Bajarildi | Ikki rejim alohida kartada; yopiq karta faol emas va yetishmayotganini aytadi; doimiy “Medium” nishoni olib tashlandi, qiyinlik o‘rtacha b dan; filtr holat bo‘yicha (`c2bb542`) |
 | 2.4 Kurslar sahifasi O‘quv yo‘liga birlashadi | B7 | Bajarildi | `pages/Courses.tsx` o‘chirildi, menyudan olib tashlandi; kurslar ro‘yxati O‘quv yo‘lida va bosh sahifadagi bilim xaritasida (`c2bb542`) |
 | 2.5 Mavzu sahifasi: “Qanday hisoblandi” paneli (τ, urinishlar jadvali, Rasch) | B6 (history), B7 | Bajarildi | `components/topic/DiagnosticsPanel.tsx` — τ chizig‘i, urinishlar jadvali (p̂, P(G), P(S), P(L) oldin→keyin), θ kurs bo‘yicha, “Rasch (a = 1)” (`c2bb542`) |
-| 2.6 Kurs konstruktori: outline + muharrir, prerekvizit muharriri, sikl/Y2/κ ko‘rsatish | B2, B7 | Bajarildi | Konstruktorga 5-qadam “Prerekvizitlar” qo‘shildi: React Flow muharriri, meros qirralari uzuq va faqat o‘qish, sikl zanjiri qizil, κ va ortiqcha qirralar paneli (`c2bb542`) |
+| 2.6 Kurs konstruktori: outline + muharrir, prerekvizit muharriri, sikl/Y2/κ ko‘rsatish | B2, B7, 7.1 (D39) | Bajarildi | Prerekvizit muharriri: konstruktorning 5-qadami — React Flow, meros qirralari uzuq va faqat o‘qish, sikl zanjiri qizil, κ va ortiqcha qirralar paneli (`c2bb542`). Outline + muharrir: `CourseStructureEditor` — chapda daraxt, o‘ngda tugun muharriri, tur va tartib, prerekvizitlar alohida yorliq (D39, `02e3b2f`); backend — `kb.reorder_sibling`, `topics/<id>/reorder/`, `question_count`/`child_count` (`f7bd3af`) |
 | 2.7 Foydalanuvchilar: email prefiksi, rol filtri, simulyatsiya nishoni, faolsizlantirish, rozilik ustuni | B7, B8 | Kutilmoqda (B7, B8) | `is_simulated` maydoni bor (`332d56f`) |
 | 2.8 Profil: real ma’lumot, rozilik, hisobni o‘chirish, parol | B6, B7, B8 | Kutilmoqda (B6, B7, B8) | — |
 | 2.9 Quiz: test natijasi (P(L) oldin → keyin, ochilgan mavzular), mashq rejimi, klaviatura | B5, B7 | Bajarildi | Test natijasida baho va model holati alohida; mashq rejimi bir vaqtda bitta savol, darhol tushuntirish, holat o‘zgarsa toast; klaviatura A–D va Enter (`c2bb542`) |
 | 2.10 Xatolar ustida ishlash: `GET /api/learning/mistakes/`, guruhlash, “ko‘rib chiqilgan” belgisi | B6, B7 | Kutilmoqda (B6, B7) | Ledger o‘zgarmas (`888a96f`), shuning uchun “ko‘rib chiqilgan” belgisi B6 da alohida jadvalda saqlanadi |
-| 2.11 Umumiy: loading/bo‘sh/xato holatlari, konsol, responsive, `React.lazy`, `data-testid`, `docs/ui/` skrinshotlari | B7 | Qisman | loading/bo‘sh/xato holatlari, `React.lazy` barcha marshrutlarda, `data-testid` asosiy elementlarda (`c2bb542`). `docs/ui/` skrinshotlari va 1280/768 px tekshiruvi — brauzer kerak, bajarilmadi |
+| 2.11 Umumiy: loading/bo‘sh/xato holatlari, konsol, responsive, `React.lazy`, `data-testid`, `docs/ui/` skrinshotlari | B7, 7.1 (D41) | Qisman | loading/bo‘sh/xato holatlari, `React.lazy` barcha marshrutlarda, `data-testid` asosiy elementlarda (`c2bb542`). Skrinshotlar: `scripts/screenshots.mjs` — 13 sahifa × 1440/1280/768 px, o‘zbek tili, deterministik, `manifest.json` bilan; `docs/ui/README.md` (D41, `02e3b2f`, `f7bd3af`). PNG fayllar hali olinmagan — brauzer va to‘ldirilgan baza foydalanuvchi mashinasida |
 | 3 Qabul: mock massivlar yo‘q; bir mavzu barcha sahifalarda bir xil holat va P(L) (vitest/Playwright); “2PL”, “PROOF”, “70%”, “dynamically match” matnlari yo‘q | B7 | Bajarildi | Mock massivlar yo‘q; bir mavzu to‘rtta sahifada bir xil holat va P(L) — `src/test/one-vocabulary.test.tsx`; taqiqlangan matnlar yo‘q (`c2bb542`) |
 | 5 LLM tushuntirishlari dizayni (o‘qituvchi tasdiqlaydi, kesh, eksperimentga ta’sir nazorati) | — | Kechiktirildi — D26: 8–10-bosqichlardan keyin, flag ortida | — |

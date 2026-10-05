@@ -108,6 +108,9 @@ Interfeys modelni qayta hisoblamaydi: har bir son backend'dan keladi va faqat bi
 | Ikki qatlamli graf, `lev` ustunlari (2.2–2.3-rasmlar) | `hooks/useGraphLayout.ts` — `twoLayer()`, `lev` standart, dagre ixtiyoriy | — (vizual) |
 | Mavzu tuguni holatni backend'dan oladi | `components/learning-path/CustomTopicNode.tsx` | `test/one-vocabulary.test.tsx` |
 | Prerekvizit muharriri, Algoritm 2.1 UI'da | `components/instructor/PrerequisiteEditor.tsx` — `onConnect`, ω, κ paneli | — |
+| Kurs konstruktori ikki rejimda: yaratish (wizard) va tahrirlash (daraxt + tugun muharriri) (D39) | `pages/instructor/CurriculumBuilder.tsx` (rejim tugmasi), `components/instructor/CourseStructureEditor.tsx` | `components/instructor/CourseStructureEditor.test.tsx` |
+| Qidiruv paneli — haqiqiy tugunlar, holat va P(L) (D40) | `components/layout/TopicSearch.tsx`, `components/layout/Header.tsx`; `?topic=<id>` → `pages/LearningPath.tsx` | `components/layout/TopicSearch.test.tsx` |
+| Interfeys skrinshotlari, 3.1-bo‘lim (D41, addendum 2.11) | `scripts/screenshots.mjs`, `docs/ui/README.md` (backend) | — (skript `--list` va argument tekshiruvi; rasmlar foydalanuvchi mashinasida) |
 | “Qanday hisoblandi” (D28) | `components/topic/DiagnosticsPanel.tsx` — τ chizig‘i, p̂/P(G)/P(S)/P(L) jadvali | — |
 | Trayektoriya A–D guruhlarda sabablari bilan | `components/common/TrajectoryList.tsx` | `components/common/TrajectoryList.test.tsx` |
 | Mashq rejimi: natija va tushuntirish ekranda qoladi | `hooks/useAdaptiveQuiz.ts` — `advance()` gacha turadi | — |
@@ -118,11 +121,20 @@ Interfeys modelni qayta hisoblamaydi: har bir son backend'dan keladi va faqat bi
 
 Backend tomoni: `accounts/auth_cookies.py` (cookie va CSRF), `accounts/permissions.py` (`IsAdminRole` — `is_staff` emas, API qaytargan rol), `accounts/serializers.py` (`UserAdminUpdateSerializer`).
 
+7.1 bosqichida qo‘shilgan backend qismlari:
+
+| Talab | Kod | Test |
+|---|---|---|
+| Qo‘shnilar orasidagi tartib — bitta KB o‘zgarishi, bitta versiya (D39) | `curriculum/services/kb.py` (`reorder_sibling`), `curriculum/views/instructor.py` (`InstructorTopicViewSet.reorder`) | `curriculum/tests/test_structure_editor.py` |
+| Tur o‘zgarishi mumkinligini oldindan aytadigan hisoblagichlar (D39, Y4) | `curriculum/views/instructor.py` (`question_count`, `child_count`, `_duration_subquery`), `curriculum/serializers/instructor.py` | `test_structure_editor.py::test_the_counters_say_which_kind_changes_are_possible`, `::test_the_counters_do_not_distort_the_duration` |
+| `GET /api/learning/search/?q=` — nom bo‘yicha, arxivsiz, 20 ta, `pos` tartibida (D40) | `assessments/views/learning.py` (`TopicSearchView`, `SEARCH_LIMIT`) | `assessments/tests/test_topic_search.py` |
+
 ## 8. Keyingi bosqichlar
 
 | Ish | Bosqich |
 |---|---|
-| Eksperimentlar, ablatsiya va rozilik (`use_irt`, `use_prereq_init` allaqachon tayyor) | 8 |
+| Rozilik, psevdonim va eksport (D42–D45) | 8a |
+| Eksperimentlar va ablatsiya (`use_irt`, `use_prereq_init` allaqachon tayyor) | 8b |
 | Saqlash usullari benchmarki | 9 |
 | Yakuniy sinovlar va hisobot | 10 |
 
