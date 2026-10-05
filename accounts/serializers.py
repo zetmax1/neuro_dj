@@ -3,6 +3,7 @@ from typing import Any
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from rest_framework import serializers
 
 from accounts.permissions import get_role
@@ -29,6 +30,9 @@ class UserRegistrationSerializer(serializers.Serializer):
     )
     first_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    # D42: optional, and off unless the learner ticks it. Registration must
+    # work without it, so it is never required and never defaults to true.
+    research_consent = serializers.BooleanField(required=False, default=False)
 
     def validate_email(self, value: str) -> str:
         # Use all_objects to prevent re-registration with a soft-deleted email
@@ -44,13 +48,18 @@ class UserRegistrationSerializer(serializers.Serializer):
     def create(self, validated_data: dict[str, Any]) -> Any:
         validated_data.pop("password_confirm", None)
         password = validated_data.pop("password")
-        
+        consent = bool(validated_data.get("research_consent", False))
+
         # Use make_password for secure hashing
         user = User(
             email=validated_data["email"],
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
-            password=make_password(password)
+            password=make_password(password),
+            research_consent=consent,
+            # Stamped only when consent was actually given: a NULL here means
+            # "never consented", which is not the same as "declined at 10:04".
+            research_consent_at=timezone.now() if consent else None,
         )
         user.save()
         
@@ -82,10 +91,36 @@ class UserDetailSerializer(serializers.Serializer):
     is_deleted = serializers.BooleanField(read_only=True)
     deleted_at = serializers.DateTimeField(read_only=True)
     is_simulated = serializers.BooleanField(read_only=True)
+    # Addendum 2.7 (the users column) and 2.8 (the profile card). The
+    # pseudonym is deliberately absent: it is the key an export row is filed
+    # under, and nothing in the interface needs it (D43).
+    research_consent = serializers.BooleanField(read_only=True)
+    research_consent_at = serializers.DateTimeField(read_only=True)
     role = serializers.SerializerMethodField(read_only=True)
 
     def get_role(self, obj) -> str:
         return get_role(obj)
+
+
+class ResearchConsentSerializer(serializers.Serializer):
+    """
+    The consent flag, and nothing else (D42, addendum A4-13).
+
+    Consent is a decision of the learner about their own data, so this
+    serializer is deliberately narrow: it is not part of the profile update
+    path, where it could be flipped as a side effect of saving a name.
+    ``research_consent_at`` is stamped on every change, in either direction,
+    because withdrawal is as much a fact as consent.
+    """
+
+    research_consent = serializers.BooleanField(required=True)
+    research_consent_at = serializers.DateTimeField(read_only=True)
+
+    def update(self, instance: Any, validated_data: dict[str, Any]) -> Any:
+        instance.research_consent = validated_data["research_consent"]
+        instance.research_consent_at = timezone.now()
+        instance.save(update_fields=["research_consent", "research_consent_at"])
+        return instance
 
 
 class UserUpdateSerializer(serializers.Serializer):

@@ -14,6 +14,8 @@ htmlcov/
 config/.env
 db.sqlite3
 backups/
+# Research exports hold learner answers; they are never committed (D44).
+exports/
 media/
 /media/
 

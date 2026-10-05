@@ -22,6 +22,7 @@ from accounts.auth_cookies import (
 )
 from accounts.permissions import IsAdminRole
 from accounts.serializers import (
+    ResearchConsentSerializer,
     UserAdminUpdateSerializer,
     UserDetailSerializer,
     UserRegistrationSerializer,
@@ -178,14 +179,42 @@ class UserProfileView(APIView):
 
 
 @extend_schema(tags=["Auth"])
+class ResearchConsentView(APIView):
+    """
+    GET/PATCH /api/me/consent/ — the learner's research consent (D42, A4-13).
+
+    Consent is off until the learner turns it on, and a learner who never does
+    uses the platform in full: nothing here gates anything. ``PATCH`` with
+    ``false`` withdraws it, which keeps the learner out of **future** exports;
+    files already written are not rewritten, and the interface says so in as
+    many words, because an assurance the backend cannot keep would be a lie.
+
+    Only the current account is addressed — there is no id in the path — so
+    this endpoint cannot be used to consent on somebody else's behalf.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request: Request) -> Response:
+        return Response(ResearchConsentSerializer(request.user).data, status=status.HTTP_200_OK)
+
+    def patch(self, request: Request) -> Response:
+        serializer = ResearchConsentSerializer(request.user, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ResearchConsentSerializer(request.user).data, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["Auth"])
 class UserListView(generics.ListAPIView):
     """
     Admin-only list of every user, soft-deleted ones included.
 
-    Filters: ``?role=student|instructor|admin`` and ``?simulated=true|false``
+    Filters: ``?role=student|instructor|admin``, ``?simulated=true|false``
     (D13: simulator accounts are never research data, so the page can hide
-    them). Guarded by the ``admin`` role from the API, not by ``is_staff``, so
-    the frontend and the backend apply one rule (D15).
+    them) and ``?consent=true|false`` (addendum 2.7). Guarded by the ``admin``
+    role from the API, not by ``is_staff``, so the frontend and the backend
+    apply one rule (D15).
     """
     serializer_class = UserDetailSerializer
     permission_classes = [IsAdminRole]
@@ -195,6 +224,11 @@ class UserListView(generics.ListAPIView):
         simulated = self.request.query_params.get("simulated")
         if simulated in ("true", "false"):
             queryset = queryset.filter(is_simulated=(simulated == "true"))
+        # Addendum 2.7: who is in the research set, as a filter rather than a
+        # number to be counted by eye.
+        consent = self.request.query_params.get("consent")
+        if consent in ("true", "false"):
+            queryset = queryset.filter(research_consent=(consent == "true"))
         return queryset
 
     def list(self, request: Request, *args: Any, **kwargs: Any) -> Response:

@@ -5,6 +5,7 @@ Cross-app routing strategy:
   - /api/learning_path/  → curriculum app (topic tree)
   - /api/assessments/    → assessments app (quiz + submission)
   - /api/knowledge_states/ → assessments app (user mastery)
+  - /api/me/consent/     → accounts app (research consent, D42)
   - /api/analytics/      → analytics app (reporting & charts)
 """
 
@@ -14,6 +15,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, Spec
 from django.conf import settings
 from django.urls import re_path
 
+from accounts.views import ResearchConsentView
 from config.media import serve_media
 
 urlpatterns = [
@@ -21,6 +23,12 @@ urlpatterns = [
 
     # ── Accounts — authentication & profiles ──────────────────────────────
     path("api/accounts/", include("accounts.urls")),
+
+    # Addendum A4-13 puts consent under /api/me/, beside /api/me/summary/ which
+    # the assessments app serves. The accounts module is mounted at
+    # /api/accounts/, so this one route is wired here rather than mounting the
+    # whole module a second time and duplicating every account endpoint.
+    path("api/me/consent/", ResearchConsentView.as_view(), name="me_consent"),
 
     # ── Curriculum — knowledge base structure ──────────────────────────────
     path("api/", include("curriculum.urls")),
