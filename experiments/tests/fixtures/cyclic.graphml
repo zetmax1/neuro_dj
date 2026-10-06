@@ -1,0 +1,24 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+  Synthetic, not published data. b ⇄ c ⇄ d is a strongly connected component,
+  so Y3 is violated and the condensation has to be reported (D52). None of the
+  four published graphs is cyclic, which is why this fixture exists.
+
+      a ──► b ──► c ──► d ──► b
+                        └───► e
+-->
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+  <key id="d0" for="node" attr.name="name" attr.type="string" />
+  <graph edgedefault="directed">
+    <node id="a"><data key="d0">a</data></node>
+    <node id="b"><data key="d0">b</data></node>
+    <node id="c"><data key="d0">c</data></node>
+    <node id="d"><data key="d0">d</data></node>
+    <node id="e"><data key="d0">e</data></node>
+    <edge source="a" target="b" />
+    <edge source="b" target="c" />
+    <edge source="c" target="d" />
+    <edge source="d" target="b" />
+    <edge source="d" target="e" />
+  </graph>
+</graphml>

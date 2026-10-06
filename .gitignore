@@ -16,6 +16,11 @@ db.sqlite3
 backups/
 # Research exports hold learner answers; they are never committed (D44).
 exports/
+
+# Experiment datasets are fetched by hand and not tracked (D49); the README
+# that says where they come from is.
+experiments/data/*
+!experiments/data/README.md
 media/
 /media/
 

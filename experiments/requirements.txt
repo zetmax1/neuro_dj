@@ -1,0 +1,32 @@
+# Dependencies of the experiment pipeline (stage 8b).
+#
+# 8b-1 (the loaders and the graph analysis) needs nothing from this file: it
+# runs on the standard library and on neuro_model. networkx is the oracle the
+# graph tests check neuro_model against and is declared in the project's
+# requirements-dev.txt, not here, because it is a test dependency of the suite
+# rather than a dependency of the pipeline.
+#
+# Everything below is needed from 8b-2 onwards (H2: BKT, BKT+IRT, Elo/Rasch,
+# PFA, DKT, AKT). Install it in its own virtualenv — torch and pykt-toolkit
+# are large and the Django side has no use for them:
+#
+#   python -m venv .venv-experiments
+#   .venv-experiments/bin/pip install -r experiments/requirements.txt
+
+pandas==2.2.3
+numpy==2.1.3
+scipy==1.14.1
+scikit-learn==1.5.2
+
+# Cross-check of the BKT fit on a handful of skills (D53).
+pyBKT==1.4.1
+
+# DKT and AKT, and the preprocessing the pyKT sequence format comes from.
+# Pinned by the version the loader's format contract was verified against;
+# see the pykt_format block in an export's metadata.json.
+pykt-toolkit==0.0.42
+
+# CPU wheels: the experiments are run on a laptop and DKT/AKT are not run in
+# CI at all (NEUROLEARN_REMEDIATION.md, stage 8).
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.1

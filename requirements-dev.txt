@@ -5,6 +5,11 @@ Faker==40.28.1
 hypothesis==6.168.3
 coverage==7.16.2
 locust==2.46.6
+# The oracle the stage 8b graph tests check neuro_model against. It was already
+# present as a transitive dependency; declared here because the suite imports
+# it, and a test dependency that nothing names can disappear under a bump.
+# Never imported by the code under test (experiments/components.py).
+networkx==3.4.2
 # Optional calibration path: `calibrate_bkt --method=pybkt` (D36). The default
 # grid search needs nothing extra, so this stays out of requirements.txt.
 pyBKT==1.4.1
