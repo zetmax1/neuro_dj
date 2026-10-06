@@ -210,6 +210,15 @@ degan holat jadvalda **son emas**, aynan shu gap bilan chiqadi (D48).
 | DKT AUC aqlga muvofiqlik chegarasi (ogohlantirish, test emas) | `h2.sanity` | `tables.md` 5-bo‘lim |
 | II bob konstantalari eksperimentda ham bir xil | `classical.CONSTANTS` | `test_models.py::test_the_constants_still_agree_with_the_django_settings` |
 
+**τ va δ sezgirlik tahlili H2 da yo‘q, va bu ataylab.** 8-bosqich uni
+τ ∈ {0,70; 0,80; 0,90; 0,95} va δ ∈ {0,05; 0,10; 0,15} bo‘yicha talab qiladi,
+lekin τ va δ faqat M belgisiga (3.4-bo‘lim, gisterezis) ta’sir qiladi. H2
+javobning to‘g‘riligini bashorat qiladi: p̂ P(L), P(G) va P(S) dan hosil
+bo‘ladi, τ unda umuman qatnashmaydi. Ya’ni H2 ning AUC'i τ ga nisbatan
+o‘zgarmas, va uni skanerlash nolga teng farqlar jadvalini chiqarardi. Sezgirlik
+tahlili H1 ga tegishli — tayyorlik qoidalari aynan τ ga bog‘liq — va u 8b-3 da,
+`h1.py` bilan birga bajariladi.
+
 ### D48 — natija faqat haqiqiy ishga tushirishdan
 
 | Talab | Kod | Test |
