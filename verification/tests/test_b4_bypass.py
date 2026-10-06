@@ -244,32 +244,54 @@ def test_v_b4_kb_version_row_cannot_be_removed_or_replaced(reference_course):
     assert _state() == before, "the KB version row was removed outside the service"
 
 
-def test_v_b4_removing_the_version_row_makes_get_snapshot_serve_a_stale_kb(reference_course):
+def test_v_b4_the_version_row_cannot_be_removed_so_get_snapshot_never_serves_a_stale_kb(reference_course):
     """
-    The consequence of the hole above (GR1). ``current()`` falls back to 1 when
-    the row is gone and ``_bump_version`` recreates it at 1, so after the next
-    real KB change the cache key ``kb:snapshot:v1`` still holds the *previous*
-    knowledge base and ``get_snapshot`` serves it.
+    GR1 after D31. Rewritten in D47 (2026-10-06); the old name was
+    ``test_v_b4_removing_the_version_row_makes_get_snapshot_serve_a_stale_kb``.
+
+    The old test *demonstrated* the hole: it deleted the version row by hand,
+    relied on ``current()`` falling back to 1 and showed ``get_snapshot``
+    serving the previous KB from ``kb:snapshot:v1``. D31 closed every step of
+    that path — ``delete`` on the row raises ``KBWriteError``, ``current()``
+    no longer falls back, and the cache key is scoped by the row's
+    ``instance_token`` — so the first line of the old test now raises and the
+    test was stale, not a regression.
+
+    What is checked instead is the property the old test was about: the
+    unguarded write is refused, and after a real KB change ``get_snapshot``
+    serves the new KB even if a forged snapshot sits under the old,
+    token-less key.
     """
-    from curriculum.models import KnowledgeBaseVersion
+    from django.core.cache import cache
+
+    from curriculum.kb_guard import KBWriteError
+    from curriculum.models import KnowledgeBaseVersion, TopicPrerequisite
     from curriculum.services import kb
     from curriculum.services.graph import clear_local_cache, get_snapshot
 
     course = reference_course
-    KnowledgeBaseVersion.objects.filter(pk=1).delete()   # the unguarded write
-    assert KnowledgeBaseVersion.current() == 1
+    before = _state()
+    with pytest.raises(KBWriteError):
+        KnowledgeBaseVersion.objects.filter(pk=1).delete()
+    assert _state() == before
 
     clear_local_cache()
-    stale = get_snapshot()                                # caches kb:snapshot:v1
+    stale = get_snapshot()
     assert len(stale.edges) == 10
+    version = stale.version
 
     kb.remove_prerequisite(
-        __import__("curriculum.models", fromlist=["x"]).TopicPrerequisite.objects.get(
+        TopicPrerequisite.objects.get(
             prerequisite_id=course.id_of["t6"], topic_id=course.id_of["t7"]
         ).pk
     )
+    assert KnowledgeBaseVersion.current() == version + 1
+
+    # Plant the previous KB under the key format GR1 used before D31.
+    cache.set(f"kb:snapshot:v{version + 1}", stale)
     clear_local_cache()
     served = get_snapshot()
+    assert served.version == version + 1
     assert len(served.edges) == 9, (
         "get_snapshot served a cached snapshot of the previous knowledge base "
         f"(version {served.version}, {len(served.edges)} edges)"

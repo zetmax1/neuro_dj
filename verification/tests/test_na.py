@@ -71,13 +71,19 @@ def test_na_group_c_and_d_readiness_and_trajectory_are_not_implemented():
             reverse(name)
 
 
-def test_na_group_e_experiments_and_consent_are_not_implemented():
-    """V-E1..V-E4 (stage 8)."""
-    assert not (Path(settings.BASE_DIR) / "experiments").exists()
-    from django.apps import apps
+def test_na_group_e_pipeline_run_all_is_not_implemented():
+    """
+    V-E3 (pyKT preprocess reads the export) and V-E4 (``run_all.py --quick``
+    on simulated data). Closed in part by D47 (2026-10-06): the former signal
+    ``test_na_group_e_experiments_and_consent_are_not_implemented`` fired when
+    8a and 8b-1 landed; V-E1/V-E2 are now verified in
+    ``test_e_consent_export.py`` and the 8b-1/8b-2 checks (D48, D50, D52,
+    split) in ``test_e_experiments.py`` and ``verification/neural/``.
 
-    fields = {f.name for f in apps.get_model("accounts", "CustomUser")._meta.get_fields()}
-    assert not {f for f in fields if "consent" in f}
+    What is still pending is the end-to-end pipeline of V-E3/V-E4, which
+    stage 8 delivers as ``experiments/run_all.py``. This fails when it lands.
+    """
+    assert not (Path(settings.BASE_DIR) / "experiments" / "run_all.py").exists()
 
 
 def test_na_group_g_frontend_e2e_is_not_implemented():
