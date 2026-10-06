@@ -198,27 +198,53 @@ def test_seed_simulated_and_legacy_rows_are_excluded(tmp_path, course):
 
 
 def test_include_simulated_is_marked_as_not_a_thesis_result(tmp_path, course):
+    """
+    D44: the flag adds simulator accounts with the answers the simulator wrote.
+
+    Until the verification report's R1 this test asserted the opposite — that
+    the simulator's own source is never exported and only an adaptive answer
+    from a simulator account gets through. No code writes such an answer, so
+    the flag exported nothing on simulator data, which is what it is for.
+    """
     simulated = learner("sim2@example.org", consent=False, simulated=True)
     seeded, right_seeded, _ = question_on(course["t1"], "q-sim")
     process_submission(
         user=simulated, question_id=seeded.pk, choice_id=right_seeded.pk,
         source=AttemptSource.SIMULATED, answered_at=timezone.now(),
     )
-    # The simulator's own source is never exported; what the flag lets through
-    # is an adaptive answer from a simulator account. It has to be another
-    # question, or the second answer would be a review_repeat (D25).
+    # An adaptive answer from a simulator account is let through as well. It
+    # has to be another question, or it would be a review_repeat (D25).
     adaptive, right_adaptive, _ = question_on(course["t1"], "q-adaptive")
     process_submission(user=simulated, question_id=adaptive.pk, choice_id=right_adaptive.pk)
 
     with pytest.raises(CommandError, match="Nothing to export"):
         export(tmp_path, name="plain")
 
-    directory, output = export(tmp_path, "--include-simulated", name="with-sim")
+    # R2: --out is honoured but still marked.
+    asked, output = export(tmp_path, "--include-simulated", name="with-sim")
+    directory = asked.with_name("with-sim-simulated")
+    assert not asked.exists() and directory.is_dir()
     metadata = read_json(directory, "metadata.json")
     assert metadata["thesis_result"] is False
-    assert metadata["counts"]["simulated_rows"] == 1
-    assert "not a thesis result" in output
-    assert len(read_csv(directory)) == 1
+    assert metadata["counts"]["simulated_rows"] == 2
+    assert metadata["filters"]["sources_simulated_accounts"] == ["adaptive", "simulated", "test_session"]
+    assert "not a thesis result" in output and "with-sim-simulated" in output
+    assert sorted(row["source"] for row in read_csv(directory)) == ["adaptive", "simulated"]
+
+
+def test_include_simulated_never_exports_a_real_accounts_simulated_rows(tmp_path, course):
+    """The widened source set is for simulator accounts only."""
+    willing = learner("real-sim-source@example.org")
+    question, right, _ = question_on(course["t1"])
+    process_submission(user=willing, question_id=question.pk, choice_id=right.pk)
+    process_submission(
+        user=willing, question_id=question.pk, choice_id=right.pk,
+        source=AttemptSource.SIMULATED, answered_at=timezone.now(),
+    )
+
+    directory, _ = export(tmp_path, "--include-simulated", name="mixed-simulated")
+    assert directory.is_dir(), "a name that already ends with -simulated is kept"
+    assert [row["source"] for row in read_csv(directory)] == ["adaptive"]
 
 
 def test_an_archived_topic_leaves_the_export(tmp_path, course):

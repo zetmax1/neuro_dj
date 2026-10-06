@@ -137,6 +137,9 @@ def run_fold(fold, rows, *, epochs: int, seed: int, log=print) -> tuple[dict, di
         cold = getattr(model, "cold_rows", None)
         if cold is not None:
             entry["cold_rows"] = cold
+        unseen = getattr(model, "unseen_rows", None)
+        if unseen is not None:
+            entry["unseen_rows"] = unseen
         report["models"][model.name] = entry
         predictions[model.name] = scores
         log(f"    {model.name:16s} auc={_text(measured['all']['auc'])} "

@@ -1074,6 +1074,58 @@ Ya’ni xato kodning xotirasida emas, ishga tushirish usulida. Model, batch yoki
 
 ---
 
+## Tekshiruv topilmalari R1–R3, K1–K2 (tuzatish)
+
+Manba: `VERIFICATION_REPORT.md` 5-bo‘limi (tekshiruv commit'i `59663e2`). Alohida kichik commit, D55 dan oldin. `verification/` ga tegilmadi — uning testlari mezon. Modelning sonlari o‘zgarmaydi, hech bir natija qayta hisoblanmadi.
+
+**Ishga tushirish holati (tuzatishdan oldin tekshirildi).** `systemctl --user list-units --all 'neurolearn-*'` — 0 unit, `experiments.h2` jarayoni yo‘q. `005f30d` dan boshlangan `run_h2.sh both` ning `--quick` qismi tugagan (`experiments/results/assist09-quick/20261006-112922/`, `418e41d` da commit qilingan). **To‘liq qism tugamagan**: `h2-full.log` 1-fold'ning DKT qatorida (16:53) uziladi, “finished” qatori yo‘q, `experiments/results/assist09/` yo‘q. `journalctl --user`: 16:55:01 da Chrome scope'i OOM bilan yopilgan, 16:55:56 da foydalanuvchining systemd menejeri `neurolearn-h2-both-20261006-160748.service` ni **to‘xtatgan** (“Stopping … Stopped”, sessiya yopilishi bilan birga) — OOM-killer python'ni emas, sessiya unit'ni to‘xtatgan, shuning uchun `OOMPolicy=continue` ham yordam bermagan va chiqish holati yozilmagan. Ya’ni `005f30d` ga bog‘langan to‘liq H2 natijasi **mavjud emas**; qayta ishga tushirish bu commit'ning ishi emas.
+
+### R1 — `--include-simulated` simulyator javoblarini chiqarmasdi
+
+Simulyator har bir javobni `source=simulated` bilan yozadi, eksport esa simulyatsiya hisoblarini ham `source IN (adaptive, test_session)` filtri orqali olardi — bayroq simulyator ma’lumotida 0 qator berardi.
+
+- `SIMULATED_ACCOUNT_SOURCES = EXPERIMENT_SOURCES ∪ {simulated}` — faqat `is_simulated=True` hisoblar uchun va faqat bayroq bilan. Haqiqiy hisobning `simulated` qatori bayroq bilan ham chiqmaydi; bayroqsiz hech qanday `simulated` qator chiqmaydi.
+- `metadata.filters.sources_simulated_accounts` (faqat bayroq bilan) va konsoldagi “Source 'simulated' is exported for simulator accounts only.”
+- Implementatorning `test_include_simulated_is_marked_as_not_a_thesis_result` testi aynan nuqsonni talab qilardi (“the simulator's own source is never exported”) — yangi xatti-harakatga moslandi, docstring'da sababi. Yangi test: `test_include_simulated_never_exports_a_real_accounts_simulated_rows`.
+
+### R2 — `--out` bilan papka nomida belgi yo‘q edi
+
+`directory()`: `--include-simulated` bilan `--out X` → `X-simulated` (nom allaqachon `-simulated` bilan tugasa — o‘zgarmaydi). Konsolda ogohlantirish: “--out X is written as X-simulated”. Uch belgi — ogohlantirish, `thesis_result: false`, papka nomi — endi har doim.
+
+**Mezonlar o‘rtasidagi ziddiyat (tekshiruvchiga).** `verification/tests/test_e_consent_export.py::test_v_e2_include_simulated_exports_what_the_simulator_wrote` eksportni `tmp/sim` ga yo‘naltiradi va `tmp/sim/attempts.csv` ni o‘qiydi, ya’ni `--out` so‘zma-so‘z olinadi deb hisoblaydi — R2 ning mezoni (`…with_an_explicit_out_still_marks_the_directory`) esa aynan buni taqiqlaydi. Ikkalasi bir vaqtda o‘tolmaydi. `verification/` ga tegilmadi; R1 shu testning mantiqi bilan, `tmp/sim-simulated/attempts.csv` ni o‘qiydigan scratch nusxa orqali tasdiqlandi (simulyator qatori bor, haqiqiy hisobning `simulated` qatori yo‘q, `tmp/sim` yaratilmagan) va R1 ning ikkinchi mezoni (`…on_simulator_only_data_is_not_empty`, 3/3) o‘tadi. Testni tuzatish — tekshiruvchining ishi.
+
+### R3 — o‘qitishda yo‘q skill DKT/AKT ga 0-skill sifatida kirardi
+
+`neural._SequenceModel._windows`: skill'i o‘qitishda bo‘lmagan qator ketma-ketlikka kiritilmaydi — model uni bashorat qilmaydi, keyingi javoblar tarixida ham turmaydi; `predict` uni base rate'da qoldiradi. Avval `max(0, -1)` uni birinchi o‘qitish skill'i qilib berardi (`neural.py` dagi izohga zid). Soni `unseen_rows` sifatida qayd etiladi va `h2.run_fold` uni model yozuviga qo‘shadi (`cold_rows` dan alohida: sabab boshqa). `fit` da hamma skill ma’lum, o‘qitish o‘zgarmaydi.
+
+**Tuzatishdan oldingi kod bilan olingan natijalar:** `experiments/results/assist09-quick/20261006-112922/` (`005f30d`) — 53 652 test qatordan **29** tasi ta’sirlangan (0,054 %). `005f30d` dagi to‘liq ishga tushirish tugaganida **10 / 338 001** qator ta’sirlangan bo‘lardi (5 fold, seed 20261006; o‘lchov tekshiruv hisobotida) — lekin u tugamagan (yuqoriga qarang). Natijalar qayta hisoblanmadi.
+
+Yangi test: `test_models.py::test_a_skill_absent_from_training_is_left_out_of_the_sequence` (DKT, AKT).
+
+### K1 — H2 jadvallari uchun pozitsion tekshiruv
+
+“Son `metrics.json` ning qaysidir joyida bormi” AUC uchun zaif: `--quick` natijasida 0.650–0.759 dagi 110 ta uch xonali qiymatdan 95 tasi metrics'da bor, ya’ni BKT AUC'ini boshqa modelnikiga almashtirish o‘tib ketardi. `tables.verify_h2_positions` (`verify` ichida, `report == "h2"` bo‘lsa) markdown'ni qayta o‘qiydi — renderer'ni chaqirmaydi — va §1 (pooled), §2 (dastlabki k), §3 (juftliklar), §4 (fold'lar), §5 (aqlga muvofiqlik qatorlari), §6 (grid), §7 (pyBKT) ning har bir katagini o‘z (model, ko‘rsatkich) kaliti bilan solishtiradi; tushib qolgan yoki ortiqcha model qatori ham xato. `tables.write` uni ham talab qiladi — noto‘g‘ri joylashgan katakli jadval yozilmaydi.
+
+Yo‘l-yo‘lakay: metrics'da yo‘q RMSE/aniqlik/javoblar soni, `cold_rows` va grid hisoblari endi “—” bo‘lib chiqadi, `0` emas (avval `fmt(x.get(..., 0))` — ishga tushirish bermagan son). Haqiqiy natijalarda bu qiymatlar doim bor, shuning uchun mavjud `tables.md` lar o‘zgarmaydi: ikkala chop etilgan natija (graflar, H2 `--quick`) yangi `verify` dan `[]` bilan o‘tadi.
+
+Testlar: `test_a_cell_holding_another_keys_number_is_caught` (har bir bo‘lim uchun, 8 ta almashtirish — har birini oddiy skaner o‘tkazib yuboradi), `test_a_dropped_model_row_is_caught`, `test_a_missing_value_is_a_dash_not_a_zero`, `test_writing_an_h2_table_with_a_misplaced_cell_is_refused`, `test_the_published_results_verify_cell_by_cell`.
+
+### K2 — `CITATIONS` — son emas, ibora
+
+8b-1 hisobotida “uchta havola, test qotiradi” deyilgan, lekin to‘plam qarorsiz beshtaga o‘sgan edi (`2.4`, `2016`). Endi `CITATIONS` — ibora → qaror: `"3.3-bo‘limga": D52`, `"Algoritm 2.3": D52`, `"EDM 2016": D53` (`MappingProxyType`, o‘zgarmas). `verify` iboralarni skanerdan oldin olib tashlaydi; ibora tashqarisidagi `2016` yoki `3.3` — begona son. `2.2` va `2.4` olib tashlandi: generatsiya qilingan prozada ishlatilmaydi. Test mappingni qotiradi va har bir qaror `NEUROLEARN_B8B.md` da `### Dnn` sarlavhasi sifatida borligini tekshiradi — yangi ibora uchun yangi D-qaror shart.
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| Backend: `venv/bin/pytest` | **912 passed**, 10 skipped, 13 subtests |
+| `experiments/.venv/bin/python -m pytest experiments/tests` | **144 passed**, 1 skipped (Django tomoni) |
+| `manage.py check` / `makemigrations --check` | 0 issues / No changes detected |
+| `verification/tests` | 731 passed, **8 failed**, 1 skipped — 7 ta na-signal (A, C, D, G guruhlari) va R1/R2 ziddiyatidagi test (yuqorida). R1 (`…on_simulator_only_data_is_not_empty`), R2 (`…explicit_out…`), K1 (`test_d48_h2_tables_show_each_models_own_numbers`) — o‘tadi |
+| `verification/neural` (`experiments/.venv`) | **15 passed** (R3 ning ikki testi ham) |
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |

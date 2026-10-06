@@ -23,6 +23,12 @@ Three facts about the alignment, because they decide what the AUC means:
   three unpredicted positions rather than one.
 - **Every row gets exactly one prediction**, in the dataset's own order, so
   the predictions line up with BKT's and the paired DeLong test is valid.
+- **A skill absent from training is left out of the sequence.** It has no
+  embedding, so the row keeps the base rate and does not enter the history
+  of the answers after it. Until the verification report's R3 it was fed to
+  the model as concept 0 (the first training skill); results produced before
+  that fix (the ``--quick`` run at ``005f30d``) carry it. The count of such
+  rows is recorded as ``unseen_rows``.
 
 Early stopping is on validation AUC. The test fold is never looked at until
 the final pass.
@@ -90,6 +96,7 @@ class _SequenceModel:
         self._model = None
         self._base_rate = 0.5
         self._cold_rows = 0
+        self._unseen_rows = 0
         self._history: list[dict] = []
 
     # -- model hook ------------------------------------------------------
@@ -107,14 +114,19 @@ class _SequenceModel:
     # -- windows ---------------------------------------------------------
 
     def _windows(self, rows) -> list[Window]:
-        """Per-learner sequences in order, cut into windows of ``max_len``."""
+        """
+        Per-learner sequences in order, cut into windows of ``max_len``.
+
+        A row whose skill is absent from training is not in any window: it has
+        no embedding, so it can neither be predicted by the model nor stand in
+        the history of the answers after it. ``predict`` leaves it at the base
+        rate. During ``fit`` every skill is known, so nothing is dropped.
+        """
         per_learner: dict[str, list[tuple[int, int, int]]] = {}
         for index, row in enumerate(rows):
             concept = self._concepts.get(row.skill_id)
             if concept is None:
-                # A skill absent from training has no embedding; such rows are
-                # scored with the base rate, like a cold first position.
-                concept = -1
+                continue
             per_learner.setdefault(row.user_id, []).append((concept, int(row.correct), index))
 
         windows: list[Window] = []
@@ -122,7 +134,7 @@ class _SequenceModel:
             for start in range(0, len(sequence), self.max_len):
                 chunk = sequence[start:start + self.max_len]
                 windows.append(Window(
-                    concepts=[max(0, concept) for concept, _, _ in chunk],
+                    concepts=[concept for concept, _, _ in chunk],
                     responses=[response for _, response, _ in chunk],
                     length=len(chunk),
                     row_indices=[index for _, _, index in chunk],
@@ -215,7 +227,9 @@ class _SequenceModel:
             "model_kwargs": dict(self.model_kwargs),
             "alignment": (
                 "position 0 of each window has no history and is scored with the "
-                "training base rate; windows are max_len long with no carry-over"
+                "training base rate; windows are max_len long with no carry-over; "
+                "a row whose skill is absent from training is left out of the "
+                "sequence and scored with the base rate"
             ),
         }
 
@@ -238,12 +252,18 @@ class _SequenceModel:
                         value = float(scores[position, offset].item())
                         out[row_index] = value if math.isfinite(value) else self._base_rate
         self._cold_rows = cold
+        self._unseen_rows = sum(1 for row in rows if row.skill_id not in self._concepts)
         return out
 
     @property
     def cold_rows(self) -> int:
         """Rows scored with the base rate because nothing preceded them."""
         return self._cold_rows
+
+    @property
+    def unseen_rows(self) -> int:
+        """Rows scored with the base rate because their skill was not in training."""
+        return self._unseen_rows
 
 
 class DKTModel(_SequenceModel):

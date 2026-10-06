@@ -62,6 +62,18 @@ CSV_COLUMNS: tuple[str, ...] = (
     "kb_version",
 )
 
+# What ``--include-simulated`` exports from simulator accounts (D44, D13): the
+# real-observation sources and the simulator's own. The simulator writes every
+# answer as ``simulated``, so without it the flag would add nothing at all.
+# Real accounts never contribute ``simulated`` rows, flag or not.
+SIMULATED_ACCOUNT_SOURCES: frozenset[str] = frozenset(
+    EXPERIMENT_SOURCES | {AttemptSource.SIMULATED}
+)
+
+# The directory of a simulated export always ends with this, --out or not, so
+# a pipeline test cannot sit under a name that reads like thesis data (D13).
+SIMULATED_SUFFIX = "-simulated"
+
 FILES = {
     "pykt": "pykt_sequences.txt",
     "csv": "attempts.csv",
@@ -134,9 +146,11 @@ class Command(BaseCommand):
             "--include-simulated",
             action="store_true",
             help=(
-                "Also include simulator accounts, consent or not. For testing "
+                "Also include simulator accounts, consent or not, with the "
+                "answers the simulator wrote (source=simulated). For testing "
                 "the pipeline only: the result is not a thesis result (D13), "
-                "and the metadata and the directory name say so."
+                "and the warning, the metadata and the directory name say so "
+                "(the name ends with -simulated, --out included)."
             ),
         )
         parser.add_argument(
@@ -147,14 +161,19 @@ class Command(BaseCommand):
 
     # -- filters ------------------------------------------------------------
 
-    def eligible(self, *, course: int | None) -> QuerySet[AssessmentAttempt]:
+    def eligible(
+        self, *, course: int | None, sources: frozenset[str] = EXPERIMENT_SOURCES,
+    ) -> QuerySet[AssessmentAttempt]:
         """
         Every answer that is a real observation of the thesis engine on a live
         topic, consent aside. The consent split happens on top of this, so the
         two counts D45 asks for are measured against the same base.
+
+        ``sources`` is widened only for simulator accounts under
+        ``--include-simulated`` (``SIMULATED_ACCOUNT_SOURCES``).
         """
         rows = AssessmentAttempt.objects.filter(
-            source__in=EXPERIMENT_SOURCES,
+            source__in=sources,
             engine_version__startswith=ENGINE_NAME,
             topic__is_archived=False,
         )
@@ -175,7 +194,9 @@ class Command(BaseCommand):
         real = eligible.filter(user__is_simulated=False)
         consented = real.filter(user__research_consent=True)
         declined = real.filter(user__research_consent=False)
-        simulated = eligible.filter(user__is_simulated=True)
+        simulated = self.eligible(
+            course=course, sources=SIMULATED_ACCOUNT_SOURCES,
+        ).filter(user__is_simulated=True)
 
         exported = consented | simulated if include_simulated else consented
 
@@ -196,7 +217,7 @@ class Command(BaseCommand):
                 "pipeline test, not a thesis result (D13)."
             ))
 
-        self.report(counts)
+        self.report(counts, include_simulated=include_simulated)
 
         if options["dry_run"]:
             self.stdout.write(self.style.SUCCESS("Dry run: nothing was written."))
@@ -210,6 +231,11 @@ class Command(BaseCommand):
             )
 
         directory = self.directory(options.get("out"), simulated=include_simulated)
+        if include_simulated and options.get("out") and directory != Path(options["out"]).expanduser():
+            self.stdout.write(self.style.WARNING(
+                f"--out {options['out']} is written as {directory}: a simulated "
+                f"export always ends with {SIMULATED_SUFFIX} (D44)."
+            ))
         directory.mkdir(parents=True, exist_ok=True)
 
         snapshot = get_snapshot()
@@ -244,7 +270,7 @@ class Command(BaseCommand):
 
     # -- reporting (D45) ----------------------------------------------------
 
-    def report(self, counts: Counts) -> None:
+    def report(self, counts: Counts, *, include_simulated: bool = False) -> None:
         self.stdout.write(
             f"Exported:  {counts.exported_rows} answer(s) "
             f"from {counts.exported_learners} learner(s)"
@@ -259,13 +285,23 @@ class Command(BaseCommand):
                 f"from {counts.simulated_learners} account(s)"
             )
         excluded_sources = sorted(set(AttemptSource.values) - set(EXPERIMENT_SOURCES))
+        if include_simulated:
+            excluded_sources = sorted(set(AttemptSource.values) - set(SIMULATED_ACCOUNT_SOURCES))
+            self.stdout.write(
+                f"Source '{AttemptSource.SIMULATED}' is exported for simulator accounts only."
+            )
         self.stdout.write(f"Sources never exported: {', '.join(excluded_sources)}")
 
     def directory(self, out: str | None, *, simulated: bool) -> Path:
         if out:
-            return Path(out).expanduser()
+            path = Path(out).expanduser()
+            if simulated and not path.name.endswith(SIMULATED_SUFFIX):
+                if path.name in ("", ".", ".."):
+                    path = path.resolve()
+                path = path.with_name(path.name + SIMULATED_SUFFIX)
+            return path
         stamp = datetime.now(dt_timezone.utc).strftime("%Y%m%d-%H%M%S")
-        suffix = "-simulated" if simulated else ""
+        suffix = SIMULATED_SUFFIX if simulated else ""
         return Path(settings.BASE_DIR) / "exports" / f"research-{stamp}{suffix}"
 
     # -- the four files -----------------------------------------------------
@@ -371,6 +407,8 @@ class Command(BaseCommand):
                 "engine_version_prefix": ENGINE_NAME,
                 "research_consent": True,
                 "is_simulated": False if not include_simulated else "included (D13)",
+                **({"sources_simulated_accounts": sorted(SIMULATED_ACCOUNT_SOURCES)}
+                   if include_simulated else {}),
                 "topic_archived": False,
                 "course": course,
             },

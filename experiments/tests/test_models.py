@@ -399,6 +399,30 @@ def test_a_sequence_model_does_not_read_the_answer_it_is_predicting(name):
     assert changed, f"{name} ignored the flipped answer entirely; the state is not updating"
 
 
+@pytest.mark.parametrize("name", ["DKT", "AKT"])
+def test_a_skill_absent_from_training_is_left_out_of_the_sequence(name, rows):
+    """
+    Verification report R3. A skill with no embedding gets the base rate and
+    is not in the history of the answers after it. It used to be fed to the
+    model as concept 0, i.e. as the first training skill.
+    """
+    pytest.importorskip("torch", reason="experiments/.venv needed from 8b-2 on")
+    pytest.importorskip("pykt", reason="experiments/.venv needed from 8b-2 on")
+    from experiments.models.neural import AKTModel, DKTModel
+
+    model = (DKTModel if name == "DKT" else AKTModel)(epochs=1, batch_size=8, seed=0)
+    model.fit(rows)
+    learner = [row for row in rows if row.user_id == "0"][:6]
+    unseen = learner[:3] + [learner[0]._replace(skill_id="999", order_id=10_000)] + learner[3:]
+
+    with_unseen = model.predict(unseen)
+    assert with_unseen[3] == model._base_rate
+    assert model.unseen_rows == 1
+    without = model.predict(learner)
+    assert model.unseen_rows == 0
+    assert with_unseen[:3] + with_unseen[4:] == pytest.approx(without, abs=1e-9)
+
+
 # ---------------------------------------------------------------------------
 # The grid check
 # ---------------------------------------------------------------------------

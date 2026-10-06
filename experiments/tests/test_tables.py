@@ -66,13 +66,41 @@ def test_an_edited_result_is_caught(tiny_graphml):
     assert tables.verify(markdown.replace(f"| {nodes} |", "| 999 |", 1), document) == ["999"]
 
 
-def test_only_chapter_references_may_be_numbers_in_the_prose():
+def test_only_declared_phrases_may_carry_numbers_in_the_prose():
     """
-    The allow-list is tiny and fixed. If it grows, this test fails, which is
-    the point: a result number must never be able to enter the table by being
-    added to it.
+    The allow-list is tiny, fixed, and made of whole phrases, each admitted by
+    a named decision. If it grows, this test fails, which is the point: a new
+    phrase needs a new D-numbered decision and a visible edit here.
+
+    It held bare numbers until the verification report's K2 ("2.2", "2.3",
+    "2.4", "3.3", "2016"), and grew from three to five without a decision. A
+    bare number is allowed everywhere it appears; a phrase only where it is
+    the citation.
     """
-    assert tables.CITATIONS == frozenset({"2.2", "2.3", "2.4", "3.3", "2016"})
+    import re
+    from pathlib import Path
+
+    assert dict(tables.CITATIONS) == {
+        "3.3-bo‘limga": "D52",
+        "Algoritm 2.3": "D52",
+        "EDM 2016": "D53",
+    }
+    decisions = (Path(__file__).resolve().parents[2] / "NEUROLEARN_B8B.md").read_text(encoding="utf-8")
+    for phrase, decision in tables.CITATIONS.items():
+        assert re.fullmatch(r"D\d+", decision), phrase
+        assert f"### {decision} " in decisions, f"{phrase}: {decision} is not a decision in NEUROLEARN_B8B.md"
+    with pytest.raises(TypeError):
+        tables.CITATIONS["2017"] = "D99"
+
+
+def test_a_citation_number_outside_its_phrase_is_caught(tiny_graphml):
+    """ "2016" is a year inside "EDM 2016" and a stray number anywhere else."""
+    document, _ = metrics_of(tiny_graphml)
+    markdown = tables.render_graph_report(document)
+
+    assert tables.verify(markdown + "\nXiong va boshq. (EDM 2016)\n", document) == []
+    assert tables.verify(markdown + "\n| DKT | 2016 |\n", document) == ["2016"]
+    assert tables.verify(markdown + "\nqarang: 3.3\n", document) == ["3.3"]
 
 
 def test_writing_is_refused_when_a_number_cannot_be_traced(tmp_path, tiny_graphml):
@@ -499,3 +527,82 @@ def test_the_graph_table_verifies_clean_when_a_graph_is_cyclic_and_absent_togeth
 
     assert tables.NOT_RUN in markdown
     assert tables.verify(markdown, document) == []
+
+
+# ---------------------------------------------------------------------------
+# The H2 tables, cell by cell (verification report K1)
+# ---------------------------------------------------------------------------
+
+# Each edit puts a number that *is* in the metrics into a cell whose own key
+# holds another one — the edit the numeric scan cannot see.
+H2_SWAPS = [
+    ("§1", "| BKT | 0.67 [0.651, 0.689] |", "| BKT | 0.731 [0.651, 0.689] |"),   # DKT's AUC
+    ("§1", "| DKT | 0.731 [0.71, 0.75] | 0.45 |", "| DKT | 0.731 [0.71, 0.75] | 0.448 |"),  # BKT's RMSE
+    ("§2", "| BKT | 0.67 | 0.64 | 0.65 |", "| BKT | 0.67 | 0.69 | 0.65 |"),   # DKT's first-5
+    ("§3", "| DKT | BKT | 0.731 | 0.67 |", "| DKT | BKT | 0.67 | 0.731 |"),   # A and B swapped
+    ("§4", "| BKT | 0.665 |", "| BKT | 0.67 |"),                             # pooled for the fold
+    ("§5", "- DKT AUC: 0.731", "- DKT AUC: 0.67"),                           # BKT's AUC
+    ("§6", "| 12 | 190 | 0.469 | grid |", "| 190 | 12 | 0.469 | grid |"),   # lowest and highest swapped
+    ("§7", "| 47 | 4210 | 0.3 / 0.572 |", "| 47 | 4210 | 0.572 / 0.3 |"),   # grid and EM swapped
+]
+
+
+@pytest.mark.parametrize("section, before, after", H2_SWAPS)
+def test_a_cell_holding_another_keys_number_is_caught(section, before, after):
+    document = h2_metrics()
+    markdown = tables.render_h2_report(document)
+    assert before in markdown
+    tampered = markdown.replace(before, after, 1)
+
+    problems = tables.verify(tampered, document)
+    # The numeric scan alone lets it through: every number is in the metrics.
+    assert all(problem.startswith("§") for problem in problems), problems
+    assert any(problem.startswith(section) for problem in problems), problems
+
+
+def test_a_dropped_model_row_is_caught():
+    document = h2_metrics()
+    markdown = tables.render_h2_report(document)
+    row = next(line for line in markdown.splitlines() if line.startswith("| DKT | 0.731 ["))
+
+    problems = tables.verify(markdown.replace(row + "\n", "", 1), document)
+    assert any(problem.startswith("§1 rows") for problem in problems), problems
+
+
+def test_a_missing_value_is_a_dash_not_a_zero():
+    """
+    An RMSE the metrics do not have used to render as 0 — a number the run
+    never produced. It is a dash now, and a 0 in its place is caught.
+    """
+    document = h2_metrics()
+    del document["pooled"]["models"]["BKT"]["scores"]["all"]["rmse"]
+    markdown = tables.render_h2_report(document)
+
+    assert "| BKT | 0.67 [0.651, 0.689] | — |" in markdown
+    assert tables.verify(markdown, document) == []
+    zeroed = markdown.replace("| BKT | 0.67 [0.651, 0.689] | — |", "| BKT | 0.67 [0.651, 0.689] | 0 |")
+    assert any(problem.startswith("§1 BKT RMSE") for problem in tables.verify(zeroed, document))
+
+
+def test_writing_an_h2_table_with_a_misplaced_cell_is_refused(tmp_path):
+    document = h2_metrics()
+
+    def misplaced(metrics):
+        return tables.render_h2_report(metrics).replace(*H2_SWAPS[0][1:], 1)
+
+    with pytest.raises(ValueError, match="§1 BKT AUC"):
+        tables.write(tmp_path / "out", document, "env", renderer=misplaced)
+    assert not (tmp_path / "out").exists()
+
+
+def test_the_published_results_verify_cell_by_cell():
+    """Every tables.md under experiments/results/ passes the full check."""
+    from pathlib import Path
+
+    results = Path(__file__).resolve().parents[1] / "results"
+    found = sorted(results.glob("*/*/tables.md"))
+    if not found:
+        pytest.skip("no published result in experiments/results/")
+    for path in found:
+        metrics = json.loads((path.parent / "metrics.json").read_text(encoding="utf-8"))
+        assert tables.verify(path.read_text(encoding="utf-8"), metrics) == [], path

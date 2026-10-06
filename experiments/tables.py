@@ -19,8 +19,9 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any
 
 # What a row says when the dataset is not on this machine (D48).
@@ -35,17 +36,17 @@ NOT_APPLICABLE = "ishga tushirilmadi"
 # source block below the table and in metrics.json.
 SHA_PREFIX = 12
 
-# The only numbers the generated prose may contain: references to chapter II
-# and to the thesis's own sections. Declared here rather than pattern-matched,
-# so adding a number to the narrative is a visible edit to this list and not
-# something that happens by accident. A result number can never enter this
-# way: ``test_tables.py`` pins the contents of this set.
-CITATIONS: frozenset[str] = frozenset({
-    "2.2",   # Algorithm 2.2 — the topological order and lev
-    "2.3",   # Algorithm 2.3 — the readiness update
-    "2.4",   # Algorithm 2.4 — the per-answer update the models run
-    "3.3",   # section 3.3 of the thesis, where these tables go
-    "2016",  # Xiong et al., EDM 2016 — the DKT sanity range
+# The only numbers the generated prose may contain are inside these phrases:
+# references to the thesis, to chapter II's algorithms and to the literature.
+# A whole phrase is declared, never a bare number — "2016" is allowed as
+# "EDM 2016" and nowhere else, so a result that happens to equal a year or a
+# section number cannot ride in on it. Each phrase names the decision that
+# admitted it, and ``test_tables.py`` pins the mapping: a new phrase needs a
+# new D-numbered decision and a visible edit to that test.
+CITATIONS: Mapping[str, str] = MappingProxyType({
+    "3.3-bo‘limga": "D52",  # the graph report's heading: section 3.3 of the thesis
+    "Algoritm 2.3": "D52",  # the readiness update the graph report times
+    "EDM 2016": "D53",      # Xiong et al. — the DKT sanity range
 })
 
 _NUMBER = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])")
@@ -129,17 +130,25 @@ def allowed_strings(metrics: dict) -> set[str]:
 
 def verify(markdown: str, metrics: dict) -> list[str]:
     """
-    Numeric tokens in ``markdown`` that are not numbers of ``metrics``.
+    What in ``markdown`` is not backed by ``metrics``; empty is D48's invariant.
 
-    An empty list is the invariant of D48. Anything in it is a number that
-    entered the table from somewhere other than the run — except the chapter
-    and algorithm references of :data:`CITATIONS`, which are declared.
+    Two checks. Every numeric token must be one of the metrics' numbers — after
+    the phrases of :data:`CITATIONS` and the metrics' own strings are taken
+    out. And, for an H2 report, every cell of its tables must be the number
+    under that cell's own key (:func:`verify_h2_positions`): "somewhere in
+    metrics.json" alone lets an AUC be swapped for any other value the run
+    happened to record.
     """
     stripped = markdown
+    for phrase in CITATIONS:
+        stripped = stripped.replace(phrase, " ")
     for text in sorted(allowed_strings(metrics), key=len, reverse=True):
         stripped = stripped.replace(text, " ")
-    permitted = allowed_numbers(metrics) | CITATIONS
-    return [token for token in _NUMBER.findall(stripped) if token not in permitted]
+    permitted = allowed_numbers(metrics)
+    strays = [token for token in _NUMBER.findall(stripped) if token not in permitted]
+    if metrics.get("report") == "h2":
+        strays += verify_h2_positions(markdown, metrics)
+    return strays
 
 
 def require_sources(metrics: dict) -> None:
@@ -485,8 +494,8 @@ def _h2_main_table(pooled: dict, unavailable: dict, confidence_percent) -> list[
             continue
         all_scores = entry.get("scores", {}).get("all", {})
         lines.append(
-            f"| {name} | {_auc_cell(entry)} | {fmt(all_scores.get('rmse', 0))} | "
-            f"{fmt(all_scores.get('accuracy', 0))} | {fmt(all_scores.get('n', 0))} |"
+            f"| {name} | {_auc_cell(entry)} | {_cell(all_scores.get('rmse'))} | "
+            f"{_cell(all_scores.get('accuracy'))} | {_cell(all_scores.get('n'))} |"
         )
     lines.append("")
     return lines
@@ -518,7 +527,7 @@ def _h2_early_table(pooled: dict) -> list[str]:
         for key in ("all", "first_3", "first_5"):
             auc = scores.get(key, {}).get("auc")
             cells.append("—" if auc is None else fmt(auc))
-        cells.append(fmt(entry.get("cold_rows", 0)))
+        cells.append(_cell(entry.get("cold_rows")))
         lines.append(f"| {name} | " + " | ".join(cells) + " |")
     lines.append("")
     return lines
@@ -657,8 +666,8 @@ def _h2_grid(metrics: dict) -> list[str]:
         ceiling = "II bob" if entry.get("ceiling_is_chapter_two") else "grid"
         lines.append(
             f"| {labels.get(name, name)} | {values} | "
-            f"{fmt(entry.get('at_lowest', 0))} | {fmt(entry.get('at_highest', 0))} | "
-            f"{fmt(entry.get('share_at_highest', 0))} | {ceiling} |"
+            f"{_cell(entry.get('at_lowest'))} | {_cell(entry.get('at_highest'))} | "
+            f"{_cell(entry.get('share_at_highest'))} | {ceiling} |"
         )
     lines.append("")
     return lines
@@ -736,3 +745,196 @@ def _h2_dataset(metrics: dict) -> list[str]:
         lines.append(f"1. {rule}")
     lines.append("")
     return lines
+
+
+# ---------------------------------------------------------------------------
+# The H2 tables, cell by cell (D48; verification report K1)
+# ---------------------------------------------------------------------------
+#
+# The numeric scan above asks whether a number is *somewhere* in the metrics.
+# For AUCs that is weak: a run records hundreds of values between 0.65 and
+# 0.76, so an AUC replaced by another model's, a fold's or an interval bound
+# passes it. This check reads the tables back and holds every cell to the
+# value under its own (model, metric) key. It parses the markdown rather than
+# calling the renderers, so a renderer that puts a value in the wrong column
+# is caught too.
+
+_GRID_LABELS = {"P0": "p0", "PT": "pt", "P(G)": "g0", "P(S)": "s0"}
+
+
+def _cell(value) -> str:
+    """How a single value appears in a cell: missing is a dash, never 0."""
+    return "—" if value is None else fmt(value)
+
+
+def _sections(markdown: str) -> dict[str, list[str]]:
+    """The lines under each ``## N.`` heading, keyed by N."""
+    out: dict[str, list[str]] = {}
+    current = None
+    for line in markdown.splitlines():
+        match = re.match(r"^## (\d+)\.", line)
+        if match:
+            current = match.group(1)
+            out[current] = []
+        elif current is not None:
+            out[current].append(line)
+    return out
+
+
+def _table(lines: list[str]) -> tuple[list[str], list[list[str]]]:
+    """Header and body of the first markdown table in ``lines``."""
+    rows: list[list[str]] = []
+    for line in lines:
+        if line.startswith("|"):
+            rows.append([cell.strip() for cell in line.strip()[1:-1].split("|")])
+        elif rows:
+            break
+    if len(rows) < 2:
+        return [], []
+    return rows[0], rows[2:]
+
+
+def verify_h2_positions(markdown: str, metrics: dict) -> list[str]:
+    """
+    Every cell of the H2 tables against its own key; empty when they all agree.
+
+    Covered: the pooled table (§1), the first-k table (§2), the pairwise
+    comparisons (§3), the per-fold AUCs (§4), the sanity lines (§5), the grid
+    check (§6) and the pyBKT cross-check (§7). A row for a model the metrics
+    do not have, a model the metrics have but the table leaves out, and a
+    value shown where the metrics have none are all reported.
+    """
+    problems: list[str] = []
+    sections = _sections(markdown)
+    pooled = metrics.get("pooled", {}).get("models", {})
+    unavailable = {entry["model"]: entry["reason"] for entry in metrics.get("unavailable", [])}
+
+    def check(where: str, got, expected) -> None:
+        if got != expected:
+            problems.append(f"{where}: {got!r} is not {expected!r}")
+
+    def body(number: str) -> tuple[list[str], list[list[str]]]:
+        if number not in sections:
+            problems.append(f"§{number}: section missing")
+            return [], []
+        return _table(sections[number])
+
+    # §1 — pooled
+    _, rows = body("1")
+    check("§1 rows", [row[0] for row in rows],
+          [name for name in MODEL_ORDER if name in unavailable or name in pooled])
+    for name in pooled:
+        if name not in MODEL_ORDER:
+            problems.append(f"§1 {name}: in metrics.pooled but not in the table")
+    for name, *cells in rows:
+        if name in unavailable:
+            check(f"§1 {name}", cells, [f"{NOT_APPLICABLE}: {unavailable[name]}", "—", "—", "—"])
+            continue
+        entry = pooled.get(name)
+        if entry is None:
+            continue
+        scores = entry.get("scores", {}).get("all", {})
+        interval = entry.get("auc_interval") or {}
+        auc = _cell(scores.get("auc"))
+        if scores.get("auc") is not None and None not in (interval.get("ci_low"), interval.get("ci_high")):
+            auc = f"{auc} [{fmt(interval['ci_low'])}, {fmt(interval['ci_high'])}]"
+        check(f"§1 {name} AUC", cells[0], auc)
+        check(f"§1 {name} RMSE", cells[1], _cell(scores.get("rmse")))
+        check(f"§1 {name} accuracy", cells[2], _cell(scores.get("accuracy")))
+        check(f"§1 {name} n", cells[3], _cell(scores.get("n")))
+
+    # §2 — first k answers
+    _, rows = body("2")
+    check("§2 rows", [row[0] for row in rows], [name for name in MODEL_ORDER if name in pooled])
+    for name, *cells in rows:
+        entry = pooled.get(name)
+        if entry is None:
+            continue
+        scores = entry.get("scores", {})
+        expected = [_cell(scores.get(key, {}).get("auc")) for key in ("all", "first_3", "first_5")]
+        check(f"§2 {name}", cells, expected + [_cell(entry.get("cold_rows"))])
+
+    # §3 — pairwise comparisons
+    comparisons = metrics.get("pooled", {}).get("comparisons", [])
+    _, rows = body("3")
+    if not comparisons:
+        check("§3 rows", rows, [["—"] * 9])
+    else:
+        by_pair = {(item["a"], item["b"]): item for item in comparisons}
+        check("§3 rows", sorted((row[0], row[1]) for row in rows), sorted(by_pair))
+        for a, b, *cells in rows:
+            item = by_pair.get((a, b))
+            if item is None:
+                continue
+            check(f"§3 {a} vs {b}", cells, [
+                fmt(item["auc_a"]), fmt(item["auc_b"]), fmt(item["difference"]), fmt(item["z"]),
+                _p(item["p"]), _p(item["p_holm"]), fmt(bool(item["significant"])),
+            ])
+
+    # §4 — per fold
+    folds = metrics.get("folds", [])
+    header, rows = body("4")
+    if folds:
+        check("§4 header", header[1:], [f"{fold['index'] + 1}-qism" for fold in folds])
+        expected_rows = {}
+        for name in MODEL_ORDER:
+            entries = [fold.get("models", {}).get(name, {}) for fold in folds]
+            if any(entry.get("status") == "ok" for entry in entries):
+                expected_rows[name] = [
+                    _cell(entry.get("scores", {}).get("all", {}).get("auc"))
+                    if entry.get("status") == "ok" else "—"
+                    for entry in entries
+                ]
+        check("§4 rows", [row[0] for row in rows], list(expected_rows))
+        for name, *cells in rows:
+            if name in expected_rows:
+                check(f"§4 {name}", cells, expected_rows[name])
+    else:
+        check("§4 rows", rows, [])
+
+    # §5 — the sanity lines
+    note = metrics.get("sanity") or {}
+    if note and "5" in sections:
+        lines = {line.split(":", 1)[0]: line.split(":", 1)[1].strip()
+                 for line in sections["5"] if line.startswith("- ") and ":" in line}
+        low, high = note.get("expected_range", [None, None])
+        lit_low, lit_high = note.get("literature_range", [None, None])
+        check("§5 DKT AUC", lines.get("- DKT AUC"), _cell(note.get("auc")))
+        check("§5 expected range", lines.get("- kutilgan oraliq"), f"{fmt(low)}–{fmt(high)}")
+        literature = next((v for k, v in lines.items() if k.startswith("- adabiyotdagi qiymat")), None)
+        check("§5 literature range", literature, f"{fmt(lit_low)}–{fmt(lit_high)}")
+
+    # §6 — grid check
+    grid = (metrics.get("grid_check") or {}).get("parameters") or {}
+    _, rows = body("6")
+    check("§6 rows", sorted(_GRID_LABELS.get(row[0], row[0]) for row in rows), sorted(grid))
+    for label, *cells in rows:
+        entry = grid.get(_GRID_LABELS.get(label, label))
+        if entry is None:
+            continue
+        check(f"§6 {label}", cells, [
+            ", ".join(fmt(value) for value in entry.get("admissible_values", [])),
+            _cell(entry.get("at_lowest")), _cell(entry.get("at_highest")),
+            _cell(entry.get("share_at_highest")),
+            "II bob" if entry.get("ceiling_is_chapter_two") else "grid",
+        ])
+
+    # §7 — pyBKT cross-check
+    cross = metrics.get("pybkt_cross_check") or {}
+    if cross and cross.get("status") != "unavailable":
+        _, rows = body("7")
+        by_skill = {str(entry.get("skill")): entry for entry in cross.get("comparisons", [])}
+        check("§7 rows", [row[0] for row in rows], list(by_skill))
+        for skill, *cells in rows:
+            entry = by_skill.get(skill)
+            if entry is None or entry.get("status") != "ok":
+                continue
+            grid_p, em = entry["grid"], entry["pybkt"]
+            flags = [key.upper() for key, value in entry["pybkt_outside_bounds"].items() if value]
+            check(f"§7 {skill}", cells, [
+                fmt(entry["answers"]),
+                *(f"{fmt(grid_p[key])} / {fmt(em[key])}" for key in ("p0", "pt", "g0", "s0")),
+                f"{fmt(entry['log_likelihood']['grid'])} / {fmt(entry['log_likelihood']['pybkt'])}",
+                ", ".join(flags) if flags else "yo‘q",
+            ])
+    return problems
