@@ -432,3 +432,70 @@ def test_the_grid_check_section_distinguishes_who_sets_the_ceiling():
     assert grid_rows[0].rstrip().endswith("grid |")
     assert grid_rows[1].rstrip().endswith("II bob |")
     assert tables.verify(markdown, document) == []
+
+
+def test_the_h2_table_verifies_clean_when_the_sanity_warning_fires():
+    """
+    The gap that let a stray number through for two and a half hours: the
+    fixture above has ``within_range: True``, so the warning block never
+    rendered in a test — and that block carried a year in its prose, which the
+    D48 check correctly rejected only at the end of a real run.
+
+    Every conditional block of the table needs its own case, or the check
+    only guards the paths the happy fixture happens to take.
+    """
+    document = h2_metrics()
+    document["sanity"]["auc"] = 0.6412
+    document["sanity"]["within_range"] = False
+    markdown = tables.render_h2_report(document)
+
+    assert "Ogohlantirish" in markdown
+    assert tables.verify(markdown, document) == []
+
+
+def test_the_h2_table_verifies_clean_with_no_comparisons_and_no_pybkt():
+    """The other conditional branches: the empty-row paths."""
+    document = h2_metrics()
+    document["pooled"]["comparisons"] = []
+    document["pybkt_cross_check"] = {"status": "unavailable", "reason": "pyBKT yo‘q"}
+    document["grid_check"] = {}
+    document["folds"] = []
+    markdown = tables.render_h2_report(document)
+
+    assert tables.verify(markdown, document) == []
+
+
+def test_the_h2_table_verifies_clean_for_a_full_run():
+    """A full run has no --quick banner, which is its own branch."""
+    document = h2_metrics()
+    document["quick"] = False
+    markdown = tables.render_h2_report(document)
+
+    assert "dissertatsiya natijasi emas" not in markdown
+    assert tables.verify(markdown, document) == []
+
+
+def test_the_graph_table_verifies_clean_when_a_graph_is_cyclic_and_absent_together():
+    """The same lesson for the 8b-1 table: mixed statuses in one document."""
+    document = {
+        "provenance": {"command": "python -m experiments.graph_report", "sources": []},
+        "graphs": [
+            {"name": "A", "status": "not_run", "reason": "ma’lumot yo‘q",
+             "edge_direction": "prereq_to_dependent", "path": "/x"},
+            {"name": "B", "status": "ok", "edge_direction": "prereq_to_dependent",
+             "source": {"sha256": "a" * 64, "name": "B", "path": "/b", "bytes": 10},
+             "nodes": 5, "raw_edges": 6, "edges": 5, "self_loops": 1, "isolated": 0,
+             "weak_components": 1, "is_dag": False, "scc_nontrivial": 1,
+             "scc_merged_nodes": 3, "scc_merged": [["b", "c", "d"]],
+             "ordered_nodes": 3, "longest_path": 2,
+             "redundant_edges": 0, "redundant_edge_list": [],
+             "readiness": {"samples": 0, "repeats": 2,
+                           "incremental_touched_median": 0,
+                           "incremental_touched_max": 0, "full_touched": 3,
+                           "note": "nothing to propagate"}},
+        ],
+    }
+    markdown = tables.render_graph_report(document)
+
+    assert tables.NOT_RUN in markdown
+    assert tables.verify(markdown, document) == []

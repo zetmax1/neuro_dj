@@ -27,8 +27,14 @@ fi
 run() {
     local name="$1"; shift
     echo "[$(date -Is)] starting $name: $*" >> "$LOGS/h2-$name.log"
+    # The status is captured before anything else runs: $(date -Is) in the
+    # line below executes first and would reset $? to its own success, so a
+    # failed run reported "exit 0" and the chain carried on as if it had
+    # worked.
     "$PY" -u -W ignore -m experiments.h2 "$@" >> "$LOGS/h2-$name.log" 2>&1
-    echo "[$(date -Is)] finished $name (exit $?)" >> "$LOGS/h2-$name.log"
+    local status=$?
+    echo "[$(date -Is)] finished $name (exit $status)" >> "$LOGS/h2-$name.log"
+    return $status
 }
 
 case "$MODE" in

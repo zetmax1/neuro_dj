@@ -292,6 +292,15 @@ def _readiness_section(metrics: dict) -> list[str]:
             lines.append(f"| {name} | {direction} | " + " | ".join([NOT_RUN] + ["—"] * 6) + " |")
             continue
         r = entry["readiness"]
+        if "incremental_us_median" not in r:
+            # No node has a successor, so there was nothing to propagate and
+            # no time to measure. The counts are still real and still printed.
+            lines.append(
+                f"| {name} | {direction} | {fmt(r.get('samples', 0))} | "
+                f"{fmt(r.get('repeats', 0))} | {fmt(r.get('incremental_touched_median', 0))} | "
+                f"{fmt(r.get('full_touched', 0))} | — | — | — |"
+            )
+            continue
         lines.append(
             f"| {name} | {direction} | {fmt(r['samples'])} | {fmt(r['repeats'])} | "
             f"{fmt(r['incremental_touched_median'])} | {fmt(r['full_touched'])} | "
@@ -495,8 +504,9 @@ def _h2_comparisons(metrics: dict) -> list[str]:
         "",
         "1. DeLong javoblarni mustaqil deb hisoblaydi, bu jadvaldagi prognozlar esa",
         "   besh qismdan birlashtirilgan va talaba ichida klasterlangan. Shuning uchun",
-        "   bu yerdagi p qiymatlari haqiqiydan **kichik** bo‘lishi mumkin. 1-jadvaldagi",
-        "   ishonch oralig‘i talabalar bo‘yicha bootstrap bilan olingan va shu",
+        "   bu yerdagi p qiymatlari haqiqiydan **kichik** bo‘lishi mumkin. Yuqoridagi",
+        "   birinchi jadvaldagi ishonch oralig‘i talabalar bo‘yicha bootstrap bilan",
+        "   olingan va shu",
         "   ma’noda ishonchliroq; DeLong juftliklarni tartiblash uchun ishlatiladi,",
         "   oralig‘ni belgilash uchun emas.",
         "2. BKT, BKT+IRT va BKT+IRT+Pre bir xil moslangan P0/PT/P(G)/P(S) ni",
@@ -573,8 +583,8 @@ def _h2_sanity(metrics: dict) -> list[str]:
     if note.get("within_range") is False:
         lines += [
             "",
-            "> **Ogohlantirish.** DKT AUC takrorsiz ASSISTments 2009 uchun qayd etilgan",
-            "> oraliqdan tashqarida. Jadvaldagi boshqa hech narsani o‘qishdan oldin",
+            "> **Ogohlantirish.** DKT AUC takrorlari olib tashlangan ma’lumot uchun",
+            "> qayd etilgan oraliqdan tashqarida. Jadvaldagi boshqa hech narsani o‘qishdan oldin",
             "> D50 tozalashini qayta tekshirish kerak. `--quick` ishga tushirishda bu",
             "> kutilgan: kam talaba va kam epoch bilan DKT to‘liq o‘qitilmaydi.",
         ]
