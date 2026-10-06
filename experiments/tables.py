@@ -195,6 +195,7 @@ def render_graph_report(metrics: dict) -> str:
         "Bu fayl `metrics.json` dan avtomatik yasaladi (D48). Qo‘lda yozilgan son yo‘q;",
         "`experiments/tests/test_tables.py` har bir sonning `metrics.json` da borligini",
         "tekshiradi. Ma’lumoti yo‘q graf uchun qator soni emas, holati chiqadi.",
+        *_tree_warning(provenance),
         "",
         "## 1. Graf o‘lchamlari va Y3",
         "",
@@ -312,6 +313,36 @@ def _readiness_section(metrics: dict) -> list[str]:
     return lines
 
 
+def _tree_warning(provenance: dict) -> list[str]:
+    """
+    D54, at the top of the file: a run whose tree was dirty at the start or
+    changed before the end is said so where it cannot be scrolled past.
+    """
+    warnings = provenance.get("tree_warnings") or []
+    if not warnings:
+        return []
+    lines = ["", "> **Ogohlantirish (D54):** " + "; ".join(warnings) + "."]
+    lines.append("> Tafsilot — “Manba va ishga tushirish” bo‘limida.")
+    return lines
+
+
+def _git_state_lines(provenance: dict) -> list[str]:
+    """The checkout at the start and the end of the run, with what was uncommitted."""
+    lines: list[str] = []
+    for key, label in (("git_start", "boshida"), ("git_end", "oxirida")):
+        state = provenance.get(key)
+        if not state:
+            continue
+        status = "toza" if state.get("dirty") is False else (
+            "toza emas" if state.get("dirty") else "aniqlanmadi"
+        )
+        lines.append(f"- git holati {label}: `{state.get('commit') or '—'}`, {status} ({state.get('at', '—')})")
+        lines += [f"  - `{change}`" for change in state.get("changes", [])]
+    if provenance.get("tree_changed"):
+        lines.append("- **boshi va oxiri farq qiladi** — natija bitta kod holatidan ekani kafolatlanmaydi")
+    return lines
+
+
 def _sources_section(metrics: dict, provenance: dict, number: int = 5) -> list[str]:
     """The four facts of D48, in full, under the tables that rest on them."""
     lines = [f"## {number}. Manba va ishga tushirish (D48)", ""]
@@ -323,6 +354,7 @@ def _sources_section(metrics: dict, provenance: dict, number: int = 5) -> list[s
         f"- vaqt: {provenance.get('created_at', '—')}",
         f"- python: {provenance.get('python', '—')}, {provenance.get('platform', '—')}",
     ]
+    lines += _git_state_lines(provenance)
     seeds = provenance.get("seeds") or {}
     if seeds:
         lines.append("- seed: " + ", ".join(f"{k} = {fmt(v)}" for k, v in sorted(seeds.items())))
@@ -400,6 +432,7 @@ def render_h2_report(metrics: dict) -> str:
         "",
         "Bu fayl `metrics.json` dan avtomatik yasaladi (D48). Qo‘lda yozilgan son yo‘q.",
     ]
+    lines += _tree_warning(provenance)
     if quick:
         lines += [
             "",

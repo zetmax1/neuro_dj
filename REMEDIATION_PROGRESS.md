@@ -32,7 +32,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8a — Rozilik va eksport (D42–D45) | **Bajarildi** | `dc3c35c` | `3345a52` |
 | 8b — Eksperimentlar quvuri (ochiq ma’lumotlar birinchi) | Qisman | — | — |
 | 8b-1 — Yuklovchilar (D49–D51) va graf tahlili (D52) | **Bajarildi** | `c1a683b` | — |
-| 8b-2 — H2: ASSISTments 2009 (D53) | **Bajarildi** | `7ff7ae2` | — |
+| 8b-2 — H2: ASSISTments 2009 (D53) | Qisman — kod bajarildi, to‘liq natija kutilmoqda | `7ff7ae2` … `1eeca40`, D54 tuzatishi | — |
 | 8b-3 — H1/H3 kodi, DBE yuklovchisi, nazoratlar, annotatsiya | Kutilmoqda | — | — |
 | 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
@@ -1053,6 +1053,27 @@ Fixture'lar `experiments/tests/fixtures/` da, hammasi sintetik va README'da shun
 - **8b-2 uchun alohida virtualenv** — `experiments/requirements.txt` (torch va pykt-toolkit katta, Django tomoniga keraksiz).
 ---
 
+## 8b-2: H2 ishga tushirishi yiqildi — sabab va tuzatish (D54)
+
+**Nima bo‘ldi.** `1eeca40` dan `experiments/run_h2.sh both` bilan boshlangan ishga tushirish 2026-10-06 15:48:57 da to‘xtagan: `h2-quick.log` `--quick` ning 2-qismida, AKT o‘qitilayotganda tugaydi, “finished” qatori yo‘q, `full` umuman boshlanmagan, `experiments/results/assist09*/` yo‘q.
+
+**Sabab** (`journalctl -k`): global OOM. Kernel OOM-killer `python` ni o‘ldirgan (anon-rss ≈ 3 GB — AKT ning bitta batch'idagi attention tensorlari; ma’lumot hajmiga emas, batch'ga bog‘liq). Ikki narsa buni yiqilishga aylantirdi:
+
+- `setsid` jarayonni ishga tushirgan ilovaning cgroup'idan chiqarmaydi. Run browser'ning scope'ida (`app-org.chromium.Chromium-….scope`) qolgan va uning `oom_score_adj = 200` ini meros qilgan — ya’ni birinchi qurbon.
+- OOM'dan keyin systemd butun scope'ni yopgan (`Failed with result 'oom-kill'`), bash o‘rami ham birga o‘lgan — shuning uchun logda chiqish holati yo‘q.
+
+Ya’ni xato kodning xotirasida emas, ishga tushirish usulida. Model, batch yoki boshqa parametr o‘zgartirilmadi.
+
+**Tuzatish.**
+
+- `run_h2.sh` endi `systemd-run --user` bilan alohida transient unit'da ishga tushadi: o‘z cgroup'i, `OOMScoreAdjust=100` (foydalanuvchi menejerining eng past ruxsat etilgan qiymati), `OOMPolicy=continue` — python o‘ldirilsa ham o‘ram tirik qoladi va `finished (exit 137)` ni yozadi. User systemd bo‘lmasa, `setsid` ga qaytadi va buni ochiq aytadi.
+- **D54 — provenance boshida ham, oxirida ham.** `GitState`: commit, dirty va `git status --porcelain` qatorlari (nima dirty ekani ham). `Provenance.capture(git_start=…)` oxirgi holatni o‘zi oladi. Hisobotdagi commit — **boshlang‘ich** (ishlagan kod shu). Boshida dirty bo‘lsa yoki boshi va oxiri farq qilsa: `metrics.json` da `tree_warnings`, `env.txt` da `WARNING`, `tables.md` ning **eng yuqorisida** “Ogohlantirish (D54)” bloki va manba bo‘limida ikki holat qatorlari bilan. `h2.py` va `graph_report.py` ikkalasi ham boshlang‘ich holatni ish boshlanishidan oldin oladi.
+- Testlar (`experiments/tests/test_provenance.py`, 19): toza / kuzatilmagan fayl / o‘zgartirilgan fayl / repo tashqarisi; toza run, boshida dirty, davomida o‘zgargan, davomida commit qilingan (commit boshlang‘ichi qoladi), ikkala ogohlantirish; `tables.md` ning har bir shartli bloki (ogohlantirish yo‘q / boshida dirty / o‘zgargan / holat noma’lum / D54 dan oldingi natija) — har birida `verify == []`; graf hisobotida ham ogohlantirish; launcher: SIGKILL bilan o‘ldirilgan python → `exit 137` yoziladi va `full` boshlanmaydi; muvaffaqiyatli `quick` dan keyin `full`.
+
+**Qayta ishga tushirish** shu tuzatish commit'idan. Ishchi daraxtda bitta kuzatilmagan fayl bor — `NEUROLEARN_NEXT.md` (foydalanuvchining prompt fayli; D54 bo‘yicha boshqa birovning commit qilinmagan fayliga tegilmaydi). Shuning uchun natija “boshida toza emas” deb belgilanadi va `?? NEUROLEARN_NEXT.md` qatori ko‘rsatiladi — bu yashirilmaydi.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -1101,6 +1122,7 @@ Fixture'lar `experiments/tests/fixtures/` da, hammasi sintetik va README'da shun
 | Q2-8 | Ish davomida tizim qayta yuklandi; snap Docker'ning `neurolearn_pgdata` volume'i yo‘qoldi va dev baza bo‘sh bo‘lib qoldi | Bu sessiyadan tashqarida sodir bo‘ldi. Eng so‘nggi zaxira (`pg-20261003-1132-pre-b2-migrate.dump`) bo‘sh bazaga tiklandi. Qatorlar soni mos keldi, 2-bosqich migratsiyalari qayta qo‘llandi va natija avvalgisi bilan bir xil chiqdi. `db.sqlite3` o‘zgarmagan (`5c33c7d2…`) |
 | Q2-9 | `benchmark_tree.py` MPTT ustunlariga bog‘liq edi | O‘chirildi; 9-bosqichda `benchmarks` app'i bilan almashtiriladi. Bu va `test_mptt_tree.py` ning o‘chirilishi xato bilan `5e5cb09` ga tushib qoldi (oldindan stage qilingan edi); tarix qayta yozilmadi |
 | Q2-10 | 1-bosqichning migratsiya testi `curriculum 0009` holatiga qaytardi, bu MPTT ustunlarini qayta qo‘shishni talab qilardi | Test endi `curriculum 0012` (joriy) bilan `assessments 0005` kombinatsiyasidan boshlanadi. Curriculum migratsiyalari `assessments 0005` dan keyingilariga bog‘lanmaydi |
+| Q8b-1 | Tarixda ikkita `commit --amend` bor (reflog): `c142506` ← `47d78ee` (faqat commit xabari o‘zgargan, daraxt bir xil) va `c1a683b` ← `3f54751` (`provenance.py`/`tables.py` ga 17 qator qo‘shilgan) | D54 bo‘yicha qayd etildi; tarix o‘zgartirilmadi. Bundan keyin amend/rebase/reset --hard ishlatilmaydi, xato xabar keyingi commit'da tuzatiladi |
 
 ---
 

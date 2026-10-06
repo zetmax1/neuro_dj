@@ -74,6 +74,56 @@ def git_dirty(root: Path | None = None) -> bool | None:
     return bool(result.stdout.strip())
 
 
+def git_changes(root: Path | None = None) -> list[str] | None:
+    """
+    ``git status --porcelain`` as lines, untracked files included. Kept as
+    text so the record says *what* was dirty — a stray notes file and an
+    edited model are both "dirty", and the reader is owed the difference.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(root or REPO_ROOT),
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+@dataclass(frozen=True)
+class GitState:
+    """The checkout at one moment: commit, and what was uncommitted (D54)."""
+    commit: str | None
+    dirty: bool | None
+    changes: tuple[str, ...] = ()
+    at: str = ""
+
+    @classmethod
+    def capture(cls, root: Path | None = None) -> GitState:
+        changes = git_changes(root)
+        return cls(
+            commit=git_commit(root),
+            dirty=None if changes is None else bool(changes),
+            changes=tuple(changes or ()),
+            at=datetime.now(timezone.utc).isoformat(),
+        )
+
+    def same_tree(self, other: GitState) -> bool:
+        return (self.commit, self.dirty, self.changes) == (other.commit, other.dirty, other.changes)
+
+    def payload(self) -> dict:
+        return {
+            "commit": self.commit,
+            "dirty": self.dirty,
+            "changes": list(self.changes),
+            "at": self.at,
+        }
+
+
 @dataclass(frozen=True)
 class Source:
     """One input file, by name, path and content."""
@@ -111,6 +161,11 @@ class Provenance:
     sources: tuple[Source, ...] = ()
     packages: dict[str, str] = field(default_factory=dict)
     env: dict[str, str] = field(default_factory=dict)
+    # D54: the checkout when the run started and when it ended. A long run
+    # imports some modules late (the statistics, the pyBKT check), so a tree
+    # edited mid-run can mean the result came from two versions of the code.
+    git_start: GitState | None = None
+    git_end: GitState | None = None
 
     @classmethod
     def capture(
@@ -120,11 +175,23 @@ class Provenance:
         seeds: dict[str, int] | None = None,
         argv: list[str] | None = None,
         packages: dict[str, str] | None = None,
+        git_start: GitState | None = None,
+        root: Path | None = None,
     ) -> Provenance:
+        """
+        ``git_start`` is the state the caller took before doing any work; the
+        end state is taken here. The commit reported is the starting one —
+        that is the code that ran — and the run counts as dirty if the tree
+        was dirty at either end or changed in between.
+        """
+        end = GitState.capture(root)
+        start = git_start or end
+        changed = not start.same_tree(end)
+        dirty_flags = [flag for flag in (start.dirty, end.dirty) if flag is not None]
         return cls(
             command=" ".join(argv if argv is not None else sys.argv),
-            code_commit=git_commit(),
-            code_dirty=git_dirty(),
+            code_commit=start.commit,
+            code_dirty=(any(dirty_flags) or changed) if dirty_flags else None,
             created_at=datetime.now(timezone.utc).isoformat(),
             python=sys.version.split()[0],
             platform=platform.platform(),
@@ -136,7 +203,28 @@ class Provenance:
                 for name in TRACKED_ENV
                 if os.environ.get(name)
             },
+            git_start=start,
+            git_end=end,
         )
+
+    @property
+    def tree_changed(self) -> bool:
+        """The checkout differed between the start and the end of the run."""
+        if self.git_start is None or self.git_end is None:
+            return False
+        return not self.git_start.same_tree(self.git_end)
+
+    def tree_warnings(self) -> list[str]:
+        """
+        What D54 requires a reader to be told, as sentences; empty when the
+        tree was clean at the start and unchanged at the end.
+        """
+        out: list[str] = []
+        if self.git_start is not None and self.git_start.dirty:
+            out.append("ishchi daraxt ishga tushirish boshida toza emas edi")
+        if self.tree_changed:
+            out.append("ishchi daraxt ishga tushirish davomida o‘zgargan (boshi va oxiri farq qiladi)")
+        return out
 
     def payload(self) -> dict:
         """
@@ -145,6 +233,10 @@ class Provenance:
         """
         data = asdict(self)
         data["sources"] = [asdict(source) for source in self.sources]
+        data["git_start"] = None if self.git_start is None else self.git_start.payload()
+        data["git_end"] = None if self.git_end is None else self.git_end.payload()
+        data["tree_changed"] = self.tree_changed
+        data["tree_warnings"] = self.tree_warnings()
         return data
 
     def env_txt(self) -> str:
@@ -158,6 +250,16 @@ class Provenance:
             f"python       {self.python}",
             f"platform     {self.platform}",
         ]
+        for label, state in (("git_start", self.git_start), ("git_end", self.git_end)):
+            if state is None:
+                continue
+            lines.append(
+                f"{label:<12} {state.commit or 'unknown'} at {state.at}"
+                + (" (dirty)" if state.dirty else " (clean)")
+            )
+            lines += [f"  {change}" for change in state.changes]
+        for warning in self.tree_warnings():
+            lines.append(f"WARNING      {warning}")
         if self.seeds:
             lines.append("seeds        " + ", ".join(f"{k}={v}" for k, v in sorted(self.seeds.items())))
         if self.env:

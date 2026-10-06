@@ -91,7 +91,15 @@ experiments/.venv/bin/python -m experiments.h2 --quick
 # To'liq ishga tushirish. DKT va AKT CPU'da sekin: 338 001 qator, 5 qism —
 # bir necha soat ketishi mumkin.
 experiments/.venv/bin/python -m experiments.h2
+
+# Uzoq ishga tushirish — alohida systemd user unit'da (terminal yoki agent
+# yopilsa ham, browser OOM'ga uchrasa ham o'lmaydi). Log: experiments/.runs/
+experiments/run_h2.sh both
 ```
+
+Ishga tushirish paytida ishchi daraxtga tegilmaydi (D54). Provenance git
+holatini boshida va oxirida yozadi; boshida toza bo'lmasa yoki ikkalasi farq
+qilsa, `tables.md` ning eng yuqorisida ogohlantirish chiqadi.
 
 Oltita model: BKT, BKT+IRT (λ=0), Elo/Rasch, PFA, DKT, AKT. **BKT+IRT+Pre
 ishga tushirilmaydi** — ASSISTments'da prerekvizit grafi yo'q, shuning uchun

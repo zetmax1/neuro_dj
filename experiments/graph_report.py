@@ -42,7 +42,7 @@ from experiments.datasets.graphs import (
     PrereqGraph,
     load_graph,
 )
-from experiments.provenance import Provenance, Source
+from experiments.provenance import GitState, Provenance, Source
 from neuro_model import graph as g
 from neuro_model import readiness as r
 
@@ -245,6 +245,7 @@ def requested(args: argparse.Namespace) -> list[tuple[str, Path, tuple[str, ...]
 
 def run(args: argparse.Namespace, argv: list[str]) -> tuple[dict, Provenance]:
     """Analyse everything requested and build the metrics document."""
+    git_start = GitState.capture()
     entries: list[dict] = []
     sources: list[Source] = []
 
@@ -280,6 +281,7 @@ def run(args: argparse.Namespace, argv: list[str]) -> tuple[dict, Provenance]:
         # Recorded as the module invocation, so the command in the results is
         # the one to re-run rather than an absolute path to a script file.
         argv=["python", "-m", "experiments.graph_report", *argv],
+        git_start=git_start,
     )
     return {
         "report": "graph_report",

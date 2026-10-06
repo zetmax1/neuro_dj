@@ -49,7 +49,7 @@ from experiments import metrics, splits, tables
 from experiments.datasets import DatasetMissing, assist09
 from experiments.models import Unavailable
 from experiments.models.classical import PFA, BKTFamily, EloRasch
-from experiments.provenance import Provenance, Source, results_dir
+from experiments.provenance import GitState, Provenance, Source, results_dir
 
 # Xiong et al. (EDM 2016), DKT on ASSISTments 2009 with duplicates removed.
 DKT_SANITY_RANGE = (0.70, 0.80)
@@ -258,6 +258,8 @@ def sanity(pooled_models: dict) -> dict:
 
 
 def run(args, argv: list[str]) -> tuple[dict, Provenance]:
+    # D54: taken before anything is loaded, so a tree edited mid-run shows.
+    git_start = GitState.capture()
     dataset = assist09.load(
         args.data or None, original_only=args.original_only,
     )
@@ -325,6 +327,7 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
         seeds={"split": args.seed, "models": args.seed, "bootstrap": args.seed},
         argv=["python", "-m", "experiments.h2", *argv],
         packages=_packages(),
+        git_start=git_start,
     )
     metrics_document = {
         "report": "h2",
