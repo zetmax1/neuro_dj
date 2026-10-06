@@ -25,6 +25,11 @@ experiments/data/*
 # The experiment pipeline's own virtualenv (torch, pykt-toolkit): kept out of
 # the Django environment on purpose (8b-2).
 experiments/.venv/
+
+# Logs of detached pipeline runs. A full H2 pass takes hours, so it is started
+# with setsid and survives the shell that launched it; the log is where its
+# progress is read from. The results themselves are committed.
+experiments/.runs/
 media/
 /media/
 

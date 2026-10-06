@@ -122,3 +122,34 @@ def test_the_candidate_list_is_sorted_and_bounded():
     assert candidates == sorted(candidates)
     assert all(g0 < G_MAX and s0 < S_MAX for _, _, g0, s0 in candidates)
     assert len(candidates) == len(set(candidates))
+
+
+# ---------------------------------------------------------------------------
+# The grid spans the admissible region
+# ---------------------------------------------------------------------------
+
+def test_the_grid_reaches_close_to_the_bounds():
+    """
+    The search is bounded by chapter II, not by the grid. A grid whose top
+    G0 is 0.25 under G_MAX = 0.30 caps the fit below the bound the thesis
+    states; on ASSISTments 2009 every busy skill landed on that corner.
+    """
+    candidates = calibrate.DEFAULT_GRID.candidates(g_max=G_MAX, s_max=S_MAX)
+    assert max(c[0] for c in candidates) >= 0.9
+    assert max(c[2] for c in candidates) >= G_MAX - 0.015
+    assert max(c[3] for c in candidates) >= S_MAX - 0.005
+
+
+def test_a_high_prior_near_the_bounds_is_fitted_within_one_percent():
+    """
+    Data from a skill most learners already know, with guess and slip near
+    the caps. The fit must not be pinned to a grid corner far from the truth:
+    its likelihood is within 1 % of the generating parameters'.
+    """
+    truth = dict(p0=0.85, pt=0.10, g0=0.29, s0=0.095)
+    sequences = simulate(**truth, learners=150, length=15)
+    best = calibrate.grid_search(sequences, g_max=G_MAX, s_max=S_MAX)
+    assert best is not None
+    reference = calibrate.log_likelihood(sequences, **truth)
+    assert best.log_likelihood >= reference - 0.01 * abs(reference)
+    assert best.p0 >= 0.7

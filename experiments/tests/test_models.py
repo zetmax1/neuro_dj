@@ -447,10 +447,13 @@ def test_a_fit_that_saturates_is_visible_in_the_check():
     Constructed so the answer rate forces the highest guess the bounds allow:
     the check has to report it rather than average it away.
     """
-    from experiments.models.classical import grid_check
-    from neuro_model import student as engine
+    from experiments.models.classical import admissible, grid_check
+    from neuro_model import calibrate, student as engine
 
-    top = engine.TopicParams(p0=0.5, pt=0.4, g0=0.25, s0=0.09)
+    values = admissible(calibrate.DEFAULT_GRID)
+    top = engine.TopicParams(
+        p0=values["p0"][-1], pt=values["pt"][-1], g0=values["g0"][-1], s0=values["s0"][-1],
+    )
     check = grid_check({"a": top, "b": top, "c": top})
 
     assert check["parameters"]["g0"]["at_highest"] == 3

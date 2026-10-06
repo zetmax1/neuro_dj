@@ -76,11 +76,19 @@ class Grid:
         )
 
 
+# The grid has to span the admissible region, not a corner of it. P0 runs to
+# 0.90 because a topic's prior is not capped by chapter II; the top G0 and S0
+# sit just under G_MAX and S_MAX because on real data the likelihood keeps
+# rising towards the bound. With the earlier ceilings (P0 0.50, G0 0.25,
+# S0 0.09) every busy ASSISTments 2009 skill landed on that corner, 2–3.5 %
+# of log-likelihood below the bounded L-BFGS-B optimum; this grid is within
+# 0.7 % of it. γ stays moderate at the top: ln(0.29/0.01) ≈ 3.4,
+# ln(0.097/0.003) ≈ 3.5.
 DEFAULT_GRID = Grid(
-    p0=(0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50),
+    p0=(0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90),
     pt=(0.05, 0.10, 0.15, 0.20, 0.30, 0.40),
-    g0=(0.05, 0.10, 0.15, 0.20, 0.25),
-    s0=(0.01, 0.03, 0.05, 0.07, 0.09),
+    g0=(0.05, 0.10, 0.15, 0.20, 0.25, 0.29),
+    s0=(0.01, 0.03, 0.05, 0.07, 0.09, 0.097),
 )
 
 
