@@ -457,8 +457,14 @@ def _h2_early_table(pooled: dict) -> list[str]:
         "boshlang‘ich qiymat faqat shu yerda ta’sir ko‘rsatishi mumkin: o‘ninchi",
         "javobda dalil har qanday priordan ustun bo‘lib ketadi.",
         "",
-        "| Model | Hammasi | Birinchi 3 | Birinchi 5 |",
-        "|---|---|---|---|",
+        "`Tarixsiz` — modelning tarixdan bashorat qila olmagan javoblari soni:",
+        "ular base rate bilan baholanadi. Ketma-ketlik modellarida har bir talaba",
+        "uchun bitta shunday javob bor, ya’ni k = 3 ustunining uchdan biri doimiy",
+        "qiymat — shuning uchun DKT va AKT ning dastlabki ustunlari modelga nisbatan",
+        "pastroq o‘qiladi.",
+        "",
+        "| Model | Hammasi | Birinchi 3 | Birinchi 5 | Tarixsiz |",
+        "|---|---|---|---|---|",
     ]
     for name in MODEL_ORDER:
         entry = pooled.get(name)
@@ -469,6 +475,7 @@ def _h2_early_table(pooled: dict) -> list[str]:
         for key in ("all", "first_3", "first_5"):
             auc = scores.get(key, {}).get("auc")
             cells.append("—" if auc is None else fmt(auc))
+        cells.append(fmt(entry.get("cold_rows", 0)))
         lines.append(f"| {name} | " + " | ".join(cells) + " |")
     lines.append("")
     return lines

@@ -281,6 +281,7 @@ def h2_metrics() -> dict:
                         "first_3": {"auc": 0.6401},
                         "first_5": {"auc": 0.6502},
                     },
+                    "cold_rows": 0,
                     "auc_interval": {
                         "estimate": 0.6703, "ci_low": 0.6512, "ci_high": 0.6894,
                         "replicates": 200, "clustered_by_learner": True,
@@ -292,6 +293,7 @@ def h2_metrics() -> dict:
                         "first_3": {"auc": None},
                         "first_5": {"auc": 0.6902},
                     },
+                    "cold_rows": 200,
                     "auc_interval": {
                         "estimate": 0.7312, "ci_low": 0.7101, "ci_high": 0.7503,
                         "replicates": 200, "clustered_by_learner": True,

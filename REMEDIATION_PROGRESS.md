@@ -32,7 +32,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8a — Rozilik va eksport (D42–D45) | **Bajarildi** | `dc3c35c` | `3345a52` |
 | 8b — Eksperimentlar quvuri (ochiq ma’lumotlar birinchi) | Qisman | — | — |
 | 8b-1 — Yuklovchilar (D49–D51) va graf tahlili (D52) | **Bajarildi** | `c1a683b` | — |
-| 8b-2 — H2: ASSISTments 2009 (D53) | Kutilmoqda | — | — |
+| 8b-2 — H2: ASSISTments 2009 (D53) | **Bajarildi** | `7ff7ae2` | — |
 | 8b-3 — H1/H3 kodi, DBE yuklovchisi, nazoratlar, annotatsiya | Kutilmoqda | — | — |
 | 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |

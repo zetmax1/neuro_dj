@@ -182,12 +182,29 @@ def pool(fold_outputs: list[tuple[dict, list[int], list[str]]]) -> tuple[dict, l
     return pooled, labels, learners
 
 
-def analyse_pooled(pooled: dict, labels: list[int], learners: list[str], *, replicates: int, seed: int) -> dict:
-    """Intervals per model, pairwise DeLong tests, Holm over the family."""
+def analyse_pooled(
+    pooled: dict,
+    labels: list[int],
+    learners: list[str],
+    *,
+    replicates: int,
+    seed: int,
+    cold_rows: dict[str, int] | None = None,
+) -> dict:
+    """
+    Intervals per model, pairwise DeLong tests, Holm over the family.
+
+    ``cold_rows`` carries how many answers each model could not predict from
+    history and scored with the base rate. It matters most in the first-k
+    columns: a sequence model has one such answer per learner, so with k = 3
+    a third of that column is a constant and the early AUC reads lower than
+    the model deserves. Recorded so the column is read correctly.
+    """
     from experiments import stats
 
     out: dict = {
         "models": {},
+        "cold_rows": dict(cold_rows or {}),
         "comparisons": [],
         "replicates": replicates,
         # In the metrics so the table can print it without writing a literal (D48).
@@ -201,6 +218,7 @@ def analyse_pooled(pooled: dict, labels: list[int], learners: list[str], *, repl
         out["models"][name] = {
             "scores": measured,
             "auc_interval": interval.payload(),
+            "cold_rows": (cold_rows or {}).get(name, 0),
         }
 
     names = list(pooled)
@@ -266,8 +284,14 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
 
     pooled, labels, pooled_learners = pool(fold_outputs)
     print(f"  pooled {len(labels)} answers from {len(set(pooled_learners))} learners")
+    cold = {}
+    for report in fold_reports:
+        for name, entry in report["models"].items():
+            if "cold_rows" in entry:
+                cold[name] = cold.get(name, 0) + entry["cold_rows"]
     analysis = analyse_pooled(
-        pooled, labels, pooled_learners, replicates=args.replicates, seed=args.seed,
+        pooled, labels, pooled_learners,
+        replicates=args.replicates, seed=args.seed, cold_rows=cold,
     )
     warning = sanity(analysis["models"])
     if warning.get("warning"):
