@@ -1,0 +1,2958 @@
+{
+  "report": "h2",
+  "spec": "D53",
+  "quick": true,
+  "thesis_result": false,
+  "provenance": {
+    "command": "python -m experiments.h2 --quick",
+    "code_commit": "005f30d",
+    "code_dirty": true,
+    "created_at": "2026-10-06T11:29:22.622871+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+    "seeds": {
+      "split": 20261006,
+      "models": 20261006,
+      "bootstrap": 20261006
+    },
+    "sources": [
+      {
+        "name": "assistments2009",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/assistments2009/as.csv",
+        "sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+        "bytes": 83201940
+      }
+    ],
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.3.3",
+      "scipy": "1.14.1",
+      "sklearn": "1.6.1",
+      "torch": "2.5.1+cpu",
+      "pyBKT": "1.4.3",
+      "pykt": "0.0.38"
+    },
+    "env": {},
+    "git_start": {
+      "commit": "005f30d",
+      "dirty": true,
+      "changes": [
+        "?? NEUROLEARN_NEXT.md"
+      ],
+      "at": "2026-10-06T11:07:48.963766+00:00"
+    },
+    "git_end": {
+      "commit": "005f30d",
+      "dirty": true,
+      "changes": [
+        " M VERIFICATION_REPORT.md",
+        " M verification/README.md",
+        " M verification/tests/test_b4_bypass.py",
+        " M verification/tests/test_b6_version.py",
+        " M verification/tests/test_na.py",
+        "?? NEUROLEARN_NEXT.md",
+        "?? verification/neural/",
+        "?? verification/tests/test_e_consent_export.py",
+        "?? verification/tests/test_e_experiments.py"
+      ],
+      "at": "2026-10-06T11:29:22.622742+00:00"
+    },
+    "tree_changed": true,
+    "tree_warnings": [
+      "ishchi daraxt ishga tushirish boshida toza emas edi",
+      "ishchi daraxt ishga tushirish davomida o‘zgargan (boshi va oxiri farq qiladi)"
+    ]
+  },
+  "dataset": {
+    "name": "assistments2009",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/assistments2009/as.csv",
+    "sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+    "known_sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+    "sha256_matches_known": true,
+    "original_only": false,
+    "encoding": "latin-1",
+    "cleaning_rules": [
+      "drop rows with an empty skill_id",
+      "de-duplicate on (order_id, skill_id), keeping the first occurrence",
+      "order by user_id, then order_id",
+      "original is a flag (--original-only), off by default"
+    ],
+    "raw": {
+      "rows": 525534,
+      "students": 4217,
+      "skills": 123,
+      "blank_skill_id": 66326
+    },
+    "problems": 17751,
+    "cleaned": {
+      "rows": 338001,
+      "students": 4163,
+      "skills": 123,
+      "multi_skill_orders": 47037
+    },
+    "original_only_counts": {
+      "rows": 312232,
+      "students": 4163
+    },
+    "dropped": {
+      "blank_skill_id": 66326,
+      "duplicate_order_skill": 121207
+    },
+    "status": "ok",
+    "label": "ASSISTments 2009–2010 skill builder",
+    "source": {
+      "name": "assistments2009",
+      "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/assistments2009/as.csv",
+      "sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+      "bytes": 83201940
+    },
+    "learners_used": 500,
+    "answers_used": 53652
+  },
+  "split": {
+    "scheme": "k-fold by learner, with a validation split of each training fold",
+    "folds": 5,
+    "seed": 20261006,
+    "validation_fraction": 0.2,
+    "learners": 500,
+    "per_fold": [
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 0
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 1
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 2
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 3
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 4
+      }
+    ]
+  },
+  "epochs": 3,
+  "folds": [
+    {
+      "index": 0,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "test_answers": 10918
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 2160,
+        "skills_fitted": 81,
+        "skills_kept_defaults": 27,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "grid_check": {
+          "skills": 81,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9
+              ],
+              "lowest": 0.05,
+              "highest": 0.9,
+              "at_lowest": 6,
+              "at_highest": 11,
+              "share_at_highest": 0.1358,
+              "distribution": {
+                "0.05": 6,
+                "0.1": 3,
+                "0.2": 7,
+                "0.3": 11,
+                "0.4": 14,
+                "0.5": 5,
+                "0.6": 7,
+                "0.7": 11,
+                "0.8": 6,
+                "0.9": 11
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4
+              ],
+              "lowest": 0.05,
+              "highest": 0.4,
+              "at_lowest": 14,
+              "at_highest": 26,
+              "share_at_highest": 0.321,
+              "distribution": {
+                "0.05": 14,
+                "0.1": 7,
+                "0.15": 11,
+                "0.2": 11,
+                "0.3": 12,
+                "0.4": 26
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 3,
+              "at_highest": 65,
+              "share_at_highest": 0.8025,
+              "distribution": {
+                "0.05": 3,
+                "0.1": 4,
+                "0.15": 2,
+                "0.2": 1,
+                "0.25": 6,
+                "0.29": 65
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 2,
+              "at_highest": 72,
+              "share_at_highest": 0.8889,
+              "distribution": {
+                "0.01": 2,
+                "0.03": 1,
+                "0.05": 2,
+                "0.09": 4,
+                "0.097": 72
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        }
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10277
+          },
+          "scores": {
+            "all": {
+              "auc": 0.727122,
+              "rmse": 0.434205,
+              "accuracy": 0.734842,
+              "n": 10918,
+              "positives": 7407
+            },
+            "first_3": {
+              "auc": 0.685852,
+              "rmse": 0.449345,
+              "accuracy": 0.716216,
+              "n": 296,
+              "positives": 199
+            },
+            "first_5": {
+              "auc": 0.725025,
+              "rmse": 0.437436,
+              "accuracy": 0.722793,
+              "n": 487,
+              "positives": 328
+            }
+          },
+          "seconds": 0.4
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10277
+          },
+          "scores": {
+            "all": {
+              "auc": 0.741722,
+              "rmse": 0.431843,
+              "accuracy": 0.73704,
+              "n": 10918,
+              "positives": 7407
+            },
+            "first_3": {
+              "auc": 0.703103,
+              "rmse": 0.446914,
+              "accuracy": 0.712838,
+              "n": 296,
+              "positives": 199
+            },
+            "first_5": {
+              "auc": 0.73815,
+              "rmse": 0.434494,
+              "accuracy": 0.720739,
+              "n": 487,
+              "positives": 328
+            }
+          },
+          "seconds": 0.5
+        },
+        "BKT+IRT+Pre": {
+          "status": "unavailable",
+          "reason": "prerekvizit grafi yo‘q — ASSISTments 2009 uchun E_P mavjud emas (D53)"
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 42734,
+            "items_warmed": 10277,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.749766,
+              "rmse": 0.421346,
+              "accuracy": 0.739788,
+              "n": 10918,
+              "positives": 7407
+            },
+            "first_3": {
+              "auc": 0.775009,
+              "rmse": 0.42613,
+              "accuracy": 0.739865,
+              "n": 296,
+              "positives": 199
+            },
+            "first_5": {
+              "auc": 0.793661,
+              "rmse": 0.417219,
+              "accuracy": 0.75154,
+              "n": 487,
+              "positives": 328
+            }
+          },
+          "seconds": 0.1
+        },
+        "PFA": {
+          "status": "ok",
+          "fit": {
+            "features": "per-KC intercept, successes, failures (one-hot × 3)",
+            "skills": 108,
+            "columns": 324,
+            "nonzeros_per_row": 3,
+            "representation": "scipy.sparse CSR",
+            "max_iter": 1000,
+            "seed": 20261006,
+            "converged": true
+          },
+          "scores": {
+            "all": {
+              "auc": 0.731826,
+              "rmse": 0.426554,
+              "accuracy": 0.7353,
+              "n": 10918,
+              "positives": 7407
+            },
+            "first_3": {
+              "auc": 0.712532,
+              "rmse": 0.445076,
+              "accuracy": 0.699324,
+              "n": 296,
+              "positives": 199
+            },
+            "first_5": {
+              "auc": 0.715658,
+              "rmse": 0.443362,
+              "accuracy": 0.700205,
+              "n": 487,
+              "positives": 328
+            }
+          },
+          "seconds": 1.3
+        },
+        "DKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.dkt",
+            "concepts": 107,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261006,
+            "base_rate": 0.713758,
+            "best_validation_auc": 0.693758,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.673991,
+                "validation_auc": 0.627621
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.629111,
+                "validation_auc": 0.672149
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.598121,
+                "validation_auc": 0.693758
+              }
+            ],
+            "model_kwargs": {
+              "emb_size": 100,
+              "dropout": 0.1
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.720724,
+              "rmse": 0.448519,
+              "accuracy": 0.735941,
+              "n": 10918,
+              "positives": 7407
+            },
+            "first_3": {
+              "auc": 0.57232,
+              "rmse": 0.47322,
+              "accuracy": 0.699324,
+              "n": 296,
+              "positives": 199
+            },
+            "first_5": {
+              "auc": 0.651682,
+              "rmse": 0.462175,
+              "accuracy": 0.708419,
+              "n": 487,
+              "positives": 328
+            }
+          },
+          "seconds": 3.0,
+          "cold_rows": 123
+        },
+        "AKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.akt",
+            "concepts": 107,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261006,
+            "base_rate": 0.713758,
+            "best_validation_auc": 0.688759,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.650379,
+                "validation_auc": 0.575749
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.590304,
+                "validation_auc": 0.665657
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.568133,
+                "validation_auc": 0.688759
+              }
+            ],
+            "model_kwargs": {
+              "d_model": 64,
+              "n_blocks": 2,
+              "dropout": 0.1,
+              "d_ff": 128,
+              "num_attn_heads": 4,
+              "final_fc_dim": 64
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.738005,
+              "rmse": 0.441226,
+              "accuracy": 0.678421,
+              "n": 10918,
+              "positives": 7407
+            },
+            "first_3": {
+              "auc": 0.653862,
+              "rmse": 0.45511,
+              "accuracy": 0.672297,
+              "n": 296,
+              "positives": 199
+            },
+            "first_5": {
+              "auc": 0.714038,
+              "rmse": 0.44359,
+              "accuracy": 0.673511,
+              "n": 487,
+              "positives": 328
+            }
+          },
+          "seconds": 28.7,
+          "cold_rows": 123
+        }
+      }
+    },
+    {
+      "index": 1,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "test_answers": 8064
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 2160,
+        "skills_fitted": 87,
+        "skills_kept_defaults": 28,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "grid_check": {
+          "skills": 87,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9
+              ],
+              "lowest": 0.05,
+              "highest": 0.9,
+              "at_lowest": 9,
+              "at_highest": 12,
+              "share_at_highest": 0.1379,
+              "distribution": {
+                "0.05": 9,
+                "0.1": 3,
+                "0.2": 6,
+                "0.3": 12,
+                "0.4": 11,
+                "0.5": 11,
+                "0.6": 7,
+                "0.7": 8,
+                "0.8": 8,
+                "0.9": 12
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4
+              ],
+              "lowest": 0.05,
+              "highest": 0.4,
+              "at_lowest": 17,
+              "at_highest": 27,
+              "share_at_highest": 0.3103,
+              "distribution": {
+                "0.05": 17,
+                "0.1": 14,
+                "0.15": 8,
+                "0.2": 10,
+                "0.3": 11,
+                "0.4": 27
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 8,
+              "at_highest": 70,
+              "share_at_highest": 0.8046,
+              "distribution": {
+                "0.05": 8,
+                "0.15": 1,
+                "0.2": 7,
+                "0.25": 1,
+                "0.29": 70
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 1,
+              "at_highest": 74,
+              "share_at_highest": 0.8506,
+              "distribution": {
+                "0.01": 1,
+                "0.03": 3,
+                "0.05": 1,
+                "0.07": 4,
+                "0.09": 4,
+                "0.097": 74
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        }
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10740
+          },
+          "scores": {
+            "all": {
+              "auc": 0.717331,
+              "rmse": 0.433451,
+              "accuracy": 0.728671,
+              "n": 8064,
+              "positives": 5542
+            },
+            "first_3": {
+              "auc": 0.66226,
+              "rmse": 0.453974,
+              "accuracy": 0.690722,
+              "n": 291,
+              "positives": 195
+            },
+            "first_5": {
+              "auc": 0.674587,
+              "rmse": 0.448426,
+              "accuracy": 0.701053,
+              "n": 475,
+              "positives": 324
+            }
+          },
+          "seconds": 0.4
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10740
+          },
+          "scores": {
+            "all": {
+              "auc": 0.732773,
+              "rmse": 0.431451,
+              "accuracy": 0.730779,
+              "n": 8064,
+              "positives": 5542
+            },
+            "first_3": {
+              "auc": 0.667308,
+              "rmse": 0.452226,
+              "accuracy": 0.690722,
+              "n": 291,
+              "positives": 195
+            },
+            "first_5": {
+              "auc": 0.680729,
+              "rmse": 0.446676,
+              "accuracy": 0.698947,
+              "n": 475,
+              "positives": 324
+            }
+          },
+          "seconds": 0.5
+        },
+        "BKT+IRT+Pre": {
+          "status": "unavailable",
+          "reason": "prerekvizit grafi yo‘q — ASSISTments 2009 uchun E_P mavjud emas (D53)"
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 45588,
+            "items_warmed": 10740,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.741265,
+              "rmse": 0.425176,
+              "accuracy": 0.735491,
+              "n": 8064,
+              "positives": 5542
+            },
+            "first_3": {
+              "auc": 0.63985,
+              "rmse": 0.465034,
+              "accuracy": 0.656357,
+              "n": 291,
+              "positives": 195
+            },
+            "first_5": {
+              "auc": 0.669017,
+              "rmse": 0.452532,
+              "accuracy": 0.68,
+              "n": 475,
+              "positives": 324
+            }
+          },
+          "seconds": 0.1
+        },
+        "PFA": {
+          "status": "ok",
+          "fit": {
+            "features": "per-KC intercept, successes, failures (one-hot × 3)",
+            "skills": 115,
+            "columns": 345,
+            "nonzeros_per_row": 3,
+            "representation": "scipy.sparse CSR",
+            "max_iter": 1000,
+            "seed": 20261007,
+            "converged": true
+          },
+          "scores": {
+            "all": {
+              "auc": 0.711511,
+              "rmse": 0.43531,
+              "accuracy": 0.72371,
+              "n": 8064,
+              "positives": 5542
+            },
+            "first_3": {
+              "auc": 0.645646,
+              "rmse": 0.456014,
+              "accuracy": 0.690722,
+              "n": 291,
+              "positives": 195
+            },
+            "first_5": {
+              "auc": 0.672778,
+              "rmse": 0.448611,
+              "accuracy": 0.698947,
+              "n": 475,
+              "positives": 324
+            }
+          },
+          "seconds": 0.8
+        },
+        "DKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.dkt",
+            "concepts": 108,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261007,
+            "base_rate": 0.720584,
+            "best_validation_auc": 0.722467,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.680328,
+                "validation_auc": 0.665619
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.635173,
+                "validation_auc": 0.704277
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.602788,
+                "validation_auc": 0.722467
+              }
+            ],
+            "model_kwargs": {
+              "emb_size": 100,
+              "dropout": 0.1
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.682607,
+              "rmse": 0.453109,
+              "accuracy": 0.717634,
+              "n": 8064,
+              "positives": 5542
+            },
+            "first_3": {
+              "auc": 0.584428,
+              "rmse": 0.470476,
+              "accuracy": 0.690722,
+              "n": 291,
+              "positives": 195
+            },
+            "first_5": {
+              "auc": 0.603783,
+              "rmse": 0.465858,
+              "accuracy": 0.703158,
+              "n": 475,
+              "positives": 324
+            }
+          },
+          "seconds": 1.0,
+          "cold_rows": 118
+        },
+        "AKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.akt",
+            "concepts": 108,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261007,
+            "base_rate": 0.720584,
+            "best_validation_auc": 0.735135,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.636941,
+                "validation_auc": 0.647749
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.578409,
+                "validation_auc": 0.717955
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.550933,
+                "validation_auc": 0.735135
+              }
+            ],
+            "model_kwargs": {
+              "d_model": 64,
+              "n_blocks": 2,
+              "dropout": 0.1,
+              "d_ff": 128,
+              "num_attn_heads": 4,
+              "final_fc_dim": 64
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.723639,
+              "rmse": 0.438846,
+              "accuracy": 0.687252,
+              "n": 8064,
+              "positives": 5542
+            },
+            "first_3": {
+              "auc": 0.664503,
+              "rmse": 0.45859,
+              "accuracy": 0.670103,
+              "n": 291,
+              "positives": 195
+            },
+            "first_5": {
+              "auc": 0.692329,
+              "rmse": 0.448829,
+              "accuracy": 0.682105,
+              "n": 475,
+              "positives": 324
+            }
+          },
+          "seconds": 29.7,
+          "cold_rows": 118
+        }
+      }
+    },
+    {
+      "index": 2,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "test_answers": 10654
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 2160,
+        "skills_fitted": 83,
+        "skills_kept_defaults": 32,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "grid_check": {
+          "skills": 83,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9
+              ],
+              "lowest": 0.05,
+              "highest": 0.9,
+              "at_lowest": 7,
+              "at_highest": 12,
+              "share_at_highest": 0.1446,
+              "distribution": {
+                "0.05": 7,
+                "0.1": 5,
+                "0.2": 7,
+                "0.3": 8,
+                "0.4": 12,
+                "0.5": 9,
+                "0.6": 8,
+                "0.7": 9,
+                "0.8": 6,
+                "0.9": 12
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4
+              ],
+              "lowest": 0.05,
+              "highest": 0.4,
+              "at_lowest": 17,
+              "at_highest": 28,
+              "share_at_highest": 0.3373,
+              "distribution": {
+                "0.05": 17,
+                "0.1": 11,
+                "0.15": 12,
+                "0.2": 9,
+                "0.3": 6,
+                "0.4": 28
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 3,
+              "at_highest": 65,
+              "share_at_highest": 0.7831,
+              "distribution": {
+                "0.05": 3,
+                "0.1": 2,
+                "0.15": 2,
+                "0.2": 4,
+                "0.25": 7,
+                "0.29": 65
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 1,
+              "at_highest": 73,
+              "share_at_highest": 0.8795,
+              "distribution": {
+                "0.01": 1,
+                "0.05": 3,
+                "0.07": 2,
+                "0.09": 4,
+                "0.097": 73
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        }
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10388
+          },
+          "scores": {
+            "all": {
+              "auc": 0.667479,
+              "rmse": 0.426657,
+              "accuracy": 0.741412,
+              "n": 10654,
+              "positives": 7920
+            },
+            "first_3": {
+              "auc": 0.654195,
+              "rmse": 0.474727,
+              "accuracy": 0.636054,
+              "n": 294,
+              "positives": 189
+            },
+            "first_5": {
+              "auc": 0.670888,
+              "rmse": 0.454893,
+              "accuracy": 0.670082,
+              "n": 488,
+              "positives": 338
+            }
+          },
+          "seconds": 0.4
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10388
+          },
+          "scores": {
+            "all": {
+              "auc": 0.687787,
+              "rmse": 0.425388,
+              "accuracy": 0.74113,
+              "n": 10654,
+              "positives": 7920
+            },
+            "first_3": {
+              "auc": 0.668733,
+              "rmse": 0.472381,
+              "accuracy": 0.639456,
+              "n": 294,
+              "positives": 189
+            },
+            "first_5": {
+              "auc": 0.683264,
+              "rmse": 0.452421,
+              "accuracy": 0.67418,
+              "n": 488,
+              "positives": 338
+            }
+          },
+          "seconds": 0.5
+        },
+        "BKT+IRT+Pre": {
+          "status": "unavailable",
+          "reason": "prerekvizit grafi yo‘q — ASSISTments 2009 uchun E_P mavjud emas (D53)"
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 42998,
+            "items_warmed": 10388,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.706198,
+              "rmse": 0.414275,
+              "accuracy": 0.751643,
+              "n": 10654,
+              "positives": 7920
+            },
+            "first_3": {
+              "auc": 0.726178,
+              "rmse": 0.446288,
+              "accuracy": 0.697279,
+              "n": 294,
+              "positives": 189
+            },
+            "first_5": {
+              "auc": 0.754862,
+              "rmse": 0.427883,
+              "accuracy": 0.735656,
+              "n": 488,
+              "positives": 338
+            }
+          },
+          "seconds": 0.1
+        },
+        "PFA": {
+          "status": "ok",
+          "fit": {
+            "features": "per-KC intercept, successes, failures (one-hot × 3)",
+            "skills": 115,
+            "columns": 345,
+            "nonzeros_per_row": 3,
+            "representation": "scipy.sparse CSR",
+            "max_iter": 1000,
+            "seed": 20261008,
+            "converged": true
+          },
+          "scores": {
+            "all": {
+              "auc": 0.667065,
+              "rmse": 0.421658,
+              "accuracy": 0.748545,
+              "n": 10654,
+              "positives": 7920
+            },
+            "first_3": {
+              "auc": 0.667624,
+              "rmse": 0.472602,
+              "accuracy": 0.636054,
+              "n": 294,
+              "positives": 189
+            },
+            "first_5": {
+              "auc": 0.678698,
+              "rmse": 0.445917,
+              "accuracy": 0.694672,
+              "n": 488,
+              "positives": 338
+            }
+          },
+          "seconds": 0.9
+        },
+        "DKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.dkt",
+            "concepts": 113,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261008,
+            "base_rate": 0.701675,
+            "best_validation_auc": 0.690378,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.679314,
+                "validation_auc": 0.646189
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.635195,
+                "validation_auc": 0.673818
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.603974,
+                "validation_auc": 0.690378
+              }
+            ],
+            "model_kwargs": {
+              "emb_size": 100,
+              "dropout": 0.1
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.662781,
+              "rmse": 0.445388,
+              "accuracy": 0.748639,
+              "n": 10654,
+              "positives": 7920
+            },
+            "first_3": {
+              "auc": 0.576594,
+              "rmse": 0.478922,
+              "accuracy": 0.670068,
+              "n": 294,
+              "positives": 189
+            },
+            "first_5": {
+              "auc": 0.606578,
+              "rmse": 0.468019,
+              "accuracy": 0.692623,
+              "n": 488,
+              "positives": 338
+            }
+          },
+          "seconds": 1.0,
+          "cold_rows": 123
+        },
+        "AKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.akt",
+            "concepts": 113,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261008,
+            "base_rate": 0.701675,
+            "best_validation_auc": 0.693254,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.659552,
+                "validation_auc": 0.610799
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.600413,
+                "validation_auc": 0.674239
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.57217,
+                "validation_auc": 0.693254
+              }
+            ],
+            "model_kwargs": {
+              "d_model": 64,
+              "n_blocks": 2,
+              "dropout": 0.1,
+              "d_ff": 128,
+              "num_attn_heads": 4,
+              "final_fc_dim": 64
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.673177,
+              "rmse": 0.423231,
+              "accuracy": 0.743383,
+              "n": 10654,
+              "positives": 7920
+            },
+            "first_3": {
+              "auc": 0.700403,
+              "rmse": 0.460053,
+              "accuracy": 0.642857,
+              "n": 294,
+              "positives": 189
+            },
+            "first_5": {
+              "auc": 0.706992,
+              "rmse": 0.437845,
+              "accuracy": 0.692623,
+              "n": 488,
+              "positives": 338
+            }
+          },
+          "seconds": 32.2,
+          "cold_rows": 123
+        }
+      }
+    },
+    {
+      "index": 3,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "test_answers": 11371
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 2160,
+        "skills_fitted": 85,
+        "skills_kept_defaults": 30,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "grid_check": {
+          "skills": 85,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9
+              ],
+              "lowest": 0.05,
+              "highest": 0.9,
+              "at_lowest": 9,
+              "at_highest": 12,
+              "share_at_highest": 0.1412,
+              "distribution": {
+                "0.05": 9,
+                "0.2": 8,
+                "0.3": 12,
+                "0.4": 10,
+                "0.5": 8,
+                "0.6": 8,
+                "0.7": 12,
+                "0.8": 6,
+                "0.9": 12
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4
+              ],
+              "lowest": 0.05,
+              "highest": 0.4,
+              "at_lowest": 17,
+              "at_highest": 27,
+              "share_at_highest": 0.3176,
+              "distribution": {
+                "0.05": 17,
+                "0.1": 8,
+                "0.15": 13,
+                "0.2": 9,
+                "0.3": 11,
+                "0.4": 27
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 5,
+              "at_highest": 65,
+              "share_at_highest": 0.7647,
+              "distribution": {
+                "0.05": 5,
+                "0.1": 3,
+                "0.15": 2,
+                "0.2": 6,
+                "0.25": 4,
+                "0.29": 65
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 1,
+              "at_highest": 73,
+              "share_at_highest": 0.8588,
+              "distribution": {
+                "0.01": 1,
+                "0.05": 2,
+                "0.07": 4,
+                "0.09": 5,
+                "0.097": 73
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        }
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10328
+          },
+          "scores": {
+            "all": {
+              "auc": 0.682459,
+              "rmse": 0.434395,
+              "accuracy": 0.733269,
+              "n": 11371,
+              "positives": 8126
+            },
+            "first_3": {
+              "auc": 0.669479,
+              "rmse": 0.450018,
+              "accuracy": 0.695652,
+              "n": 299,
+              "positives": 204
+            },
+            "first_5": {
+              "auc": 0.677965,
+              "rmse": 0.440747,
+              "accuracy": 0.698152,
+              "n": 487,
+              "positives": 345
+            }
+          },
+          "seconds": 0.3
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10328
+          },
+          "scores": {
+            "all": {
+              "auc": 0.703079,
+              "rmse": 0.432809,
+              "accuracy": 0.732829,
+              "n": 11371,
+              "positives": 8126
+            },
+            "first_3": {
+              "auc": 0.68563,
+              "rmse": 0.447305,
+              "accuracy": 0.692308,
+              "n": 299,
+              "positives": 204
+            },
+            "first_5": {
+              "auc": 0.691376,
+              "rmse": 0.436883,
+              "accuracy": 0.698152,
+              "n": 487,
+              "positives": 345
+            }
+          },
+          "seconds": 0.4
+        },
+        "BKT+IRT+Pre": {
+          "status": "unavailable",
+          "reason": "prerekvizit grafi yo‘q — ASSISTments 2009 uchun E_P mavjud emas (D53)"
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 42281,
+            "items_warmed": 10328,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.725563,
+              "rmse": 0.41996,
+              "accuracy": 0.742503,
+              "n": 11371,
+              "positives": 8126
+            },
+            "first_3": {
+              "auc": 0.727296,
+              "rmse": 0.444145,
+              "accuracy": 0.719064,
+              "n": 299,
+              "positives": 204
+            },
+            "first_5": {
+              "auc": 0.752582,
+              "rmse": 0.425869,
+              "accuracy": 0.74538,
+              "n": 487,
+              "positives": 345
+            }
+          },
+          "seconds": 0.1
+        },
+        "PFA": {
+          "status": "ok",
+          "fit": {
+            "features": "per-KC intercept, successes, failures (one-hot × 3)",
+            "skills": 115,
+            "columns": 345,
+            "nonzeros_per_row": 3,
+            "representation": "scipy.sparse CSR",
+            "max_iter": 1000,
+            "seed": 20261009,
+            "converged": true
+          },
+          "scores": {
+            "all": {
+              "auc": 0.690966,
+              "rmse": 0.430037,
+              "accuracy": 0.730103,
+              "n": 11371,
+              "positives": 8126
+            },
+            "first_3": {
+              "auc": 0.662126,
+              "rmse": 0.448537,
+              "accuracy": 0.698997,
+              "n": 299,
+              "positives": 204
+            },
+            "first_5": {
+              "auc": 0.671453,
+              "rmse": 0.435068,
+              "accuracy": 0.726899,
+              "n": 487,
+              "positives": 345
+            }
+          },
+          "seconds": 0.6
+        },
+        "DKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.dkt",
+            "concepts": 111,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261009,
+            "base_rate": 0.713118,
+            "best_validation_auc": 0.700703,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.674079,
+                "validation_auc": 0.647489
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.630678,
+                "validation_auc": 0.680744
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.599281,
+                "validation_auc": 0.700703
+              }
+            ],
+            "model_kwargs": {
+              "emb_size": 100,
+              "dropout": 0.1
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.696097,
+              "rmse": 0.44206,
+              "accuracy": 0.735116,
+              "n": 11371,
+              "positives": 8126
+            },
+            "first_3": {
+              "auc": 0.488261,
+              "rmse": 0.483451,
+              "accuracy": 0.648829,
+              "n": 299,
+              "positives": 204
+            },
+            "first_5": {
+              "auc": 0.576934,
+              "rmse": 0.463058,
+              "accuracy": 0.694045,
+              "n": 487,
+              "positives": 345
+            }
+          },
+          "seconds": 1.1,
+          "cold_rows": 131
+        },
+        "AKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.akt",
+            "concepts": 111,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261009,
+            "base_rate": 0.713118,
+            "best_validation_auc": 0.713815,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.630752,
+                "validation_auc": 0.663494
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.575283,
+                "validation_auc": 0.698506
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.549115,
+                "validation_auc": 0.713815
+              }
+            ],
+            "model_kwargs": {
+              "d_model": 64,
+              "n_blocks": 2,
+              "dropout": 0.1,
+              "d_ff": 128,
+              "num_attn_heads": 4,
+              "final_fc_dim": 64
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.700257,
+              "rmse": 0.431703,
+              "accuracy": 0.730191,
+              "n": 11371,
+              "positives": 8126
+            },
+            "first_3": {
+              "auc": 0.69791,
+              "rmse": 0.442704,
+              "accuracy": 0.668896,
+              "n": 299,
+              "positives": 204
+            },
+            "first_5": {
+              "auc": 0.711308,
+              "rmse": 0.429342,
+              "accuracy": 0.714579,
+              "n": 487,
+              "positives": 345
+            }
+          },
+          "seconds": 28.4,
+          "cold_rows": 131
+        }
+      }
+    },
+    {
+      "index": 4,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "test_answers": 12645
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 2160,
+        "skills_fitted": 84,
+        "skills_kept_defaults": 27,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "grid_check": {
+          "skills": 84,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9
+              ],
+              "lowest": 0.05,
+              "highest": 0.9,
+              "at_lowest": 6,
+              "at_highest": 11,
+              "share_at_highest": 0.131,
+              "distribution": {
+                "0.05": 6,
+                "0.1": 3,
+                "0.2": 3,
+                "0.3": 16,
+                "0.4": 11,
+                "0.5": 11,
+                "0.6": 10,
+                "0.7": 7,
+                "0.8": 6,
+                "0.9": 11
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4
+              ],
+              "lowest": 0.05,
+              "highest": 0.4,
+              "at_lowest": 19,
+              "at_highest": 22,
+              "share_at_highest": 0.2619,
+              "distribution": {
+                "0.05": 19,
+                "0.1": 8,
+                "0.15": 14,
+                "0.2": 10,
+                "0.3": 11,
+                "0.4": 22
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 4,
+              "at_highest": 67,
+              "share_at_highest": 0.7976,
+              "distribution": {
+                "0.05": 4,
+                "0.1": 1,
+                "0.15": 5,
+                "0.2": 5,
+                "0.25": 2,
+                "0.29": 67
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 2,
+              "at_highest": 71,
+              "share_at_highest": 0.8452,
+              "distribution": {
+                "0.01": 2,
+                "0.03": 1,
+                "0.05": 4,
+                "0.07": 1,
+                "0.09": 5,
+                "0.097": 71
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        }
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10190
+          },
+          "scores": {
+            "all": {
+              "auc": 0.687457,
+              "rmse": 0.429824,
+              "accuracy": 0.738316,
+              "n": 12645,
+              "positives": 9133
+            },
+            "first_3": {
+              "auc": 0.712982,
+              "rmse": 0.447667,
+              "accuracy": 0.704082,
+              "n": 294,
+              "positives": 191
+            },
+            "first_5": {
+              "auc": 0.742488,
+              "rmse": 0.430688,
+              "accuracy": 0.722222,
+              "n": 486,
+              "positives": 333
+            }
+          },
+          "seconds": 0.4
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10190
+          },
+          "scores": {
+            "all": {
+              "auc": 0.704793,
+              "rmse": 0.428386,
+              "accuracy": 0.73879,
+              "n": 12645,
+              "positives": 9133
+            },
+            "first_3": {
+              "auc": 0.722056,
+              "rmse": 0.445776,
+              "accuracy": 0.707483,
+              "n": 294,
+              "positives": 191
+            },
+            "first_5": {
+              "auc": 0.75024,
+              "rmse": 0.427805,
+              "accuracy": 0.728395,
+              "n": 486,
+              "positives": 333
+            }
+          },
+          "seconds": 0.5
+        },
+        "BKT+IRT+Pre": {
+          "status": "unavailable",
+          "reason": "prerekvizit grafi yo‘q — ASSISTments 2009 uchun E_P mavjud emas (D53)"
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 41007,
+            "items_warmed": 10190,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.717032,
+              "rmse": 0.417646,
+              "accuracy": 0.751601,
+              "n": 12645,
+              "positives": 9133
+            },
+            "first_3": {
+              "auc": 0.752758,
+              "rmse": 0.43898,
+              "accuracy": 0.710884,
+              "n": 294,
+              "positives": 191
+            },
+            "first_5": {
+              "auc": 0.776109,
+              "rmse": 0.424144,
+              "accuracy": 0.73251,
+              "n": 486,
+              "positives": 333
+            }
+          },
+          "seconds": 0.2
+        },
+        "PFA": {
+          "status": "ok",
+          "fit": {
+            "features": "per-KC intercept, successes, failures (one-hot × 3)",
+            "skills": 111,
+            "columns": 333,
+            "nonzeros_per_row": 3,
+            "representation": "scipy.sparse CSR",
+            "max_iter": 1000,
+            "seed": 20261010,
+            "converged": true
+          },
+          "scores": {
+            "all": {
+              "auc": 0.691747,
+              "rmse": 0.42447,
+              "accuracy": 0.744326,
+              "n": 12645,
+              "positives": 9133
+            },
+            "first_3": {
+              "auc": 0.695801,
+              "rmse": 0.459279,
+              "accuracy": 0.656463,
+              "n": 294,
+              "positives": 191
+            },
+            "first_5": {
+              "auc": 0.724273,
+              "rmse": 0.438404,
+              "accuracy": 0.687243,
+              "n": 486,
+              "positives": 333
+            }
+          },
+          "seconds": 0.6
+        },
+        "DKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.dkt",
+            "concepts": 109,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261010,
+            "base_rate": 0.705429,
+            "best_validation_auc": 0.678064,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.678355,
+                "validation_auc": 0.650704
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.632366,
+                "validation_auc": 0.664966
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.601406,
+                "validation_auc": 0.678064
+              }
+            ],
+            "model_kwargs": {
+              "emb_size": 100,
+              "dropout": 0.1
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.701524,
+              "rmse": 0.444213,
+              "accuracy": 0.748359,
+              "n": 12645,
+              "positives": 9133
+            },
+            "first_3": {
+              "auc": 0.578305,
+              "rmse": 0.475304,
+              "accuracy": 0.704082,
+              "n": 294,
+              "positives": 191
+            },
+            "first_5": {
+              "auc": 0.653683,
+              "rmse": 0.459472,
+              "accuracy": 0.72428,
+              "n": 486,
+              "positives": 333
+            }
+          },
+          "seconds": 1.3,
+          "cold_rows": 133
+        },
+        "AKT": {
+          "status": "ok",
+          "fit": {
+            "architecture": "pykt.models.akt",
+            "concepts": 109,
+            "max_len": 200,
+            "batch_size": 64,
+            "epochs_run": 3,
+            "epochs_max": 3,
+            "patience": 2,
+            "learning_rate": 0.001,
+            "seed": 20261010,
+            "base_rate": 0.705429,
+            "best_validation_auc": 0.669985,
+            "history": [
+              {
+                "epoch": 1,
+                "train_loss": 0.649819,
+                "validation_auc": 0.574603
+              },
+              {
+                "epoch": 2,
+                "train_loss": 0.603138,
+                "validation_auc": 0.648088
+              },
+              {
+                "epoch": 3,
+                "train_loss": 0.573165,
+                "validation_auc": 0.669985
+              }
+            ],
+            "model_kwargs": {
+              "d_model": 64,
+              "n_blocks": 2,
+              "dropout": 0.1,
+              "d_ff": 128,
+              "num_attn_heads": 4,
+              "final_fc_dim": 64
+            },
+            "alignment": "position 0 of each window has no history and is scored with the training base rate; windows are max_len long with no carry-over"
+          },
+          "scores": {
+            "all": {
+              "auc": 0.682916,
+              "rmse": 0.429982,
+              "accuracy": 0.722262,
+              "n": 12645,
+              "positives": 9133
+            },
+            "first_3": {
+              "auc": 0.736187,
+              "rmse": 0.448522,
+              "accuracy": 0.64966,
+              "n": 294,
+              "positives": 191
+            },
+            "first_5": {
+              "auc": 0.750427,
+              "rmse": 0.430612,
+              "accuracy": 0.685185,
+              "n": 486,
+              "positives": 333
+            }
+          },
+          "seconds": 68.5,
+          "cold_rows": 133
+        }
+      }
+    }
+  ],
+  "pooled": {
+    "models": {
+      "BKT": {
+        "scores": {
+          "all": {
+            "auc": 0.696762,
+            "rmse": 0.431611,
+            "accuracy": 0.735704,
+            "n": 53652,
+            "positives": 38128
+          },
+          "first_3": {
+            "auc": 0.677446,
+            "rmse": 0.455233,
+            "accuracy": 0.688602,
+            "n": 1474,
+            "positives": 978
+          },
+          "first_5": {
+            "auc": 0.699085,
+            "rmse": 0.442499,
+            "accuracy": 0.702848,
+            "n": 2423,
+            "positives": 1668
+          }
+        },
+        "auc_interval": {
+          "estimate": 0.696762,
+          "ci_low": 0.68323,
+          "ci_high": 0.710386,
+          "replicates": 1000,
+          "clustered_by_learner": true
+        },
+        "cold_rows": 0
+      },
+      "BKT+IRT (λ=0)": {
+        "scores": {
+          "all": {
+            "auc": 0.714395,
+            "rmse": 0.429901,
+            "accuracy": 0.736431,
+            "n": 53652,
+            "positives": 38128
+          },
+          "first_3": {
+            "auc": 0.688952,
+            "rmse": 0.453005,
+            "accuracy": 0.688602,
+            "n": 1474,
+            "positives": 978
+          },
+          "first_5": {
+            "auc": 0.709043,
+            "rmse": 0.43972,
+            "accuracy": 0.704086,
+            "n": 2423,
+            "positives": 1668
+          }
+        },
+        "auc_interval": {
+          "estimate": 0.714395,
+          "ci_low": 0.70172,
+          "ci_high": 0.726917,
+          "replicates": 1000,
+          "clustered_by_learner": true
+        },
+        "cold_rows": 0
+      },
+      "Elo/Rasch": {
+        "scores": {
+          "all": {
+            "auc": 0.729126,
+            "rmse": 0.419366,
+            "accuracy": 0.744856,
+            "n": 53652,
+            "positives": 38128
+          },
+          "first_3": {
+            "auc": 0.724521,
+            "rmse": 0.444226,
+            "accuracy": 0.704885,
+            "n": 1474,
+            "positives": 978
+          },
+          "first_5": {
+            "auc": 0.749384,
+            "rmse": 0.429584,
+            "accuracy": 0.729261,
+            "n": 2423,
+            "positives": 1668
+          }
+        },
+        "auc_interval": {
+          "estimate": 0.729126,
+          "ci_low": 0.716868,
+          "ci_high": 0.74198,
+          "replicates": 1000,
+          "clustered_by_learner": true
+        },
+        "cold_rows": 0
+      },
+      "PFA": {
+        "scores": {
+          "all": {
+            "auc": 0.699776,
+            "rmse": 0.427168,
+            "accuracy": 0.737214,
+            "n": 53652,
+            "positives": 38128
+          },
+          "first_3": {
+            "auc": 0.6787,
+            "rmse": 0.456362,
+            "accuracy": 0.676391,
+            "n": 1474,
+            "positives": 978
+          },
+          "first_5": {
+            "auc": 0.693307,
+            "rmse": 0.442272,
+            "accuracy": 0.70161,
+            "n": 2423,
+            "positives": 1668
+          }
+        },
+        "auc_interval": {
+          "estimate": 0.699776,
+          "ci_low": 0.686425,
+          "ci_high": 0.713857,
+          "replicates": 1000,
+          "clustered_by_learner": true
+        },
+        "cold_rows": 0
+      },
+      "DKT": {
+        "scores": {
+          "all": {
+            "auc": 0.693679,
+            "rmse": 0.446218,
+            "accuracy": 0.738463,
+            "n": 53652,
+            "positives": 38128
+          },
+          "first_3": {
+            "auc": 0.565497,
+            "rmse": 0.476328,
+            "accuracy": 0.682497,
+            "n": 1474,
+            "positives": 978
+          },
+          "first_5": {
+            "auc": 0.618715,
+            "rmse": 0.463719,
+            "accuracy": 0.704499,
+            "n": 2423,
+            "positives": 1668
+          }
+        },
+        "auc_interval": {
+          "estimate": 0.693679,
+          "ci_low": 0.682174,
+          "ci_high": 0.705321,
+          "replicates": 1000,
+          "clustered_by_learner": true
+        },
+        "cold_rows": 628
+      },
+      "AKT": {
+        "scores": {
+          "all": {
+            "auc": 0.699157,
+            "rmse": 0.432673,
+            "accuracy": 0.713953,
+            "n": 53652,
+            "positives": 38128
+          },
+          "first_3": {
+            "auc": 0.693093,
+            "rmse": 0.452999,
+            "accuracy": 0.660787,
+            "n": 1474,
+            "positives": 978
+          },
+          "first_5": {
+            "auc": 0.712164,
+            "rmse": 0.438056,
+            "accuracy": 0.689641,
+            "n": 2423,
+            "positives": 1668
+          }
+        },
+        "auc_interval": {
+          "estimate": 0.699157,
+          "ci_low": 0.68613,
+          "ci_high": 0.712465,
+          "replicates": 1000,
+          "clustered_by_learner": true
+        },
+        "cold_rows": 628
+      }
+    },
+    "cold_rows": {
+      "DKT": 628,
+      "AKT": 628
+    },
+    "comparisons": [
+      {
+        "a": "BKT",
+        "b": "BKT+IRT (λ=0)",
+        "auc_a": 0.696762,
+        "auc_b": 0.714395,
+        "difference": -0.017633,
+        "z": -29.580973,
+        "p": 0.0,
+        "p_holm": 0.0,
+        "significant": true
+      },
+      {
+        "a": "BKT",
+        "b": "Elo/Rasch",
+        "auc_a": 0.696762,
+        "auc_b": 0.729126,
+        "difference": -0.032364,
+        "z": -11.556503,
+        "p": 0.0,
+        "p_holm": 0.0,
+        "significant": true
+      },
+      {
+        "a": "BKT",
+        "b": "PFA",
+        "auc_a": 0.696762,
+        "auc_b": 0.699776,
+        "difference": -0.003014,
+        "z": -1.863587,
+        "p": 0.06237975,
+        "p_holm": 0.24951898,
+        "significant": false
+      },
+      {
+        "a": "BKT",
+        "b": "DKT",
+        "auc_a": 0.696762,
+        "auc_b": 0.693679,
+        "difference": 0.003084,
+        "z": 1.183143,
+        "p": 0.23675267,
+        "p_holm": 0.71025801,
+        "significant": false
+      },
+      {
+        "a": "BKT",
+        "b": "AKT",
+        "auc_a": 0.696762,
+        "auc_b": 0.699157,
+        "difference": -0.002395,
+        "z": -0.992941,
+        "p": 0.32073868,
+        "p_holm": 0.71025801,
+        "significant": false
+      },
+      {
+        "a": "BKT+IRT (λ=0)",
+        "b": "Elo/Rasch",
+        "auc_a": 0.714395,
+        "auc_b": 0.729126,
+        "difference": -0.014731,
+        "z": -5.890888,
+        "p": 0.0,
+        "p_holm": 3e-08,
+        "significant": true
+      },
+      {
+        "a": "BKT+IRT (λ=0)",
+        "b": "PFA",
+        "auc_a": 0.714395,
+        "auc_b": 0.699776,
+        "difference": 0.014619,
+        "z": 9.170543,
+        "p": 0.0,
+        "p_holm": 0.0,
+        "significant": true
+      },
+      {
+        "a": "BKT+IRT (λ=0)",
+        "b": "DKT",
+        "auc_a": 0.714395,
+        "auc_b": 0.693679,
+        "difference": 0.020717,
+        "z": 8.182928,
+        "p": 0.0,
+        "p_holm": 0.0,
+        "significant": true
+      },
+      {
+        "a": "BKT+IRT (λ=0)",
+        "b": "AKT",
+        "auc_a": 0.714395,
+        "auc_b": 0.699157,
+        "difference": 0.015238,
+        "z": 6.746613,
+        "p": 0.0,
+        "p_holm": 0.0,
+        "significant": true
+      },
+      {
+        "a": "Elo/Rasch",
+        "b": "PFA",
+        "auc_a": 0.729126,
+        "auc_b": 0.699776,
+        "difference": 0.02935,
+        "z": 10.632126,
+        "p": 0.0,
+        "p_holm": 0.0,
+        "significant": true
+      },
+      {
+        "a": "Elo/Rasch",
+        "b": "DKT",
+        "auc_a": 0.729126,
+        "auc_b": 0.693679,
+        "difference": 0.035447,
+        "z": 11.340211,
+        "p": 0.0,
+        "p_holm": 0.0,
+        "significant": true
+      },
+      {
+        "a": "Elo/Rasch",
+        "b": "AKT",
+        "auc_a": 0.729126,
+        "auc_b": 0.699157,
+        "difference": 0.029969,
+        "z": 11.782194,
+        "p": 0.0,
+        "p_holm": 0.0,
+        "significant": true
+      },
+      {
+        "a": "PFA",
+        "b": "DKT",
+        "auc_a": 0.699776,
+        "auc_b": 0.693679,
+        "difference": 0.006098,
+        "z": 2.164114,
+        "p": 0.0304556,
+        "p_holm": 0.18273358,
+        "significant": false
+      },
+      {
+        "a": "PFA",
+        "b": "AKT",
+        "auc_a": 0.699776,
+        "auc_b": 0.699157,
+        "difference": 0.000619,
+        "z": 0.245734,
+        "p": 0.80588821,
+        "p_holm": 0.80588821,
+        "significant": false
+      },
+      {
+        "a": "DKT",
+        "b": "AKT",
+        "auc_a": 0.693679,
+        "auc_b": 0.699157,
+        "difference": -0.005479,
+        "z": -1.999555,
+        "p": 0.04554835,
+        "p_holm": 0.22774175,
+        "significant": false
+      }
+    ],
+    "replicates": 1000,
+    "confidence_percent": 95
+  },
+  "sanity": {
+    "model": "DKT",
+    "auc": 0.693679,
+    "expected_range": [
+      0.7,
+      0.8
+    ],
+    "literature_range": [
+      0.73,
+      0.75
+    ],
+    "reference": "Xiong et al., EDM 2016 — duplicates removed",
+    "within_range": false,
+    "warning": "DKT AUC is outside the range reported for de-duplicated ASSISTments 2009; re-check the cleaning of D50 before reading anything else in this table."
+  },
+  "grid_check": {
+    "folds": 5,
+    "fits": 420,
+    "bounds": {
+      "g_max": 0.3,
+      "s_max": 0.1
+    },
+    "parameters": {
+      "p0": {
+        "admissible_values": [
+          0.05,
+          0.1,
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6,
+          0.7,
+          0.8,
+          0.9
+        ],
+        "lowest": 0.05,
+        "highest": 0.9,
+        "at_lowest": 37,
+        "at_highest": 58,
+        "share_at_highest": 0.1381,
+        "share_at_lowest": 0.0881,
+        "ceiling_is_chapter_two": false
+      },
+      "pt": {
+        "admissible_values": [
+          0.05,
+          0.1,
+          0.15,
+          0.2,
+          0.3,
+          0.4
+        ],
+        "lowest": 0.05,
+        "highest": 0.4,
+        "at_lowest": 84,
+        "at_highest": 130,
+        "share_at_highest": 0.3095,
+        "share_at_lowest": 0.2,
+        "ceiling_is_chapter_two": false
+      },
+      "g0": {
+        "admissible_values": [
+          0.05,
+          0.1,
+          0.15,
+          0.2,
+          0.25,
+          0.29
+        ],
+        "lowest": 0.05,
+        "highest": 0.29,
+        "at_lowest": 23,
+        "at_highest": 332,
+        "share_at_highest": 0.7905,
+        "share_at_lowest": 0.0548,
+        "ceiling_is_chapter_two": true
+      },
+      "s0": {
+        "admissible_values": [
+          0.01,
+          0.03,
+          0.05,
+          0.07,
+          0.09,
+          0.097
+        ],
+        "lowest": 0.01,
+        "highest": 0.097,
+        "at_lowest": 7,
+        "at_highest": 363,
+        "share_at_highest": 0.8643,
+        "share_at_lowest": 0.0167,
+        "ceiling_is_chapter_two": true
+      }
+    }
+  },
+  "pybkt_cross_check": {
+    "skills_requested": 5,
+    "skills_compared": 5,
+    "seed": 20261006,
+    "num_fits": 1,
+    "bounds": {
+      "g_max": 0.3,
+      "s_max": 0.1
+    },
+    "likelihood_definition": "neuro_model.calibrate.log_likelihood for both fitters",
+    "pybkt_outside_bounds_count": 5,
+    "comparisons": [
+      {
+        "skill": "311",
+        "answers": 3805,
+        "learners": 152,
+        "status": "ok",
+        "grid": {
+          "p0": 0.5,
+          "pt": 0.05,
+          "g0": 0.29,
+          "s0": 0.097
+        },
+        "pybkt": {
+          "p0": 0.714007,
+          "pt": 0.036285,
+          "g0": 0.317208,
+          "s0": 0.218955
+        },
+        "absolute_difference": {
+          "p0": 0.214007,
+          "pt": 0.013715,
+          "g0": 0.027208,
+          "s0": 0.121955
+        },
+        "pybkt_outside_bounds": {
+          "g0": true,
+          "s0": true
+        },
+        "log_likelihood": {
+          "grid": -2323.0504,
+          "pybkt": -2191.8658
+        }
+      },
+      {
+        "skill": "47",
+        "answers": 2427,
+        "learners": 138,
+        "status": "ok",
+        "grid": {
+          "p0": 0.7,
+          "pt": 0.05,
+          "g0": 0.29,
+          "s0": 0.097
+        },
+        "pybkt": {
+          "p0": 0.757213,
+          "pt": 0.021536,
+          "g0": 0.459477,
+          "s0": 0.170109
+        },
+        "absolute_difference": {
+          "p0": 0.057213,
+          "pt": 0.028464,
+          "g0": 0.169477,
+          "s0": 0.073109
+        },
+        "pybkt_outside_bounds": {
+          "g0": true,
+          "s0": true
+        },
+        "log_likelihood": {
+          "grid": -1360.2611,
+          "pybkt": -1291.0924
+        }
+      },
+      {
+        "skill": "75",
+        "answers": 1732,
+        "learners": 84,
+        "status": "ok",
+        "grid": {
+          "p0": 0.7,
+          "pt": 0.15,
+          "g0": 0.29,
+          "s0": 0.097
+        },
+        "pybkt": {
+          "p0": 0.782921,
+          "pt": 0.117757,
+          "g0": 0.368501,
+          "s0": 0.180583
+        },
+        "absolute_difference": {
+          "p0": 0.082921,
+          "pt": 0.032243,
+          "g0": 0.078501,
+          "s0": 0.083583
+        },
+        "pybkt_outside_bounds": {
+          "g0": true,
+          "s0": true
+        },
+        "log_likelihood": {
+          "grid": -925.3421,
+          "pybkt": -878.3639
+        }
+      },
+      {
+        "skill": "50",
+        "answers": 1575,
+        "learners": 145,
+        "status": "ok",
+        "grid": {
+          "p0": 0.7,
+          "pt": 0.1,
+          "g0": 0.29,
+          "s0": 0.09
+        },
+        "pybkt": {
+          "p0": 0.63259,
+          "pt": 0.113698,
+          "g0": 0.428425,
+          "s0": 0.073997
+        },
+        "absolute_difference": {
+          "p0": 0.06741,
+          "pt": 0.013698,
+          "g0": 0.138425,
+          "s0": 0.016003
+        },
+        "pybkt_outside_bounds": {
+          "g0": true,
+          "s0": false
+        },
+        "log_likelihood": {
+          "grid": -673.5688,
+          "pybkt": -665.7068
+        }
+      },
+      {
+        "skill": "85",
+        "answers": 1373,
+        "learners": 161,
+        "status": "ok",
+        "grid": {
+          "p0": 0.8,
+          "pt": 0.3,
+          "g0": 0.29,
+          "s0": 0.097
+        },
+        "pybkt": {
+          "p0": 0.54517,
+          "pt": 0.10328,
+          "g0": 0.656724,
+          "s0": 0.04705
+        },
+        "absolute_difference": {
+          "p0": 0.25483,
+          "pt": 0.19672,
+          "g0": 0.366724,
+          "s0": 0.04995
+        },
+        "pybkt_outside_bounds": {
+          "g0": true,
+          "s0": false
+        },
+        "log_likelihood": {
+          "grid": -546.0508,
+          "pybkt": -533.0376
+        }
+      }
+    ],
+    "learners_used": 400,
+    "learners_available": 400
+  },
+  "unavailable": [
+    {
+      "model": "BKT+IRT+Pre",
+      "reason": "prerekvizit grafi yo‘q — ASSISTments 2009 uchun E_P mavjud emas (D53)"
+    }
+  ]
+}
