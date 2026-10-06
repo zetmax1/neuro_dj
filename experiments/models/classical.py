@@ -337,12 +337,14 @@ class PFA:
             raise Unavailable(self.name, "o‘qitish to‘plamida ikkala javob turi yo‘q")
 
         model = LogisticRegression(max_iter=self.max_iter, random_state=self.seed)
-        model.fit(np.asarray(features), np.asarray(labels))
+        model.fit(features, np.asarray(labels))
         self._model = model
         return {
             "features": "per-KC intercept, successes, failures (one-hot × 3)",
             "skills": len(self._skills),
             "columns": 3 * len(self._skills),
+            "nonzeros_per_row": 3,
+            "representation": "scipy.sparse CSR",
             "max_iter": self.max_iter,
             "seed": self.seed,
             "converged": bool(getattr(model, "n_iter_", [self.max_iter])[0] < self.max_iter),
@@ -351,40 +353,68 @@ class PFA:
     def predict(self, rows) -> list[float]:
         if self._model is None:
             raise RuntimeError("PFA.predict before PFA.fit")
-        import numpy as np
-
         features, _ = self._design(rows)
-        if not features:
+        if features.shape[0] == 0:
             return []
-        return [float(p) for p in self._model.predict_proba(np.asarray(features))[:, 1]]
+        return [float(value) for value in self._model.predict_proba(features)[:, 1]]
 
-    def _design(self, rows) -> tuple[list[list[float]], list[int]]:
+    def _design(self, rows):
         """
         One row per answer: the KC's intercept and this learner's running
         success and failure counts on that KC, *before* this answer.
+
+        Built as a sparse CSR matrix. The dense form is 3·|skills| wide — 369
+        columns on the full dataset — with exactly three non-zeros per row, so
+        materialising it as Python lists costs about 1.6 GB for 270 000
+        answers plus another 0.8 GB for the numpy copy, on a machine with 3 GB
+        free. Sparse, the same matrix is about 13 MB, and scikit-learn's
+        logistic regression takes it directly.
         """
+        import numpy as np
+        from scipy.sparse import csr_matrix
+
         index = {skill: position for position, skill in enumerate(self._skills)}
         width = 3 * len(self._skills)
         successes: dict[tuple[str, str], int] = {}
         failures: dict[tuple[str, str], int] = {}
-        features: list[list[float]] = []
+
+        indptr = [0]
+        indices: list[int] = []
+        values: list[float] = []
         labels: list[int] = []
 
         for row in rows:
-            vector = [0.0] * width
             position = index.get(row.skill_id)
             key = (row.user_id, row.skill_id)
+            done = successes.get(key, 0)
+            missed = failures.get(key, 0)
+            # A skill absent from training has no column; the row is then all
+            # zeros and the intercept carries it.
             if position is not None:
-                vector[3 * position] = 1.0
-                vector[3 * position + 1] = float(successes.get(key, 0))
-                vector[3 * position + 2] = float(failures.get(key, 0))
-            features.append(vector)
+                # The intercept is always present; a zero count is left out,
+                # which is what makes the row sparse.
+                indices.append(3 * position)
+                values.append(1.0)
+                if done:
+                    indices.append(3 * position + 1)
+                    values.append(float(done))
+                if missed:
+                    indices.append(3 * position + 2)
+                    values.append(float(missed))
+            indptr.append(len(indices))
             labels.append(int(row.correct))
             if row.correct:
-                successes[key] = successes.get(key, 0) + 1
+                successes[key] = done + 1
             else:
-                failures[key] = failures.get(key, 0) + 1
-        return features, labels
+                failures[key] = missed + 1
+
+        matrix = csr_matrix(
+            (np.asarray(values, dtype=float),
+             np.asarray(indices, dtype=np.int32),
+             np.asarray(indptr, dtype=np.int32)),
+            shape=(len(labels), max(1, width)),
+        )
+        return matrix, labels
 
 
 def _sort_key(value: str) -> tuple[int, float | str]:

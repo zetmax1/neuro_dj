@@ -274,11 +274,29 @@ def test_pfa_counts_only_earlier_answers(rows):
 
     model = PFA()
     model.fit(rows)
-    features, _ = model._design(rows)
-    first = features[0]
+    features, labels = model._design(rows)
 
-    # The first answer of the first learner has no history at all.
-    assert sum(first) == 1.0
+    # The first answer of the first learner has no history at all: the
+    # intercept only.
+    assert features[0].sum() == 1.0
+    assert features.shape == (len(rows), 3 * len(model._skills))
+
+
+def test_the_pfa_design_matrix_is_sparse(rows):
+    """
+    Dense, it is 3·|skills| wide with three non-zeros per row — 1.6 GB of
+    Python lists on the full dataset, on a machine with 3 GB free.
+    """
+    pytest.importorskip("scipy", reason="experiments/.venv needed from 8b-2 on")
+
+    model = PFA()
+    info = model.fit(rows)
+    features, _ = model._design(rows)
+
+    assert info["representation"] == "scipy.sparse CSR"
+    # At most three per row, and at least one (the intercept).
+    assert features.nnz <= 3 * len(rows)
+    assert features.nnz >= len(rows)
 
 
 @pytest.mark.parametrize("name", ["DKT", "AKT"])
