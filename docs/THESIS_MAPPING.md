@@ -161,17 +161,74 @@ chiqaradi, allaqachon olingan fayllar o‘zgarmaydi (D42). Buni backend bajara
 olmaydi, shuning uchun interfeys ham shunday deydi va test shu satrni
 tekshiradi (`Profile.consent.test.tsx`).
 
-## 9. Keyingi bosqichlar
+## 9. Gipotezalar va eksperimentlar (8b-bosqich)
+
+Har bir gipoteza → skript → natija fayli → holat. “Kod tayyor, ma’lumot yo‘q”
+degan holat jadvalda **son emas**, aynan shu gap bilan chiqadi (D48).
+
+| Gipoteza / ish | Skript | Natija fayli | Holat |
+|---|---|---|---|
+| Graf tahlili: o‘lcham, Y2 (o‘z-o‘ziga qirralar), Y3 (sikl, SCC), tranzitiv ortiqcha qirralar, Algoritm 2.2 tartibi va `lev`, eng uzun yo‘l (D52) | `experiments/graph_report.py` | `experiments/results/graphs/20261006-052348/{metrics.json, tables.md, env.txt}` | **ishga tushirilgan** — to‘rtta nashr etilgan grafda, D52 jadvaliga aynan mos |
+| Tayyorlik yangilanishi: Algoritm 2.3 inkremental, TY6 ning to‘liq qayta hisoblashiga nisbatan (D52) | `experiments/graph_report.py` (`benchmark_readiness`) | o‘sha papka, `tables.md` 4-bo‘lim | **ishga tushirilgan** — 14×…283× (vaqtlar mashinaga bog‘liq) |
+| H2 — BKT, BKT+IRT (λ=0), Elo/Rasch, PFA, DKT, AKT ASSISTments 2009 da (D53) | `experiments/h2.py` | `experiments/results/assist09/<timestamp>/` | kutilmoqda (8b-2). Ma’lumot va tozalash tayyor |
+| H2 — BKT+IRT+Pre ASSISTments 2009 da | — | — | **ishga tushirilmaydi: graf yo‘q** (D53). ASSISTments uchun prerekvizit grafi mavjud emas |
+| H1 — tayyorlik qoidalari (ehtimoliy r ≥ τ, bajarilganlik, o‘tish bali, skill builder'ning “ketma-ket 3 ta to‘g‘ri”) | `experiments/h1.py` | `experiments/results/<dataset>/<timestamp>/` | kutilmoqda (8b-3). Kod “javoblar + graf” juftligini oladi; hozir bunday juftlik yo‘q |
+| H3 — graf nazoratlari: asl, teskari, daraja saqlangan tasodifiy (20 seed), grafsiz (λ=0) | `experiments/h3.py` | o‘sha | kutilmoqda (8b-3). Graf fayli sha256 bilan oldin commit qilinadi |
+| Annotatsiya: nomzod qirralar → ikki annotator → Cohen κ → yakuniy graf | `experiments/graphs/annotate.py` | `experiments/graphs/*.csv` + sha256 | kutilmoqda (8b-3) |
+| Simulyatsiya — faqat quvurni sinash (parametrlarni tiklash, Pre ning ustunligi) | `assessments/management/commands/simulate_bkt_data.py` + 8b-3 | `experiments/results/simulated/<dataset>/<timestamp>/` | kutilmoqda (8b-3). Natija papkasi alohida va “dissertatsiya natijasi emas” belgisi bilan (D13, D48) |
+
+### Ma’lumot manbalari (D49)
+
+| Manba | Holat | sha256 tekshirildi |
+|---|---|---|
+| ASSISTments 2009–2010 skill builder (`as.csv`) | bor | `f22e3fb7…d77dbdc` |
+| DBE-KT22 grafi | bor | `79ece343…961307` |
+| Junyi grafi | bor | `6272d524…e61d2` |
+| WDKG-Course, WDKG-KnowledgePoints graflari | bor | `a6475f00…dae01`, `469032f4…86906` |
+| DBE-KT22 to‘liq (javoblar bilan) | **yo‘q** (ADA kirish so‘rovi) | — |
+| ASSISTments uchun o‘qituvchilar grafi | **yo‘q** (tuzilmagan) | — |
+| Mahalliy eksport | rozilik yig‘ilgach | — |
+
+### D48 — natija faqat haqiqiy ishga tushirishdan
+
+| Talab | Kod | Test |
+|---|---|---|
+| `tables.md` faqat `metrics.json` dan; qo‘lda yozilgan son yo‘q | `experiments/tables.py` (`render_graph_report`, `verify`) | `test_tables.py::test_every_number_in_the_table_comes_from_the_metrics`, `::test_a_number_that_is_not_in_the_metrics_is_caught`, `::test_an_edited_result_is_caught` |
+| Prozadagi raqamlar faqat e’lon qilingan havolalar | `tables.CITATIONS` | `::test_only_chapter_references_may_be_numbers_in_the_prose` |
+| Har bir natija qatorida sha256, commit, seed, buyruq | `experiments/provenance.py` (`Provenance`, `Source`) | `::test_the_table_carries_the_hash_the_commit_the_seed_and_the_command` |
+| sha256'siz natija yozilmaydi | `tables.require_sources` | `::test_a_result_without_a_source_hash_is_refused` |
+| Ma’lumot yo‘q bo‘lsa — “ishga tushirilmagan — ma’lumot yo‘q” | `graph_report.run`, `tables.NOT_RUN` | `::test_an_absent_dataset_gets_a_sentence_not_a_number`, `test_graph_report.py::test_an_absent_graph_is_reported_as_not_run` |
+| Yomon ishga tushirish yarim natija qoldirmaydi | `tables.write` | `::test_writing_is_refused_when_a_number_cannot_be_traced` |
+| Simulyatsiya natijalari alohida papkada (D13) | `provenance.results_dir(simulated=True)` | `::test_the_simulated_tree_is_separate` |
+
+### D49–D52 — yuklovchilar va graf tahlili
+
+| Talab | Kod | Test |
+|---|---|---|
+| Hech narsa yuklab olinmaydi; yo‘l argument sifatida (D49) | `experiments/datasets/` (hamma yuklovchi), `data/README.md` | `test_assist09.py::test_a_missing_file_says_so_and_does_not_download`, `test_graphs.py::test_a_missing_file_is_a_missing_dataset_not_a_crash` |
+| ASSISTments tozalash: bo‘sh `skill_id`, `(order_id, skill_id)` takrori, tartib, `original` bayrog‘i (D50) | `experiments/datasets/assist09.py` | `test_assist09.py` (4 ta qoida uchun 4 ta test) |
+| Bir nechta skill'li savollar saqlanadi (D50, 2-qoida) | `(order_id, skill_id)` kaliti | `::test_a_question_with_two_skills_stays_two_records`, `::test_the_real_file_keeps_the_multi_skill_questions` |
+| D50 sonlari mos kelmasa quvur to‘xtaydi | `assist09._verify`, `DatasetMismatch` | `::test_a_file_that_is_not_the_specified_one_stops_the_pipeline`, `::test_the_real_file_has_the_shape_d50_specifies` |
+| Graf yuklovchi: graphml va CSV, `--edge-direction` (D51) | `experiments/datasets/graphs.py` | `test_graphs.py` |
+| O‘z-o‘ziga qirra — Y2 buzilishi, olib tashlanadi va sanaladi (D51) | `graphs.load_graph` | `::test_a_self_loop_is_removed_and_counted` |
+| DBE-KT22 ikkala yo‘nalishda (D51) | `graph_report.PUBLISHED`, `--both-directions` | `test_graph_report.py::test_the_table_is_the_same_in_both_directions`, `::test_both_directions_produces_two_entries` |
+| Tartib, `lev`, Desc\*, ortiqcha qirralar — `neuro_model` dan, qayta yozilmaydi (D52) | `graph_report.analyse` → `neuro_model.graph` | `::test_the_model_and_networkx_agree_on_the_published_graphs` |
+| II bobda ta’rifi yo‘q statistika (kuchsiz/kuchli komponentlar) | `experiments/components.py` | `::test_the_component_helpers_agree_with_networkx` |
+| Sikl topilsa SCC'lar birlashtiriladi va qayd etiladi (D52) | `components.strongly_connected`, `condense` | `::test_a_cyclic_graph_is_merged_by_its_components_and_recorded` |
+| Inkremental tayyorlik `|Succ(v)|`, to‘liq — hammasi (D52) | `graph_report.benchmark_readiness` → `neuro_model.readiness` | `::test_the_incremental_update_touches_the_successors_and_the_rebuild_all_of_them` |
+
+## 10. Keyingi bosqichlar
 
 | Ish | Bosqich |
 |---|---|
-| Eksperimentlar va ablatsiya (`use_irt`, `use_prereq_init` allaqachon tayyor) | 8b |
+| H2 — ASSISTments 2009 (D53) | 8b-2 |
+| H1/H3 kodi, DBE yuklovchisi, graf nazoratlari, annotatsiya vositasi | 8b-3 |
 | Saqlash usullari benchmarki | 9 |
 | Yakuniy sinovlar va hisobot | 10 |
 
 ---
 
-## 10. Farqlar — koddagi, II bobda yo‘q narsalar
+## 11. Farqlar — koddagi, II bobda yo‘q narsalar
 
 Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
 

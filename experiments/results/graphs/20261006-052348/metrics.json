@@ -1,0 +1,370 @@
+{
+  "report": "graph_report",
+  "spec": "D52",
+  "provenance": {
+    "command": "python -m experiments.graph_report",
+    "code_commit": "c1a683b",
+    "code_dirty": false,
+    "created_at": "2026-10-06T05:23:48.942321+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.39",
+    "seeds": {
+      "sample_order": 20261006
+    },
+    "sources": [
+      {
+        "name": "DBE-KT22",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/kg/DBE-KT22.graphml",
+        "sha256": "79ece343c01ceb3a6e46c01e70959692de0f6728846f703bdac5aa55f7961307",
+        "bytes": 27398
+      },
+      {
+        "name": "Junyi",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/kg/Junyi-Prerequisites.graphml",
+        "sha256": "6272d524b6ccd83c349d298ef9699c1eca5c0be5b897860324fbe4a392ee61d2",
+        "bytes": 273184
+      },
+      {
+        "name": "WDKG-Course",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/kg/WDKG-Course.graphml",
+        "sha256": "a6475f00a343171e5cf9891f5ba1407b6fef7141ba830b8c6f277181d2ddae01",
+        "bytes": 7511
+      },
+      {
+        "name": "WDKG-KnowledgePoints",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/kg/WDKG-KnowledgePoints.graphml",
+        "sha256": "469032f4dc034bc57c7f7c4bea457a53352995200aca46309fa6a6be97486906",
+        "bytes": 24444
+      }
+    ],
+    "packages": {},
+    "env": {}
+  },
+  "graphs": [
+    {
+      "name": "DBE-KT22",
+      "status": "ok",
+      "edge_direction": "prereq_to_dependent",
+      "nodes": 98,
+      "edges": 101,
+      "raw_edges": 101,
+      "self_loops": 0,
+      "duplicate_edges": 0,
+      "isolated": 0,
+      "weak_components": 8,
+      "duplicate_names": 0,
+      "duplicate_name_list": [],
+      "is_dag": true,
+      "scc_nontrivial": 0,
+      "scc_merged_nodes": 0,
+      "scc_merged": [],
+      "ordered_nodes": 98,
+      "longest_path": 5,
+      "redundant_edges": 9,
+      "redundant_edge_list": [
+        [
+          "Database Security",
+          "Access Control"
+        ],
+        [
+          "Discretionary access control (DAC)",
+          "REVOKE"
+        ],
+        [
+          "Discretionary access control (DAC)",
+          "Specifying Privileges - Views"
+        ],
+        [
+          "Entity-Relationship Model",
+          "Data Model"
+        ],
+        [
+          "Entity-Relationship Model",
+          "Entity"
+        ],
+        [
+          "Participation constraints",
+          "Relationship"
+        ],
+        [
+          "Role-Based Access Control (RBAC)",
+          "Access Control"
+        ],
+        [
+          "Superkey",
+          "Relational data model"
+        ],
+        [
+          "Transactions",
+          "ACID Properties"
+        ]
+      ],
+      "readiness": {
+        "samples": 50,
+        "repeats": 30,
+        "incremental_touched_median": 1,
+        "incremental_touched_max": 8,
+        "full_touched": 98,
+        "incremental_us_median": 0.928,
+        "incremental_us_p95": 1.614,
+        "full_us_median": 39.06,
+        "full_us_p95": 39.985,
+        "speedup_median": 42.107
+      },
+      "source": {
+        "name": "DBE-KT22",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/kg/DBE-KT22.graphml",
+        "sha256": "79ece343c01ceb3a6e46c01e70959692de0f6728846f703bdac5aa55f7961307",
+        "bytes": 27398
+      }
+    },
+    {
+      "name": "DBE-KT22",
+      "status": "ok",
+      "edge_direction": "dependent_to_prereq",
+      "nodes": 98,
+      "edges": 101,
+      "raw_edges": 101,
+      "self_loops": 0,
+      "duplicate_edges": 0,
+      "isolated": 0,
+      "weak_components": 8,
+      "duplicate_names": 0,
+      "duplicate_name_list": [],
+      "is_dag": true,
+      "scc_nontrivial": 0,
+      "scc_merged_nodes": 0,
+      "scc_merged": [],
+      "ordered_nodes": 98,
+      "longest_path": 5,
+      "redundant_edges": 9,
+      "redundant_edge_list": [
+        [
+          "ACID Properties",
+          "Transactions"
+        ],
+        [
+          "Access Control",
+          "Database Security"
+        ],
+        [
+          "Access Control",
+          "Role-Based Access Control (RBAC)"
+        ],
+        [
+          "Data Model",
+          "Entity-Relationship Model"
+        ],
+        [
+          "Entity",
+          "Entity-Relationship Model"
+        ],
+        [
+          "REVOKE",
+          "Discretionary access control (DAC)"
+        ],
+        [
+          "Relational data model",
+          "Superkey"
+        ],
+        [
+          "Relationship",
+          "Participation constraints"
+        ],
+        [
+          "Specifying Privileges - Views",
+          "Discretionary access control (DAC)"
+        ]
+      ],
+      "readiness": {
+        "samples": 50,
+        "repeats": 30,
+        "incremental_touched_median": 1,
+        "incremental_touched_max": 8,
+        "full_touched": 98,
+        "incremental_us_median": 0.903,
+        "incremental_us_p95": 1.712,
+        "full_us_median": 38.847,
+        "full_us_p95": 39.066,
+        "speedup_median": 43.017
+      },
+      "source": {
+        "name": "DBE-KT22",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/kg/DBE-KT22.graphml",
+        "sha256": "79ece343c01ceb3a6e46c01e70959692de0f6728846f703bdac5aa55f7961307",
+        "bytes": 27398
+      }
+    },
+    {
+      "name": "Junyi",
+      "status": "ok",
+      "edge_direction": "prereq_to_dependent",
+      "nodes": 1004,
+      "edges": 738,
+      "raw_edges": 740,
+      "self_loops": 2,
+      "duplicate_edges": 0,
+      "isolated": 73,
+      "weak_components": 266,
+      "duplicate_names": 0,
+      "duplicate_name_list": [],
+      "is_dag": true,
+      "scc_nontrivial": 0,
+      "scc_merged_nodes": 0,
+      "scc_merged": [],
+      "ordered_nodes": 1004,
+      "longest_path": 9,
+      "redundant_edges": 0,
+      "redundant_edge_list": [],
+      "readiness": {
+        "samples": 50,
+        "repeats": 30,
+        "incremental_touched_median": 3,
+        "incremental_touched_max": 10,
+        "full_touched": 1004,
+        "incremental_us_median": 1.401,
+        "incremental_us_p95": 2.059,
+        "full_us_median": 396.605,
+        "full_us_p95": 401.192,
+        "speedup_median": 283.188
+      },
+      "source": {
+        "name": "Junyi",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/kg/Junyi-Prerequisites.graphml",
+        "sha256": "6272d524b6ccd83c349d298ef9699c1eca5c0be5b897860324fbe4a392ee61d2",
+        "bytes": 273184
+      }
+    },
+    {
+      "name": "WDKG-Course",
+      "status": "ok",
+      "edge_direction": "prereq_to_dependent",
+      "nodes": 46,
+      "edges": 72,
+      "raw_edges": 73,
+      "self_loops": 1,
+      "duplicate_edges": 0,
+      "isolated": 0,
+      "weak_components": 3,
+      "duplicate_names": 1,
+      "duplicate_name_list": [
+        "水利工程制图及CAD技术"
+      ],
+      "is_dag": true,
+      "scc_nontrivial": 0,
+      "scc_merged_nodes": 0,
+      "scc_merged": [],
+      "ordered_nodes": 46,
+      "longest_path": 6,
+      "redundant_edges": 12,
+      "redundant_edge_list": [
+        [
+          "大学物理B",
+          "工程水文学B"
+        ],
+        [
+          "工程材料",
+          "桥梁工程"
+        ],
+        [
+          "概率统计",
+          "工程经济学B"
+        ],
+        [
+          "概率统计",
+          "水利水能规划A"
+        ],
+        [
+          "水力学A",
+          "河床演变与河道整治"
+        ],
+        [
+          "水力学A",
+          "航道整治"
+        ],
+        [
+          "理论力学A",
+          "河流动力学"
+        ],
+        [
+          "高等数学A",
+          "3S系统"
+        ],
+        [
+          "高等数学A",
+          "工程材料"
+        ],
+        [
+          "高等数学A",
+          "工程水文学B"
+        ],
+        [
+          "高等数学A",
+          "建筑材料"
+        ],
+        [
+          "高等数学A",
+          "河流动力学"
+        ]
+      ],
+      "readiness": {
+        "samples": 27,
+        "repeats": 30,
+        "incremental_touched_median": 2,
+        "incremental_touched_max": 10,
+        "full_touched": 46,
+        "incremental_us_median": 1.11,
+        "incremental_us_p95": 2.145,
+        "full_us_median": 19.8,
+        "full_us_p95": 20.066,
+        "speedup_median": 17.842
+      },
+      "source": {
+        "name": "WDKG-Course",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/kg/WDKG-Course.graphml",
+        "sha256": "a6475f00a343171e5cf9891f5ba1407b6fef7141ba830b8c6f277181d2ddae01",
+        "bytes": 7511
+      }
+    },
+    {
+      "name": "WDKG-KnowledgePoints",
+      "status": "ok",
+      "edge_direction": "prereq_to_dependent",
+      "nodes": 121,
+      "edges": 285,
+      "raw_edges": 285,
+      "self_loops": 0,
+      "duplicate_edges": 0,
+      "isolated": 87,
+      "weak_components": 88,
+      "duplicate_names": 0,
+      "duplicate_name_list": [],
+      "is_dag": true,
+      "scc_nontrivial": 0,
+      "scc_merged_nodes": 0,
+      "scc_merged": [],
+      "ordered_nodes": 121,
+      "longest_path": 1,
+      "redundant_edges": 0,
+      "redundant_edge_list": [],
+      "readiness": {
+        "samples": 19,
+        "repeats": 30,
+        "incremental_touched_median": 15,
+        "incremental_touched_max": 15,
+        "full_touched": 121,
+        "incremental_us_median": 3.647,
+        "incremental_us_p95": 3.77,
+        "full_us_median": 51.99,
+        "full_us_p95": 52.723,
+        "speedup_median": 14.256
+      },
+      "source": {
+        "name": "WDKG-KnowledgePoints",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/kg/WDKG-KnowledgePoints.graphml",
+        "sha256": "469032f4dc034bc57c7f7c4bea457a53352995200aca46309fa6a6be97486906",
+        "bytes": 24444
+      }
+    }
+  ]
+}

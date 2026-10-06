@@ -2,6 +2,8 @@
 
 > **Foydalanuvchi ko‘rsatmasi (asl matn):** Backend ildizida ikkita fayl bor: NEUROLEARN_REMEDIATION.md (topshiriq) va NEUROLEARN_AUDIT.md (audit). Avval ikkalasini to‘liq o‘qi. Keyin topshiriqdagi "Ish qoidalari"ga amal qilib, 0-bosqichdan boshla. Har bir bosqich oxirida REMEDIATION_PROGRESS.md ni yangila, commit qil va menga qisqa hisobot ber. Keyingi bosqichga men "davom et" deganimdan keyin o‘t. Agar REMEDIATION_PROGRESS.md allaqachon mavjud bo‘lsa, ishni u yerda to‘xtagan joydan davom ettir.
 
+> **Foydalanuvchi ko‘rsatmasi, 8b (asl matn):** davom et shuningdek, men NEROLEARN_B8B.md file qo‘shdim uni ham tahlil qilib bajar. Qo‘shimcha: har safar testlarni o‘tqizib chiqib tahlil qilish shart emas.
+
 > **Foydalanuvchi ko‘rsatmasi, 7.1 va 8-bosqich (asl matn):** Backend ildiziga NEUROLEARN_B8_PLAN.md faylini qo‘shdim. Uni to‘liq o‘qi: D39–D45 qarorlari endi topshiriqning bir qismi. 0–7-bosqichlarni qabul qilaman, barcha Q qarorlari tasdiqlanadi. Avval fayldagi 2-bo‘limni — 7.1 ni — bajar (D39 kurs konstruktorining tuzilmasi, D40 haqiqiy qidiruv, D41 skrinshot skripti). Tugagach to‘xta. Keyin “davom et” deganimdan so‘ng 8a ni (D42–D45: rozilik va eksport) boshla. 8b ni alohida boshlaymiz.
 
 > **Foydalanuvchi ko‘rsatmasi, 2-bosqich (asl matn):** davom et. Keyin: qolgan joyidan davom etilsin. Aniqlashtirish savollariga javoblar: “Algorithm” kursidagi 31 ta savol — “Savollarni o‘chirish”; savoli yo‘q barglar — “topic”.
@@ -28,7 +30,10 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 7.1 — Konstruktor tuzilmasi, qidiruv, skrinshot skripti (D39–D41) | **Bajarildi** | `f7bd3af` | `02e3b2f` |
 | 8 — Eksperimentlar va rozilik (8a + 8b) | Kutilmoqda | — | — |
 | 8a — Rozilik va eksport (D42–D45) | **Bajarildi** | `dc3c35c` | `3345a52` |
-| 8b — Eksperimentlar quvuri (ochiq ma’lumotlar birinchi) | Kutilmoqda | — | — |
+| 8b — Eksperimentlar quvuri (ochiq ma’lumotlar birinchi) | Qisman | — | — |
+| 8b-1 — Yuklovchilar (D49–D51) va graf tahlili (D52) | **Bajarildi** | `c1a683b` | — |
+| 8b-2 — H2: ASSISTments 2009 (D53) | Kutilmoqda | — | — |
+| 8b-3 — H1/H3 kodi, DBE yuklovchisi, nazoratlar, annotatsiya | Kutilmoqda | — | — |
 | 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
 
@@ -894,6 +899,158 @@ Tekshiruvdagi yangi FAIL — harnessning o‘z signali, nosozlik emas. `test_na.
 - **Migratsiya.** `venv/bin/python manage.py migrate accounts` — `0005_research_consent` mavjud hisoblarga psevdonim beradi. Ishga tushirildi: dev bazasida qo‘llandi.
 - **Ma’lumot yig‘ishni boshlash.** Rozilik oqimi tayyor. Talabalar ro‘yxatdan o‘tganda yoki profil sahifasida rozilik berishlari kerak; `GET /api/accounts/users/?consent=true` kimlar bergani ko‘rsatadi.
 - **Eksport.** `venv/bin/python manage.py export_research_data --dry-run` sonlarni ko‘rsatadi, keyin bayroqsiz ishga tushirilsa `exports/research-<sana>/` ga yoziladi. Bu papka gitignored.
+---
+
+## D46 hisoboti (rozilik matniga oltinchi fakt)
+
+Frontend commit: `5251c45`.
+
+D11 bo‘yicha rozilik bergan talaba hisobini o‘chirsa, javoblari psevdonim bilan, ism va emailsiz saqlanib qoladi. Siyosat to‘g‘ri va o‘zgarmadi. Lekin rozilik matni buni aytmasdi, ya’ni “hisobimni o‘chirsam hammasi o‘chadi” degan taxmin to‘liq asosli bo‘lib qolardi — va bu aynan rozilik matni qoldirmasligi kerak bo‘lgan yagona taxmin.
+
+Shuning uchun kartaga va ro‘yxatdan o‘tish blokiga oltinchi fakt qo‘shildi: javoblar tadqiqot uchun ism va emailsiz saqlanadi, buni istamaslik yo‘li — avval rozilikni bekor qilish. Ikki tilda; qolgan besh satrni ushlab turgan test shu satrni ham tekshiradi.
+
+---
+
+## 8b-1 hisoboti (yuklovchilar va graf tahlili)
+
+Qamradi: `NEUROLEARN_B8B.md` — D48, D49, D50, D51, D52.
+
+Backend commit: `c1a683b`.
+
+### D48 — bu bosqichning asosiy qoidasi
+
+`tables.md` faqat `metrics.json` dan yasaladi. Bu niyat emas, kod: `experiments/tables.py` dagi `verify()` markdown'dagi har bir raqamli tokenni oladi va uning `metrics.json` da skalyar sifatida borligini talab qiladi. Metrics'dagi satrlar (yo‘llar, hash'lar, buyruq, nomlar) skanerdan oldin olib tashlanadi, shuning uchun sha256 ichidagi raqamlar “qo‘lda yozilgan son” bo‘lib ko‘rinmaydi.
+
+Prozadagi yagona ruxsat — uchta havola: `2.2`, `2.3`, `3.3`. Ular `CITATIONS` to‘plamida ochiq e’lon qilingan va **test uning tarkibini qotiradi**: ro‘yxat o‘sса test buziladi. Ya’ni natija sonini ro‘yxatga qo‘shib jadvalga kiritib bo‘lmaydi.
+
+Yana uch qoida kod bilan majburlanadi:
+
+- **Manbasiz natija yozilmaydi.** `status=ok` bo‘lgan har bir yozuvda `source.sha256` bo‘lishi shart, aks holda `require_sources()` rad etadi.
+- **Avval tekshiriladi, keyin yoziladi.** `tables.write()` markdown'ni yasaydi, `verify` qiladi va faqat natija toza bo‘lsa papka yaratadi. Ya’ni yomon ishga tushirish yarim natija qoldirmaydi.
+- **Ma’lumoti yo‘q to‘plam — gap, son emas.** Qator “ishga tushirilmagan — ma’ulumot yo‘q” deb chiqadi, o‘lcham ham, hash ham, vaqt ham bo‘lmaydi.
+
+Test bu tekshiruvning **buzila olishini** ham tasdiqlaydi: jadvalga `0.863` qo‘shilsa yoki mavjud son `999` ga o‘zgartirilsa, `verify` aynan shu tokenni qaytaradi. Ishga tushirishdan keyin “to‘g‘rilangan” son — bu oldini olinadigan narsa.
+
+Har bir natija to‘rtta faktni ko‘taradi (D48): fayllarning sha256'si, kod commit'i (va ishchi daraxt toza bo‘lmaganini belgisi), seed va buyruq. Buyruq modul chaqiruvi sifatida yoziladi (`python -m experiments.graph_report …`), ya’ni natijadagi satr qayta ishga tushirish uchun yaroqli. `NEUROLEARN_DATA` o‘rnatilgan bo‘lsa, u ham yoziladi — buyruq satri yolg‘iz o‘zi ishga tushirishni tiklay olmaydi.
+
+### D49 — nima bor, nima yo‘q
+
+Hech narsa yuklab olinmaydi: har bir yuklovchi yo‘lni argument sifatida oladi. Sabab texnik emas — o‘zi qayta yuklab oladigan skript ikki ishga tushirish bir xil baytlarni ko‘rganini kafolatlay olmaydi. Buni sha256 kafolatlaydi.
+
+`experiments/data/README.md` — `git clone` buyruqlari, kutilgan joylashuv, tekshirilgan sha256'lar va litsenziyalar. Fayllar gitignored.
+
+Ishga tushirilgan nusxalar D49 dagi qiymatlarga mos keldi: `as.csv` sha256 `f22e3fb7…d77dbdc` (pyBKT-examples commit `fc59290`), to‘rtta graf KC4EDU commit `ac0b6e0` dan.
+
+### D50 — ASSISTments 2009 tozalash
+
+Tozalash qoidalari koddagi bitta joyda va ochiq. Eng muhimi ikkinchi qoidaning yarmi: takror `(order_id, skill_id)` bo‘yicha olinadi, **`order_id` yolg‘iz o‘zi bo‘yicha emas**. Aks holda bir nechta skill'li har bir savolning qolgan skill'lari jim yo‘qolardi — haqiqiy ma’lumotda bu 47 037 ta savol.
+
+Sonlar spetsifikatsiyaning bir qismi, shuning uchun ular test emas, **yuklovchining o‘zida**: mos kelmasa `DatasetMismatch` ko‘tariladi va quvur to‘xtaydi. Haqiqiy faylda hammasi aynan mos keldi:
+
+| | Kutilgan | Olingan |
+|---|---|---|
+| Xom qatorlar | 525 534 | 525 534 |
+| Xom talabalar | 4 217 | 4 217 |
+| Bo‘sh `skill_id` | 66 326 | 66 326 |
+| Tozalangandan keyin qatorlar | 338 001 | 338 001 |
+| Tozalangandan keyin talabalar | 4 163 | 4 163 |
+| Skill'lar | 123 | 123 |
+| Bir nechta skill'li `order_id` | 47 037 | 47 037 |
+| `--original-only` qatorlar | 312 232 | 312 232 |
+| `--original-only` talabalar | 4 163 | 4 163 |
+
+Olib tashlangan takrorlar: 121 207 qator. `original` bayrog‘i qaysi variant yuklanganidan qat’i nazar ikkala variantning sonini metadata'ga yozadi (D50, 4-qoida).
+
+Fayl UTF-8 emas, shuning uchun latin-1 bilan o‘qiladi: bu moslik baytni baytga qaytaradi va xato bermaydi, ishlatiladigan har bir ustun esa ASCII.
+
+### D51 — graf yuklovchi va yo‘nalish
+
+Bitta yuklovchi: GraphML yoki `src,dst` CSV. Yo‘nalish — argument, taxmin emas. Nashr etilgan graflar bir-biriga mos kelmaydi: Junyi prerekvizit → qaram, DBE-KT22 esa aralash (`DML → SELECT` umumiydan xususiyga, `ALTER TABLE → DDL` aksincha), ya’ni bu faylning **birorta ham** o‘qilishi to‘g‘ri emas. D51 ning javobi taxmin qilmaslik: `--edge-direction` ochiq, va DBE-KT22 har doim ikkala yo‘nalishda ishga tushiriladi.
+
+GraphML standart kutubxona bilan o‘qiladi — ataylab. networkx testdagi oracle, va tekshirilayotgan kod bilan implementatsiyani bo‘lishadigan oracle hech narsani isbotlamaydi.
+
+Yo‘lda uchragan ikki narsa jim qoldirilmadi:
+
+- **O‘z-o‘ziga qirra — Y2 buzilishi.** Olib tashlanadi va sanaladi (Junyi 2, WDKG-Course 1).
+- **Tugun nomlari bo‘sh joydan tozalanadi.** DBE-KT22 ikkita tugunni `"Total "` va `"weak entity "` deb nashr etgan; faqat orqa bo‘shliq bilan farq qiladigan yorliq ikkinchi tushunchaga o‘xshab ko‘rinadi. Tozalash to‘rtta grafda bitta ham to‘qnashuv hosil qilmaydi — WDKG-Course da bir nomni ikkita tugun ko‘taradi, lekin ular faylda ham shunday, shuning uchun bu birlashtirilmaydi, `duplicate_names` bilan **qayd etiladi**. Tugunlar tahlilda alohida qoladi; noaniq bo‘lib qolishi mumkin bo‘lgan narsa — o‘quvchi ko‘radigan qirralar ro‘yxati.
+
+Parallel qirralar bittaga keltiriladi: `(x, y)` ikki marta yozilgani bitta munosabat. Bu networkx bilan solishtirishda ham hisobga olinadi (u parallel qirrali faylni MultiDiGraph qilib o‘qiydi).
+
+### D52 — graf tahlili, haqiqiy graflarda
+
+II bobning hisob-kitoblari qayta yozilmadi: tartib, `lev`, Desc\*, ortiqcha qirralar va Algoritm 2.3 — `neuro_model` dan. Ya’ni o‘lchanadigan narsa platformaning o‘zi ishlatadigan kod. II bobda ta’rifi yo‘q ikki statistika (kuchsiz va kuchli bog‘langan komponentlar) `experiments/components.py` da va networkx bilan tekshiriladi.
+
+**Haqiqiy chiqish** (`experiments/results/graphs/20261006-052348/tables.md`, commit `c1a683b`, ishchi daraxt toza):
+
+| Graf | Tugun | Fayldagi qirra | Qirra | O‘z-o‘ziga | Izolyatsiyalangan | DAG | Kuchsiz komp. | Ortiqcha | Eng uzun yo‘l |
+|---|---|---|---|---|---|---|---|---|---|
+| DBE-KT22 | 98 | 101 | 101 | 0 | 0 | ha | 8 | 9 | 5 |
+| Junyi | 1004 | 740 | 738 | 2 | 73 | ha | 266 | 0 | 9 |
+| WDKG-Course | 46 | 73 | 72 | 1 | 0 | ha | 3 | 12 | 6 |
+| WDKG-KnowledgePoints | 121 | 285 | 285 | 0 | 87 | ha | 88 | 0 | 1 |
+
+**D52 ning har bir ko‘rsatilgan qiymati mos keldi** — tugunlar, qirralar (fayldagi va tozalangandan keyingi), o‘z-o‘ziga qirralar, asiklik, kuchsiz komponentlar, ortiqcha qirralar, eng uzun yo‘l va Junyi'ning 73 ta izolyatsiyalangan tuguni. DBE-KT22 ning to‘qqizta ortiqcha qirrasi ham nomlari bilan aynan mos keldi (`Transactions→ACID Properties`, `Database Security→Access Control`, `Role-Based Access Control (RBAC)→Access Control`, `Entity-Relationship Model→Data Model`, `Entity-Relationship Model→Entity`, `Discretionary access control (DAC)→REVOKE`, `Discretionary access control (DAC)→Specifying Privileges - Views`, `Participation constraints→Relationship`, `Superkey→Relational data model`).
+
+Jadval yo‘nalishga bog‘liq emas: grafni teskari aylantirish o‘lchamni, o‘z-o‘ziga qirralarni, izolyatsiyalangan tugunlarni, asiklikni, komponentlarni, ortiqcha qirralar sonini va eng uzun yo‘lni o‘zgartirmaydi. Shuning uchun DBE-KT22 ning ikki yo‘nalishi bir xil qator beradi; yo‘nalish H3 da ahamiyatli bo‘ladi, bu hisobotda emas. Buni test ham tasdiqlaydi.
+
+**Tayyorlik yangilanishi** (D52, 30 takror):
+
+| Graf | Namuna | Inkremental tugun (median) | To‘liq tugun | Inkremental µs (median / p95) | To‘liq µs (median / p95) | Tezlashish |
+|---|---|---|---|---|---|---|
+| DBE-KT22 | 50 | 1 | 98 | 0,928 / 1,614 | 39,06 / 39,985 | 42× |
+| Junyi | 50 | 3 | 1004 | 1,401 / 2,059 | 396,6 / 401,2 | 283× |
+| WDKG-Course | 27 | 2 | 46 | 1,11 / 2,145 | 19,8 / 20,07 | 18× |
+| WDKG-KnowledgePoints | 19 | 15 | 121 | 3,647 / 3,77 | 51,99 / 52,72 | 14× |
+
+Namuna tasodifiy emas: eng ko‘p vorisi bor tugunlar olinadi, ya’ni inkremental yo‘l uchun eng yomon holat. Tasodifiy tanlov ko‘pincha umuman vorisi yo‘q tugunni o‘lchardi. Tanlov deterministik.
+
+Vaqtlar mashinaga bog‘liq, shuning uchun **testda tasdiqlanmaydi**. Tasdiqlanadigan narsa — inkremental yo‘l `|Succ(v)|` tugunni ko‘radi va bu to‘liq qayta hisoblashdan kichik yoki teng.
+
+**Y3 tarmog‘i** (sikl topilsa SCC'lar birlashtiriladi) to‘rtta nashr etilgan grafda ishga tushmaydi — hammasi asiklik. Shuning uchun u sintetik fixture bilan test qilinadi: `b ⇄ c ⇄ d` komponenti birlashtiriladi, kondensatsiya tartiblanadi va natija metadata'ga yoziladi.
+
+### Testlar
+
+49 ta test (ma’lumot bilan), 40 passed + 9 skipped (ma’lumotsiz). Haqiqiy ma’lumot testlari **skip** qiladi, jim o‘tmaydi — ma’lumotsiz checkout'da ham suite yashil bo‘lishi kerak, ma’lumot bor bo‘lsa esa spetsifikatsiya aynan tiklanishi kerak.
+
+| Fayl | Nima tekshiradi |
+|---|---|
+| `test_tables.py` (14) | D48: jadvaldagi har bir son metrics'dan; tekshiruvning buzila olishi; tahrirlangan natija ushlanishi; `CITATIONS` tarkibi qotirilgani; manbasiz natija rad etilishi; yozishdan oldin tekshirilishi; ma’lumoti yo‘q qator; to‘rtta faktning faylga yetishi; formatlash |
+| `test_graphs.py` (10) | D51: nomlar va qirralar fayl tartibida; o‘z-o‘ziga qirra olib tashlanishi va sanalishi; yo‘nalish bayrog‘i; CSV shakli; noto‘g‘ri sarlavha va yo‘nalish rad etilishi; parser networkx bilan mos (fixture va haqiqiy fayllar); nom tozalash va to‘qnashuvning qayd etilishi |
+| `test_graph_report.py` (12) | D52: statistika networkx bilan mos (fixture va haqiqiy); nashr etilgan graflarning D52 jadvaliga mosligi; DBE-KT22 ning to‘qqiz qirrasi; jadval yo‘nalishga bog‘liq emasligi; sikl tarmog‘i; komponent yordamchilari; inkremental va to‘liq yo‘lning tugunlar soni; qirrasiz graf; ma’lumoti yo‘q graf; manba hash'i; ikki yo‘nalish |
+| `test_assist09.py` (13) | D50: to‘rtta qoidaning har biri sintetik fixture'da; sonlar; boshqa fayl quvurni to‘xtatishi; yo‘q ustun va noto‘g‘ri `correct`; yo‘q fayl; haqiqiy faylning D50 sonlari va sha256; bir nechta skill'li savollarning saqlanishi |
+
+Fixture'lar `experiments/tests/fixtures/` da, hammasi sintetik va README'da shunday yozilgan. Ular ikkita yo‘lni qoplaydi: hech bir nashr etilgan graf siklik emas, va D50 ning to‘rt holati 500 ming qatorda emas, sakkiz qatorda ko‘rinadi.
+
+### Natijalar
+
+| Tekshiruv | Natija |
+|---|---|
+| Backend: `venv/bin/pytest` | **829 passed**, 9 skipped, 13 subtests (8a da 789) |
+| Backend: `pytest experiments/tests` (haqiqiy ma’lumot bilan) | **49 passed** |
+| Backend: `manage.py check` | 0 issues |
+| `pytest --ds=verification.settings verification/tests` | 683 passed, 11 failed — 8a dagi bilan bir xil |
+| `python -m experiments.graph_report` | D52 jadvalining haqiqiy chiqishi, yuqorida |
+
+### Ataylab qilingan tanlovlar
+
+- **GraphML standart kutubxona bilan o‘qiladi.** networkx bilan o‘qish osonroq bo‘lardi, lekin unda oracle va kod bir xil parserni bo‘lishardi.
+- **networkx `requirements-dev.txt` ga e’lon qilindi.** U avval ham o‘rnatilgan edi, lekin tranzitiv bog‘liqlik sifatida — hech kim nomini aytmagan test bog‘liqligi versiya yangilanishida yo‘qolishi mumkin.
+- **D50 sonlari testda emas, yuklovchida.** “Quvur to‘xtaydi” degan talab testda bo‘lsa, quvur ishga tushishda emas, CI'da to‘xtaydi.
+- **Fayldagi qirra va tozalangan qirra alohida ustun.** D52 “740 (+2 o‘z-o‘ziga)” deb yozadi; ikki ustun bu yozuvni ikkiga ajratadi, ya’ni jadvalni o‘qiyotgan odam ayirishni o‘zi qilmaydi.
+- **Namuna eng ko‘p vorisli tugunlar.** Tasodifiy tanlov inkremental yo‘lni haqiqiydan yaxshi ko‘rsatardi.
+- **Natijalar repoga qo‘shiladi, ma’lumot qo‘shilmaydi.** `tables.md` va `metrics.json` — dissektasiyaning dalili; ma’lumot fayllari litsenziya va hajm masalasi.
+- **`experiments/requirements.txt` hozir ishlatilmaydi.** 8b-1 standart kutubxona va `neuro_model` ustida ishlaydi; pandas, pyKT va torch 8b-2 dan boshlab kerak va alohida virtualenv'da o‘rnatiladi.
+
+### Bajarilmagani (ataylab)
+
+- **D47 — tekshiruv to‘plamini tozalash.** Bu ish B8B planida ochiq ravishda implementatorning emas, mustaqil tekshiruvchining ishi (alohida sessiya). `verification/` ga tegilmadi.
+- **D53 (H2), H1/H3, DBE yuklovchisi, annotatsiya vositasi** — 8b-2 va 8b-3.
+
+### Foydalanuvchi bajarishi kerak bo‘lgan ishlar
+
+- **Ma’lumotni joylashtirish.** `experiments/data/README.md` dagi ikki `git clone` buyrug‘i. Men ularni tekshirish uchun scratchpad'ga oldim; repoda yo‘q.
+- **`pip install -r requirements-dev.txt`** — `networkx==3.4.2` e’lon qilindi (allaqachon o‘rnatilgan bo‘lishi mumkin).
+- **8b-2 uchun alohida virtualenv** — `experiments/requirements.txt` (torch va pykt-toolkit katta, Django tomoniga keraksiz).
 ---
 
 ## Savollar va qarorlar
