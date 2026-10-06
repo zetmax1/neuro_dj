@@ -310,3 +310,72 @@ def test_a_neural_model_without_torch_says_so(monkeypatch, rows):
     model = neural.DKTModel(epochs=1)
     with pytest.raises(ModuleNotFoundError):
         model.fit(rows, rows)
+
+
+# ---------------------------------------------------------------------------
+# The leak probe for the third-party sequence models
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("name", ["DKT", "AKT"])
+def test_a_sequence_model_does_not_read_the_answer_it_is_predicting(name):
+    """
+    The check that decides whether DKT's and AKT's numbers mean anything.
+
+    The architectures come from pyKT and the causal masking is theirs, so this
+    does not inspect their code — it probes the behaviour. One answer deep in
+    a sequence is flipped, and three things must hold:
+
+    - the prediction **at** that position does not move (it must not see it);
+    - no earlier prediction moves (information cannot travel backwards);
+    - the later predictions do move (otherwise the state is not updating at
+      all, which would be a different bug and would also make the AUC
+      meaningless).
+
+    A leak here is invisible in an AUC — it just makes it high.
+    """
+    pytest.importorskip("torch", reason="experiments/.venv needed from 8b-2 on")
+    pytest.importorskip("pykt", reason="experiments/.venv needed from 8b-2 on")
+    import torch
+
+    from experiments.models.neural import AKTModel, DKTModel
+
+    length, flip_at = 12, 7
+
+    def sequence(flipped=False):
+        rows = []
+        for index in range(length):
+            correct = index % 2
+            if flipped and index == flip_at:
+                correct = 1 - correct
+            rows.append(Row(
+                user_id="probe", order_id=index, problem_id=f"p{index % 3}",
+                skill_id=str(index % 3), correct=correct, original=True,
+            ))
+        return rows
+
+    train = [
+        Row(user_id=f"u{learner}", order_id=index, problem_id=f"p{index % 3}",
+            skill_id=str(index % 3), correct=(learner + index) % 2, original=True)
+        for learner in range(20)
+        for index in range(length)
+    ]
+
+    torch.manual_seed(0)
+    model = (DKTModel if name == "DKT" else AKTModel)(epochs=2, batch_size=8, seed=0)
+    model.fit(train, None)
+
+    base = model.predict(sequence())
+    flipped = model.predict(sequence(flipped=True))
+
+    assert base[flip_at] == pytest.approx(flipped[flip_at], abs=1e-9), (
+        f"{name} changed its prediction at the position whose answer was flipped"
+    )
+    for index in range(flip_at):
+        assert base[index] == pytest.approx(flipped[index], abs=1e-9), (
+            f"{name} changed an earlier prediction: information travelled backwards"
+        )
+    changed = [
+        index for index in range(flip_at + 1, length)
+        if abs(base[index] - flipped[index]) > 1e-9
+    ]
+    assert changed, f"{name} ignored the flipped answer entirely; the state is not updating"
