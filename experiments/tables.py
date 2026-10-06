@@ -148,6 +148,8 @@ def verify(markdown: str, metrics: dict) -> list[str]:
     strays = [token for token in _NUMBER.findall(stripped) if token not in permitted]
     if metrics.get("report") == "h2":
         strays += verify_h2_positions(markdown, metrics)
+    elif metrics.get("report") == "h2_bounds":
+        strays += verify_h2_bounds_positions(markdown, metrics)
     return strays
 
 
@@ -937,4 +939,223 @@ def verify_h2_positions(markdown: str, metrics: dict) -> list[str]:
                 f"{fmt(entry['log_likelihood']['grid'])} / {fmt(entry['log_likelihood']['pybkt'])}",
                 ", ".join(flags) if flags else "yo‘q",
             ])
+    return problems
+
+
+# ---------------------------------------------------------------------------
+# The bounds sensitivity table (D55)
+# ---------------------------------------------------------------------------
+
+def _passed(value) -> str:
+    return "o‘tdi" if value else "o‘tmadi"
+
+
+def _interval_cell(estimate, interval: dict) -> str:
+    """``x [low, high]``, or ``x`` when the interval is missing, or a dash."""
+    if estimate is None:
+        return "—"
+    low, high = interval.get("ci_low"), interval.get("ci_high")
+    if low is None or high is None:
+        return fmt(estimate)
+    return f"{fmt(estimate)} [{fmt(low)}, {fmt(high)}]"
+
+
+def _bounds_rows(metrics: dict) -> dict[str, list[list[str]]]:
+    """
+    Every table row of the D55 report, by section, built from the metrics.
+
+    Shared by the renderer and by nothing else: the positional check below
+    reads the markdown back and compares it with the metrics on its own.
+    """
+    settings = metrics.get("settings", [])
+    models = metrics.get("models", [])
+    rows: dict[str, list[list[str]]] = {"1": [], "2": [], "3": [], "4": [], "5": []}
+    for setting in settings:
+        name = setting["name"]
+        grid = setting.get("grid", {})
+        check = setting.get("lbfgs_check", {})
+        rows["1"].append([
+            name, fmt(setting["g_max"]), fmt(setting["s_max"]),
+            ", ".join(fmt(value) for value in grid.get("g0", [])),
+            ", ".join(fmt(value) for value in grid.get("s0", [])),
+            f"{_cell(grid.get('ceiling_share_g0'))}, {_cell(grid.get('ceiling_share_s0'))}",
+            _cell(check.get("max_relative_gap")),
+            _passed(check.get("passed")),
+        ])
+        for model in models:
+            entry = setting.get("models", {}).get(model, {})
+            scores = entry.get("scores", {})
+            rows["2"].append([
+                name, model,
+                _interval_cell(scores.get("auc"), entry.get("auc_interval") or {}),
+                _cell(scores.get("rmse")), _cell(scores.get("accuracy")),
+                _cell(entry.get("log_likelihood")), _cell(scores.get("n")),
+            ])
+        difference = setting.get("difference", {})
+        delong = difference.get("delong", {})
+        boot = difference.get("bootstrap", {})
+        low, high = boot.get("ci_low"), boot.get("ci_high")
+        rows["3"].append([
+            name, _cell(delong.get("difference")),
+            "—" if low is None or high is None else f"[{fmt(low)}, {fmt(high)}]",
+            _cell(delong.get("z")), _p(delong.get("p")), _p(delong.get("p_holm")),
+            "—" if delong.get("significant") is None else fmt(bool(delong["significant"])),
+        ])
+        check_grid = setting.get("grid_check") or {}
+        parameters = check_grid.get("parameters") or {}
+        g0, s0 = parameters.get("g0") or {}, parameters.get("s0") or {}
+        rows["4"].append([
+            name, _cell(check_grid.get("fits")),
+            _cell(g0.get("at_highest")), _cell(g0.get("share_at_highest")),
+            _cell(s0.get("at_highest")), _cell(s0.get("share_at_highest")),
+            _cell(setting.get("fit_log_likelihood")),
+        ])
+        for model in models:
+            rows["5"].append([name, model] + [
+                _cell(fold.get("auc", {}).get(model)) for fold in setting.get("folds", [])
+            ])
+    return rows
+
+
+def render_h2_bounds_report(metrics: dict) -> str:
+    """``tables.md`` for ``h2_bounds.py``, generated from the metrics alone (D48)."""
+    require_sources(metrics)
+    provenance = metrics.get("provenance", {})
+    label = (metrics.get("dataset") or {}).get("label", "")
+    bounds = metrics.get("chapter_two_bounds") or {}
+    settings = metrics.get("settings", [])
+    main = next((setting["name"] for setting in settings if setting.get("main")), "—")
+    lbfgs = metrics.get("lbfgs") or {}
+    confidence = fmt(metrics.get("confidence_percent", 0))
+    first = settings[0]["difference"] if settings else {"a": "—", "b": "—"}
+    folds = settings[0].get("folds", []) if settings else []
+    rows = _bounds_rows(metrics)
+
+    def table(header: list[str], body: list[list[str]]) -> list[str]:
+        out = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+        out += ["| " + " | ".join(row) + " |" for row in body]
+        return out + [""]
+
+    lines: list[str] = [
+        f"# H2 — chegaralar sezgirligi (D55): {label}",
+        "",
+        "Bu fayl `metrics.json` dan avtomatik yasaladi (D48). Qo‘lda yozilgan son yo‘q.",
+    ]
+    lines += _tree_warning(provenance)
+    if metrics.get("quick"):
+        lines += [
+            "",
+            "> **`--quick` ishga tushirish — dissertatsiya natijasi emas.** Bu quvurni",
+            "> sinash uchun: talabalarning bir qismi. To‘liq natija uchun",
+            "> `python -m experiments.h2_bounds` bayroqsiz ishga tushiriladi.",
+        ]
+    lines += [
+        "",
+        f"**II bob qarori o‘zgarmaydi.** Asosiy natija — G_MAX = {fmt(bounds.get('g_max', 0))}, "
+        f"S_MAX = {fmt(bounds.get('s_max', 0))} bilan olingani (“{main}” sozlamasi).",
+        "Qolgan sozlamalar faqat eksperiment parametri: ular H2 xulosasi chegaralarga",
+        "qanchalik bog‘liqligini ko‘rsatadi. Platformaning konstantalari o‘zgarmagan.",
+        "",
+        "## 1. Sozlamalar va grid",
+        "",
+        "P(G) va P(S) grid'i har sozlamada chegaraga nisbatan quriladi: II bob",
+        "grid'ining qiymatlari chegaraga nisbatan ulush sifatida olinadi, shuning uchun",
+        "eng yuqori qiymat har sozlamada chegaraning bir xil ulushida turadi. Fold'lar",
+        "moslanishidan oldin grid'ning eng yaxshi qiymati eng ko‘p javobli",
+        f"{fmt(lbfgs.get('skills', 0))} mavzuda chegaralangan L-BFGS-B optimumidan",
+        f"nisbatan {fmt(lbfgs.get('tolerance', 0))} dan ko‘p farq qilmasligi tekshiriladi;",
+        "aks holda ishga tushirish to‘xtaydi va hech narsa yozilmaydi.",
+        "",
+    ]
+    lines += table(
+        ["Sozlama", "G_MAX", "S_MAX", "P(G) qiymatlari", "P(S) qiymatlari",
+         "Eng yuqori / chegara (G, S)", "L-BFGS-B: eng katta nisbiy farq", "Tekshiruv"],
+        rows["1"],
+    )
+    lines += [
+        "## 2. Natija (barcha fold'lar birga)",
+        "",
+        f"AUC uchun {confidence}% ishonch oralig‘i — talabalar bo‘yicha bootstrap,",
+        f"{fmt(metrics.get('replicates', 0))} replikat. Log-likelihood — test javoblarida: to‘g‘ri",
+        "javobda log p̂, xatoda — xato ehtimolining logarifmi, hammasi qo‘shilgan;",
+        "nolga yaqinrog‘i yaxshiroq.",
+        "",
+    ]
+    lines += table(
+        ["Sozlama", "Model", f"AUC [{confidence}% CI]", "RMSE", "Aniqlik",
+         "Log-likelihood (test)", "Javob"],
+        rows["2"],
+    )
+    lines += [
+        f"## 3. {first['a']} − {first['b']}",
+        "",
+        "Farq — ikki modelning AUC'lari ayirmasi. Ishonch oralig‘i — talabalar bo‘yicha",
+        "juftlik bootstrap: har replikatda ikkala model uchun bir xil talabalar olinadi.",
+        "DeLong javoblarni mustaqil deb hisoblaydi, shuning uchun uning p qiymati",
+        "haqiqiydan kichik bo‘lishi mumkin (H2 jadvalidagi kabi); Holm — sozlamalar",
+        "oilasi uchun.",
+        "",
+    ]
+    lines += table(
+        ["Sozlama", "AUC farqi", f"{confidence}% CI (bootstrap)", "z (DeLong)", "p", "p (Holm)", "Muhim"],
+        rows["3"],
+    )
+    lines += [
+        "## 4. Chegaraga tiralgan moslashlar",
+        "",
+        "Har bir fold o‘z parametrlarini moslaydi; sonlar barcha fold'lar bo‘yicha",
+        "jamlangan. “Eng yuqorida” — grid'ning shu sozlamadagi eng yuqori ruxsat",
+        "etilgan qiymati. O‘qitish log-likelihood'i — moslangan mavzular bo‘yicha jami,",
+        "barcha fold'larda; sozlamalar bir xil ma’lumotda moslangani uchun solishtiriladi.",
+        "",
+    ]
+    lines += table(
+        ["Sozlama", "Moslashlar", "P(G) eng yuqorida", "Ulushi", "P(S) eng yuqorida", "Ulushi",
+         "O‘qitish log-likelihood"],
+        rows["4"],
+    )
+    lines += ["## 5. Fold'lar bo‘yicha AUC", ""]
+    lines += table(
+        ["Sozlama", "Model"] + [f"{fold['index'] + 1}-qism" for fold in folds],
+        rows["5"],
+    )
+
+    dataset = metrics.get("dataset") or {}
+    split = metrics.get("split") or {}
+    lines += [
+        "## 6. Ma’lumot va bo‘lish",
+        "",
+        f"- ishlatilgan: {fmt(dataset.get('answers_used', 0))} javob, "
+        f"{fmt(dataset.get('learners_used', 0))} talaba",
+        f"- `--original-only`: {fmt(bool(dataset.get('original_only')))}",
+        f"- bo‘lish: {fmt(split.get('folds', 0))} qism, talabalar bo‘yicha, "
+        f"validatsiya ulushi {fmt(split.get('validation_fraction', 0))}, "
+        f"seed {fmt(split.get('seed', 0))} — H2 bilan bir xil",
+        f"- grid search: {fmt(metrics.get('workers', 0))} jarayonda parallel; natija bunga bog‘liq emas",
+        "",
+    ]
+    lines += _sources_section(metrics, provenance, number=7)
+    return "\n".join(lines) + "\n"
+
+
+def verify_h2_bounds_positions(markdown: str, metrics: dict) -> list[str]:
+    """
+    Every cell of the D55 tables against its own (setting, model, metric).
+
+    The expected cells come from :func:`_bounds_rows`; what is compared is the
+    markdown as written, read back section by section, so a cell moved,
+    edited or dropped after rendering is caught.
+    """
+    problems: list[str] = []
+    sections = _sections(markdown)
+    for number, expected in _bounds_rows(metrics).items():
+        if number not in sections:
+            problems.append(f"§{number}: section missing")
+            continue
+        _, body = _table(sections[number])
+        if len(body) != len(expected):
+            problems.append(f"§{number} rows: {len(body)} is not {len(expected)}")
+        for got, want in zip(body, expected):
+            if got != want:
+                problems.append(f"§{number} {' / '.join(want[:2])}: {got!r} is not {want!r}")
     return problems

@@ -252,3 +252,50 @@ def test_two_sided_p_is_the_normal_tail():
     assert stats.two_sided_p(0.0) == pytest.approx(1.0)
     assert stats.two_sided_p(1.959964) == pytest.approx(0.05, abs=1e-5)
     assert stats.two_sided_p(-1.959964) == pytest.approx(0.05, abs=1e-5)
+
+
+# ---------------------------------------------------------------------------
+# The paired learner bootstrap of a difference (D55)
+# ---------------------------------------------------------------------------
+
+def test_the_paired_bootstrap_brackets_a_real_difference(sample):
+    from experiments import stats
+
+    labels, strong, weak, learners = sample
+    difference = stats.bootstrap_auc_difference(labels, strong, weak, learners, replicates=300, seed=3)
+    expected = metrics.auc(list(labels), list(strong)) - metrics.auc(list(labels), list(weak))
+
+    assert difference.estimate == pytest.approx(expected, abs=1e-12)
+    assert 0.0 < difference.low < difference.estimate < difference.high
+    assert difference.by_learner is True and difference.replicates == 300
+
+
+def test_the_paired_bootstrap_of_a_model_against_itself_is_zero(sample):
+    from experiments import stats
+
+    labels, strong, _, learners = sample
+    same = stats.bootstrap_auc_difference(labels, strong, strong, learners, replicates=50, seed=3)
+    assert (same.estimate, same.low, same.high) == (0.0, 0.0, 0.0)
+
+
+def test_the_paired_bootstrap_keeps_the_pair_together(sample):
+    """
+    Resampling the two models' learners independently would ignore their
+    correlation and widen the interval. Paired, the interval of the
+    difference is narrower than the two marginal intervals put together.
+    """
+    from experiments import stats
+
+    labels, strong, weak, learners = sample
+    difference = stats.bootstrap_auc_difference(labels, strong, weak, learners, replicates=300, seed=3)
+    a = stats.bootstrap_auc(labels, strong, learners, replicates=300, seed=3)
+    b = stats.bootstrap_auc(labels, weak, learners, replicates=300, seed=3)
+    assert difference.high - difference.low < (a.high - a.low) + (b.high - b.low)
+
+
+def test_the_paired_bootstrap_refuses_mismatched_inputs(sample):
+    from experiments import stats
+
+    labels, strong, weak, learners = sample
+    with pytest.raises(ValueError, match="same answers"):
+        stats.bootstrap_auc_difference(labels, strong[:-1], weak, learners, replicates=5)

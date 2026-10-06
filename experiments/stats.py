@@ -286,6 +286,52 @@ def _bootstrap_clustered(
     return draws
 
 
+def bootstrap_auc_difference(
+    labels: Sequence[int],
+    scores_a: Sequence[float],
+    scores_b: Sequence[float],
+    learners: Sequence[str],
+    *,
+    replicates: int = DEFAULT_REPLICATES,
+    seed: int = DEFAULT_SEED,
+    confidence: float = CONFIDENCE,
+) -> Interval:
+    """
+    AUC(a) − AUC(b) with a percentile interval, resampling **learners** and
+    keeping the pair together (D55).
+
+    DeLong's variance treats answers as independent, so its p value for a
+    difference is optimistic on clustered data. This is the interval that
+    respects the clustering: in each replicate the same learners are drawn for
+    both models, so the correlation between them is kept, as in DeLong, and
+    the learner is the unit, as in ``bootstrap_auc``.
+    """
+    labels_array = np.asarray(labels, dtype=int)
+    a = np.asarray(scores_a, dtype=float)
+    b = np.asarray(scores_b, dtype=float)
+    if not (len(labels_array) == len(a) == len(b) == len(learners)):
+        raise ValueError("the two models must be scored on the same answers")
+    if len(labels_array) == 0 or labels_array.min() == labels_array.max():
+        return Interval(None, None, None, 0, True)
+
+    point = _auc(labels_array, a) - _auc(labels_array, b)
+    rng = np.random.default_rng(seed)
+    groups = _group_indices(learners)
+    draws: list[float] = []
+    count = len(groups)
+    for _ in range(replicates):
+        chosen = rng.integers(0, count, size=count)
+        rows = np.concatenate([groups[index] for index in chosen])
+        left, right = _auc(labels_array[rows], a[rows]), _auc(labels_array[rows], b[rows])
+        if left is not None and right is not None:
+            draws.append(left - right)
+    if not draws:
+        return Interval(point, None, None, 0, True)
+    alpha = (1.0 - confidence) / 2.0
+    low, high = np.quantile(draws, [alpha, 1.0 - alpha])
+    return Interval(point, float(low), float(high), len(draws), True)
+
+
 def _bootstrap_flat(
     labels: np.ndarray,
     scores: np.ndarray,

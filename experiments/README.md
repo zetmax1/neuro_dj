@@ -45,6 +45,7 @@ isbotlamaydi.
 | `models/neural.py` | DKT, AKT — pyKT ning arxitekturalari | D53 |
 | `models/pybkt_check.py` | 5 mavzu bo'yicha pyBKT EM bilan o'zaro tekshiruv | D53 |
 | `h2.py` | H2 ishga tushirish: `--quick` va to'liq | D53 |
+| `h2_bounds.py` | H2 ning G_MAX/S_MAX ga sezgirligi: BKT va BKT+IRT (λ=0), uch sozlama | D55 |
 
 ## Muhit
 
@@ -108,6 +109,21 @@ jadvalda "graf yo'q" deb chiqadi, tashlab ketilmaydi (D48).
 Birinchi uchtasi — bitta kod, uch xil bayroq
 (`models/classical.py::BKTFamily`), ya'ni baholanadigan model prototipda
 ishlaydigan modelning o'zi.
+
+### Chegaralar sezgirligi (D55)
+
+```sh
+experiments/.venv/bin/python -m experiments.h2_bounds --quick
+experiments/run_h2.sh bounds-both     # quick, keyin to'liq; log: experiments/.runs/h2-bounds-*.log
+```
+
+Faqat BKT va BKT+IRT (λ=0), uch sozlama: (0,30; 0,10) — II bob, asosiy natija;
+(0,40; 0,20) va (0,49; 0,30) — faqat eksperiment parametri. Platformaning
+konstantalari o'zgarmaydi. Grid har sozlamada chegaraga nisbatan quriladi
+(asosiysida H2 ning grid'i aynan), va fold'lar moslanishidan oldin 5 ta eng
+ko'p javobli mavzuda L-BFGS-B bilan solishtiriladi: nisbiy farq 1 % dan oshsa,
+ishga tushirish hech narsa yozmasdan to'xtaydi (chiqish kodi 3). Grid search'lar
+(sozlama × fold) parallel jarayonlarda (`--workers`); natija bunga bog'liq emas.
 
 ## Testlar
 

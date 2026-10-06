@@ -9,6 +9,9 @@
 #   experiments/run_h2.sh full      # the whole dataset
 #   experiments/run_h2.sh both      # quick, then full
 #
+#   experiments/run_h2.sh bounds-quick | bounds-full | bounds-both
+#                                   # D55, experiments.h2_bounds, the same way
+#
 # Progress: tail -f experiments/.runs/h2-<mode>.log
 #
 # Why systemd-run and not setsid. The first detached pass died at 15:48 on
@@ -40,7 +43,7 @@ if [[ ! -x "$PY" ]]; then
 fi
 
 run() {
-    local name="$1"; shift
+    local name="$1" module="$2"; shift 2
     echo "[$(date -Is)] starting $name: $*" >> "$LOGS/h2-$name.log"
     # The status is captured before anything else runs: $(date -Is) in the
     # line below executes first and would reset $? to its own success, so a
@@ -48,16 +51,21 @@ run() {
     # worked. `|| status=$?` keeps a non-zero exit from ending the shell
     # before the line is written.
     local status=0
-    "$PY" -u -W ignore -m experiments.h2 "$@" >> "$LOGS/h2-$name.log" 2>&1 || status=$?
+    "$PY" -u -W ignore -m "$module" "$@" >> "$LOGS/h2-$name.log" 2>&1 || status=$?
     echo "[$(date -Is)] finished $name (exit $status)" >> "$LOGS/h2-$name.log"
     return $status
 }
 
+H2=experiments.h2
+BOUNDS=experiments.h2_bounds
 case "$MODE" in
-    quick) CHAIN="run quick --quick" ;;
-    full)  CHAIN="run full" ;;
-    both)  CHAIN="run quick --quick && run full" ;;
-    *) echo "usage: $0 {quick|full|both}" >&2; exit 2 ;;
+    quick) CHAIN="run quick $H2 --quick" ;;
+    full)  CHAIN="run full $H2" ;;
+    both)  CHAIN="run quick $H2 --quick && run full $H2" ;;
+    bounds-quick) CHAIN="run bounds-quick $BOUNDS --quick" ;;
+    bounds-full)  CHAIN="run bounds-full $BOUNDS" ;;
+    bounds-both)  CHAIN="run bounds-quick $BOUNDS --quick && run bounds-full $BOUNDS" ;;
+    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both}" >&2; exit 2 ;;
 esac
 BODY="$(declare -f run); LOGS='$LOGS' PY='$PY'; $CHAIN"
 

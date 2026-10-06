@@ -292,6 +292,19 @@ def test_a_successful_quick_run_is_followed_by_the_full_one(tmp_path):
     assert "finished full (exit 0)" in full
 
 
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_bounds_modes_run_the_d55_module_with_their_own_logs(tmp_path):
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "bounds-both", fake)
+
+    quick = (tmp_path / "logs" / "h2-bounds-quick.log").read_text()
+    full = (tmp_path / "logs" / "h2-bounds-full.log").read_text()
+    assert "args: -u -W ignore -m experiments.h2_bounds --quick" in quick
+    assert "args: -u -W ignore -m experiments.h2_bounds\n" in full
+    assert "finished bounds-full (exit 0)" in full
+    assert not (tmp_path / "logs" / "h2-quick.log").exists()
+
+
 def test_the_detached_launch_leaves_the_launchers_cgroup_and_survives_an_oom_kill():
     """
     setsid alone kept the run in the launching browser's cgroup, and systemd

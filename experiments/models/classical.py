@@ -87,6 +87,7 @@ def fit_skill_params(
     rows: Sequence,
     *,
     grid: calibrate.Grid = calibrate.DEFAULT_GRID,
+    constants: engine.Constants = CONSTANTS,
 ) -> tuple[dict[str, engine.TopicParams], dict]:
     """
     P0, PT, G0, S0 per skill, by the grid search of ``neuro_model.calibrate``.
@@ -94,6 +95,10 @@ def fit_skill_params(
     One (learner, skill) pair is one sequence, in answer order — the same unit
     the live model updates over. Skills with too few answers keep the
     defaults, and the metadata says how many did.
+
+    ``constants`` supplies the bounds G_MAX and S_MAX. It is chapter II's
+    everywhere except the bounds sensitivity analysis (D55), where the bounds
+    are an experiment parameter; the platform's constants never change.
     """
     sequences: dict[str, list[list[bool]]] = {}
     per_learner: dict[tuple[str, str], list[bool]] = {}
@@ -104,22 +109,24 @@ def fit_skill_params(
 
     fitted: dict[str, engine.TopicParams] = {}
     kept_defaults = 0
+    fit_log_likelihood = 0.0
     for skill in sorted(sequences, key=_sort_key):
         answers = sequences[skill]
         if calibrate.count_observations(answers) < MIN_ANSWERS_TO_FIT:
             kept_defaults += 1
             continue
         best = calibrate.grid_search(
-            answers, g_max=CONSTANTS.g_max, s_max=CONSTANTS.s_max, grid=grid,
+            answers, g_max=constants.g_max, s_max=constants.s_max, grid=grid,
         )
         if best is None:
             kept_defaults += 1
             continue
         fitted[skill] = engine.TopicParams(p0=best.p0, pt=best.pt, g0=best.g0, s0=best.s0)
+        fit_log_likelihood += best.log_likelihood
 
     metadata = {
         "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
-        "grid_candidates": len(grid.candidates(g_max=CONSTANTS.g_max, s_max=CONSTANTS.s_max)),
+        "grid_candidates": len(grid.candidates(g_max=constants.g_max, s_max=constants.s_max)),
         "skills_fitted": len(fitted),
         "skills_kept_defaults": kept_defaults,
         "min_answers_to_fit": MIN_ANSWERS_TO_FIT,
@@ -127,12 +134,18 @@ def fit_skill_params(
         "defaults": {
             "p0": DEFAULTS.p0, "pt": DEFAULTS.pt, "g0": DEFAULTS.g0, "s0": DEFAULTS.s0,
         },
-        "grid_check": grid_check(fitted, grid=grid),
+        # The training log-likelihood of the fitted skills, summed: how well the
+        # bounded search explains the data it was fitted on (D55 compares it
+        # across bounds).
+        "fit_log_likelihood": round(fit_log_likelihood, 4),
+        "grid_check": grid_check(fitted, grid=grid, constants=constants),
     }
     return fitted, metadata
 
 
-def admissible(grid: calibrate.Grid) -> dict[str, list[float]]:
+def admissible(
+    grid: calibrate.Grid, constants: engine.Constants = CONSTANTS,
+) -> dict[str, list[float]]:
     """
     The values each parameter can actually take, after chapter II's bounds.
 
@@ -140,7 +153,7 @@ def admissible(grid: calibrate.Grid) -> dict[str, list[float]]:
     (``neuro_model.irt.gamma`` is undefined at the boundary), so the grid the
     search really walks is narrower than the one declared.
     """
-    candidates = grid.candidates(g_max=CONSTANTS.g_max, s_max=CONSTANTS.s_max)
+    candidates = grid.candidates(g_max=constants.g_max, s_max=constants.s_max)
     out: dict[str, list[float]] = {}
     for position, name in enumerate(("p0", "pt", "g0", "s0")):
         out[name] = sorted({candidate[position] for candidate in candidates})
@@ -151,6 +164,7 @@ def grid_check(
     fitted: dict[str, engine.TopicParams],
     *,
     grid: calibrate.Grid = calibrate.DEFAULT_GRID,
+    constants: engine.Constants = CONSTANTS,
 ) -> dict:
     """
     Does the bounded grid search run into its own edges?
@@ -167,7 +181,7 @@ def grid_check(
     Reported per parameter: the admissible values, how many skills landed on
     the lowest and the highest of them, and the whole distribution.
     """
-    values = admissible(grid)
+    values = admissible(grid, constants)
     names = ("p0", "pt", "g0", "s0")
     distribution: dict[str, dict[str, int]] = {name: {} for name in names}
     for params in fitted.values():
@@ -178,7 +192,7 @@ def grid_check(
     total = len(fitted)
     out: dict = {
         "skills": total,
-        "bounds": {"g_max": CONSTANTS.g_max, "s_max": CONSTANTS.s_max},
+        "bounds": {"g_max": constants.g_max, "s_max": constants.s_max},
         "parameters": {},
     }
     for name in names:
@@ -216,9 +230,13 @@ class BKTFamily:
         use_irt: bool,
         use_prereq_init: bool,
         params: dict[str, engine.TopicParams] | None = None,
+        constants: engine.Constants = CONSTANTS,
     ) -> None:
         self.name = name
         self.flags = engine.Flags(use_irt=use_irt, use_prereq_init=use_prereq_init)
+        # Chapter II's constants, except in the bounds sensitivity analysis
+        # (D55), which varies G_MAX and S_MAX and nothing else.
+        self.constants = constants
         self._params = dict(params or {})
         self._fit_metadata: dict = {}
         self._items: tuple[dict[str, float], dict[str, int]] = ({}, {})
@@ -230,7 +248,7 @@ class BKTFamily:
                 "prerekvizit grafi yo‘q — ASSISTments 2009 uchun E_P mavjud emas (D53)",
             )
         if not self._params:
-            self._params, self._fit_metadata = fit_skill_params(train)
+            self._params, self._fit_metadata = fit_skill_params(train, constants=self.constants)
         self._items = self._warm_items(train)
         return {
             "flags": {
@@ -238,12 +256,12 @@ class BKTFamily:
                 "use_prereq_init": self.flags.use_prereq_init,
             },
             "constants": {
-                "a_q": CONSTANTS.a_q if self.flags.use_irt else 0.0,
-                "lambda": CONSTANTS.lam if self.flags.use_prereq_init else 0.0,
-                "elo_alpha": CONSTANTS.elo_alpha,
-                "elo_beta": CONSTANTS.elo_beta,
-                "g_max": CONSTANTS.g_max,
-                "s_max": CONSTANTS.s_max,
+                "a_q": self.constants.a_q if self.flags.use_irt else 0.0,
+                "lambda": self.constants.lam if self.flags.use_prereq_init else 0.0,
+                "elo_alpha": self.constants.elo_alpha,
+                "elo_beta": self.constants.elo_beta,
+                "g_max": self.constants.g_max,
+                "s_max": self.constants.s_max,
             },
             "parameters": self._fit_metadata,
             "items_warmed": len(self._items[0]),
@@ -268,7 +286,7 @@ class BKTFamily:
             )
             result = engine.observe(
                 params=self._params.get(row.skill_id, DEFAULTS),
-                constants=CONSTANTS,
+                constants=self.constants,
                 observation=observation,
                 flags=self.flags,
             )
@@ -297,7 +315,7 @@ class BKTFamily:
             )
             result = engine.observe(
                 params=params,
-                constants=CONSTANTS,
+                constants=self.constants,
                 observation=observation,
                 flags=self.flags,
             )
