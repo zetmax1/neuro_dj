@@ -328,6 +328,27 @@ def h2_metrics() -> dict:
             }],
         },
         "unavailable": [{"model": "BKT+IRT+Pre", "reason": "graf yo‘q"}],
+        "grid_check": {
+            "folds": 5,
+            "fits": 405,
+            "bounds": {"g_max": 0.3, "s_max": 0.1},
+            "parameters": {
+                "p0": {
+                    "admissible_values": [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5],
+                    "lowest": 0.05, "highest": 0.5,
+                    "at_lowest": 12, "at_highest": 190,
+                    "share_at_highest": 0.4691, "share_at_lowest": 0.0296,
+                    "ceiling_is_chapter_two": False,
+                },
+                "g0": {
+                    "admissible_values": [0.05, 0.1, 0.15, 0.2, 0.25],
+                    "lowest": 0.05, "highest": 0.25,
+                    "at_lowest": 20, "at_highest": 300,
+                    "share_at_highest": 0.7407, "share_at_lowest": 0.0494,
+                    "ceiling_is_chapter_two": True,
+                },
+            },
+        },
     }
 
 
@@ -394,3 +415,20 @@ def test_the_h2_table_says_pybkt_went_outside_chapter_twos_bounds():
 
     assert "G0" in markdown or "S0" in markdown
     assert "pyBKT" in markdown
+
+
+def test_the_grid_check_section_distinguishes_who_sets_the_ceiling():
+    """
+    Saturation on P0 means the grid is too narrow. Saturation on P(G) means
+    chapter II's cap is binding, which is a finding rather than a defect — so
+    the table must not present the two the same way.
+    """
+    document = h2_metrics()
+    markdown = tables.render_h2_report(document)
+
+    assert "Grid tekshiruvi" in markdown
+    grid_rows = [line for line in markdown.splitlines() if line.startswith(("| P0 |", "| P(G) |"))]
+    assert len(grid_rows) == 2
+    assert grid_rows[0].rstrip().endswith("grid |")
+    assert grid_rows[1].rstrip().endswith("II bob |")
+    assert tables.verify(markdown, document) == []

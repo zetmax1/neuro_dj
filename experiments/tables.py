@@ -406,9 +406,10 @@ def render_h2_report(metrics: dict) -> str:
     lines += _h2_comparisons(metrics)
     lines += _h2_folds(metrics)
     lines += _h2_sanity(metrics)
+    lines += _h2_grid(metrics)
     lines += _h2_pybkt(metrics)
     lines += _h2_dataset(metrics)
-    lines += _sources_section(metrics, provenance, number=8)
+    lines += _sources_section(metrics, provenance, number=9)
     return "\n".join(lines) + "\n"
 
 
@@ -581,9 +582,48 @@ def _h2_sanity(metrics: dict) -> list[str]:
     return lines
 
 
+def _h2_grid(metrics: dict) -> list[str]:
+    """Does the bounded grid search run into its own edges?"""
+    check = metrics.get("grid_check") or {}
+    lines = ["## 6. Grid tekshiruvi — moslash grid chetiga tegdimi", ""]
+    if not check:
+        return lines + ["Ishga tushirilmadi.", ""]
+
+    bounds = check.get("bounds", {})
+    lines += [
+        "Eng yuqori ruxsat etilgan qiymatda to‘planib qolgan moslash — moslash emas,",
+        "grid'ning “ma’lumot men bera oladigandan ko‘proq xohlaydi” deyishi.",
+        "",
+        "`P0` va `PT` uchun bu grid torligini bildiradi va grid kengaytirilishi kerak.",
+        f"`P(G)` va `P(S)` uchun boshqa narsani: ularning shiftini grid emas, II bob",
+        f"belgilaydi (G_MAX = {fmt(bounds.get('g_max', 0))}, S_MAX = {fmt(bounds.get('s_max', 0))}),",
+        "chunki γ chegarada aniqlanmagan. Ya’ni u yerdagi to‘planish — chegara",
+        "ishlayotgani, va grid'ni kengaytirish moslashni yaxshilamaydi, modelni buzadi.",
+        "Shu ishga tushirishdagi pyBKT solishtirishi bunga tashqi dalil: uning EM'ida",
+        "chegara yo‘q.",
+        "",
+        f"Jami moslash: {fmt(check.get('fits', 0))} "
+        f"({fmt(check.get('folds', 0))} qismda)",
+        "",
+        "| Parametr | Ruxsat etilgan qiymatlar | Eng pastda | Eng yuqorida | Yuqoridagilar ulushi | Shiftni kim belgilaydi |",
+        "|---|---|---|---|---|---|",
+    ]
+    labels = {"p0": "P0", "pt": "PT", "g0": "P(G)", "s0": "P(S)"}
+    for name, entry in (check.get("parameters") or {}).items():
+        values = ", ".join(fmt(value) for value in entry.get("admissible_values", []))
+        ceiling = "II bob" if entry.get("ceiling_is_chapter_two") else "grid"
+        lines.append(
+            f"| {labels.get(name, name)} | {values} | "
+            f"{fmt(entry.get('at_lowest', 0))} | {fmt(entry.get('at_highest', 0))} | "
+            f"{fmt(entry.get('share_at_highest', 0))} | {ceiling} |"
+        )
+    lines.append("")
+    return lines
+
+
 def _h2_pybkt(metrics: dict) -> list[str]:
     check = metrics.get("pybkt_cross_check")
-    lines = ["## 6. pyBKT bilan o‘zaro tekshiruv (D53)", ""]
+    lines = ["## 7. pyBKT bilan o‘zaro tekshiruv (D53)", ""]
     if not check:
         return lines + ["Ishga tushirilmadi.", ""]
     if check.get("status") == "unavailable":
@@ -631,7 +671,7 @@ def _h2_dataset(metrics: dict) -> list[str]:
     cleaned = dataset.get("cleaned") or {}
     raw = dataset.get("raw") or {}
     lines = [
-        "## 7. Ma’lumot va tozalash (D50)",
+        "## 8. Ma’lumot va tozalash (D50)",
         "",
         f"- xom qatorlar: {fmt(raw.get('rows', 0))}, talabalar: {fmt(raw.get('students', 0))}, "
         f"bo‘sh `skill_id`: {fmt(raw.get('blank_skill_id', 0))}",

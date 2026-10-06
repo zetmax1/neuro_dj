@@ -127,8 +127,80 @@ def fit_skill_params(
         "defaults": {
             "p0": DEFAULTS.p0, "pt": DEFAULTS.pt, "g0": DEFAULTS.g0, "s0": DEFAULTS.s0,
         },
+        "grid_check": grid_check(fitted, grid=grid),
     }
     return fitted, metadata
+
+
+def admissible(grid: calibrate.Grid) -> dict[str, list[float]]:
+    """
+    The values each parameter can actually take, after chapter II's bounds.
+
+    ``g0 < G_MAX`` and ``s0 < S_MAX`` are conditions γ needs
+    (``neuro_model.irt.gamma`` is undefined at the boundary), so the grid the
+    search really walks is narrower than the one declared.
+    """
+    candidates = grid.candidates(g_max=CONSTANTS.g_max, s_max=CONSTANTS.s_max)
+    out: dict[str, list[float]] = {}
+    for position, name in enumerate(("p0", "pt", "g0", "s0")):
+        out[name] = sorted({candidate[position] for candidate in candidates})
+    return out
+
+
+def grid_check(
+    fitted: dict[str, engine.TopicParams],
+    *,
+    grid: calibrate.Grid = calibrate.DEFAULT_GRID,
+) -> dict:
+    """
+    Does the bounded grid search run into its own edges?
+
+    A fit that piles up on the highest admissible value is not a fit — it is
+    the grid saying "the data want more than I can offer". For ``p0`` and
+    ``pt`` that would mean the grid is too narrow and should be widened. For
+    ``g0`` and ``s0`` it means something different and more interesting: their
+    ceiling is not an arbitrary grid choice but chapter II's ``G_MAX`` and
+    ``S_MAX``, so saturation there is the cap binding, and widening the grid
+    would break the model rather than improve the fit. The pyBKT comparison in
+    the same run is the external check on that reading: its EM has no cap.
+
+    Reported per parameter: the admissible values, how many skills landed on
+    the lowest and the highest of them, and the whole distribution.
+    """
+    values = admissible(grid)
+    names = ("p0", "pt", "g0", "s0")
+    distribution: dict[str, dict[str, int]] = {name: {} for name in names}
+    for params in fitted.values():
+        for name in names:
+            key = repr(getattr(params, name))
+            distribution[name][key] = distribution[name].get(key, 0) + 1
+
+    total = len(fitted)
+    out: dict = {
+        "skills": total,
+        "bounds": {"g_max": CONSTANTS.g_max, "s_max": CONSTANTS.s_max},
+        "parameters": {},
+    }
+    for name in names:
+        low, high = (values[name][0], values[name][-1]) if values[name] else (None, None)
+        at_low = distribution[name].get(repr(low), 0)
+        at_high = distribution[name].get(repr(high), 0)
+        out["parameters"][name] = {
+            "admissible_values": values[name],
+            "lowest": low,
+            "highest": high,
+            "at_lowest": at_low,
+            "at_highest": at_high,
+            "share_at_highest": round(at_high / total, 4) if total else 0.0,
+            "distribution": {
+                key: distribution[name][key]
+                for key in sorted(distribution[name], key=float)
+            },
+            # Why the ceiling is where it is: a grid choice for p0 and pt, and
+            # chapter II for the other two.
+            "ceiling_is_chapter_two": name in ("g0", "s0"),
+        }
+    return out
 
 
 class BKTFamily:

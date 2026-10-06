@@ -397,3 +397,62 @@ def test_a_sequence_model_does_not_read_the_answer_it_is_predicting(name):
         if abs(base[index] - flipped[index]) > 1e-9
     ]
     assert changed, f"{name} ignored the flipped answer entirely; the state is not updating"
+
+
+# ---------------------------------------------------------------------------
+# The grid check
+# ---------------------------------------------------------------------------
+
+def test_the_admissible_grid_is_narrower_than_the_declared_one():
+    """
+    ``g0 < G_MAX`` and ``s0 < S_MAX`` are conditions γ needs, so the grid the
+    search really walks is not the one declared in neuro_model.calibrate.
+    """
+    from neuro_model import calibrate
+
+    from experiments.models.classical import CONSTANTS, admissible
+
+    values = admissible(calibrate.DEFAULT_GRID)
+    assert max(values["g0"]) < CONSTANTS.g_max
+    assert max(values["s0"]) < CONSTANTS.s_max
+    assert set(values["p0"]) == set(calibrate.DEFAULT_GRID.p0)
+
+
+def test_the_grid_check_counts_the_edges_and_says_who_set_them(rows):
+    """
+    The distinction the check exists for: P0's ceiling is a grid choice, and
+    P(G)'s is chapter II. Saturation means different things in the two cases.
+    """
+    from experiments.models.classical import fit_skill_params, grid_check
+
+    fitted, metadata = fit_skill_params(rows)
+    check = metadata["grid_check"]
+
+    assert check["skills"] == len(fitted)
+    assert set(check["parameters"]) == {"p0", "pt", "g0", "s0"}
+    assert check["parameters"]["g0"]["ceiling_is_chapter_two"] is True
+    assert check["parameters"]["s0"]["ceiling_is_chapter_two"] is True
+    assert check["parameters"]["p0"]["ceiling_is_chapter_two"] is False
+    assert check["parameters"]["pt"]["ceiling_is_chapter_two"] is False
+
+    for entry in check["parameters"].values():
+        counted = sum(entry["distribution"].values())
+        assert counted == len(fitted)
+        assert entry["at_highest"] <= len(fitted)
+        assert 0.0 <= entry["share_at_highest"] <= 1.0
+
+
+def test_a_fit_that_saturates_is_visible_in_the_check():
+    """
+    Constructed so the answer rate forces the highest guess the bounds allow:
+    the check has to report it rather than average it away.
+    """
+    from experiments.models.classical import grid_check
+    from neuro_model import student as engine
+
+    top = engine.TopicParams(p0=0.5, pt=0.4, g0=0.25, s0=0.09)
+    check = grid_check({"a": top, "b": top, "c": top})
+
+    assert check["parameters"]["g0"]["at_highest"] == 3
+    assert check["parameters"]["g0"]["share_at_highest"] == 1.0
+    assert check["parameters"]["s0"]["share_at_highest"] == 1.0

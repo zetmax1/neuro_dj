@@ -349,10 +349,51 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
         "folds": fold_reports,
         "pooled": analysis,
         "sanity": warning,
+        "grid_check": aggregate_grid_checks(fold_reports),
         "pybkt_cross_check": cross,
         "unavailable": _unavailable(fold_reports),
     }
     return metrics_document, provenance
+
+
+def aggregate_grid_checks(fold_reports: list[dict]) -> dict:
+    """
+    One grid check over every fold's fit.
+
+    Each fold fits its own parameters, so the counts are summed: "how often,
+    across all the fitting this run did, did the search land on an edge of the
+    grid it was allowed to walk".
+    """
+    folds = [
+        report["parameters"]["grid_check"]
+        for report in fold_reports
+        if report.get("parameters", {}).get("grid_check")
+    ]
+    if not folds:
+        return {}
+
+    names = ("p0", "pt", "g0", "s0")
+    out: dict = {
+        "folds": len(folds),
+        "fits": sum(entry["skills"] for entry in folds),
+        "bounds": folds[0]["bounds"],
+        "parameters": {},
+    }
+    for name in names:
+        first = folds[0]["parameters"][name]
+        at_low = sum(entry["parameters"][name]["at_lowest"] for entry in folds)
+        at_high = sum(entry["parameters"][name]["at_highest"] for entry in folds)
+        out["parameters"][name] = {
+            "admissible_values": first["admissible_values"],
+            "lowest": first["lowest"],
+            "highest": first["highest"],
+            "at_lowest": at_low,
+            "at_highest": at_high,
+            "share_at_highest": round(at_high / out["fits"], 4) if out["fits"] else 0.0,
+            "share_at_lowest": round(at_low / out["fits"], 4) if out["fits"] else 0.0,
+            "ceiling_is_chapter_two": first["ceiling_is_chapter_two"],
+        }
+    return out
 
 
 def _unavailable(fold_reports: list[dict]) -> list[dict]:
