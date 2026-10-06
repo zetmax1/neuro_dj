@@ -38,6 +38,30 @@ isbotlamaydi.
 | `datasets/assist09.py` | ASSISTments 2009 tozalash qoidalari va kutilgan sonlar | D50 |
 | `datasets/graphs.py` | GraphML / CSV graf yuklovchisi, yo'nalish argument sifatida | D51 |
 | `graph_report.py` | graf tahlili: o'lcham, Y3, ortiqcha qirralar, `lev`, tayyorlik benchmarki | D52 |
+| `splits.py` | 5 qism **talabalar bo'yicha**, har birida validatsiya ulushi | 8-bosqich |
+| `metrics.py` | AUC, RMSE, aniqlik; dastlabki k ∈ {3, 5} alohida | 8-bosqich |
+| `stats.py` | talabalar bo'yicha bootstrap, fast DeLong, Holm | 8-bosqich |
+| `models/classical.py` | BKT, BKT+IRT (λ=0), BKT+IRT+Pre (bir kod, uch bayroq), Elo/Rasch, PFA | D53 |
+| `models/neural.py` | DKT, AKT — pyKT ning arxitekturalari | D53 |
+| `models/pybkt_check.py` | 5 mavzu bo'yicha pyBKT EM bilan o'zaro tekshiruv | D53 |
+| `h2.py` | H2 ishga tushirish: `--quick` va to'liq | D53 |
+
+## Muhit
+
+8b-1 (yuklovchilar va graf tahlili) standart kutubxona va `neuro_model` ustida
+ishlaydi — Django venv'ida ham ishga tushadi. **8b-2 dan boshlab alohida
+virtualenv kerak**: torch va pykt-toolkit ~1 GB va backend'ga keraksiz.
+
+```sh
+python -m venv experiments/.venv
+experiments/.venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+experiments/.venv/bin/pip install -r experiments/requirements.txt
+```
+
+`requirements.txt` da versiyalar natija olingan muhitdan o'qib yozilgan.
+Ulardagi uchta pin tanlov emas, upstream nomuvofiqlik: pyBKT 1.4.3 numpy 2.x
+bilan ham, scikit-learn ≥ 1.7 bilan ham ishlamaydi, shuning uchun numpy < 2
+va unga mos scipy/pandas qotirilgan. Sabab fayl ichida yozilgan.
 
 ## Ishga tushirish
 
@@ -56,6 +80,26 @@ venv/bin/python -m experiments.graph_report --graph <fayl> --both-directions
 
 Natija `experiments/results/graphs/<timestamp>/` ga yoziladi: `metrics.json`,
 `tables.md`, `env.txt`.
+
+### H2 — ASSISTments 2009 (D53)
+
+```sh
+# Avval quvurni sinash: 500 talaba, 3 epoch. Natija alohida papkada va
+# "dissertatsiya natijasi emas" belgisi bilan.
+experiments/.venv/bin/python -m experiments.h2 --quick
+
+# To'liq ishga tushirish. DKT va AKT CPU'da sekin: 338 001 qator, 5 qism —
+# bir necha soat ketishi mumkin.
+experiments/.venv/bin/python -m experiments.h2
+```
+
+Oltita model: BKT, BKT+IRT (λ=0), Elo/Rasch, PFA, DKT, AKT. **BKT+IRT+Pre
+ishga tushirilmaydi** — ASSISTments'da prerekvizit grafi yo'q, shuning uchun
+jadvalda "graf yo'q" deb chiqadi, tashlab ketilmaydi (D48).
+
+Birinchi uchtasi — bitta kod, uch xil bayroq
+(`models/classical.py::BKTFamily`), ya'ni baholanadigan model prototipda
+ishlaydigan modelning o'zi.
 
 ## Testlar
 
@@ -78,9 +122,17 @@ hammasini.
 | Ish | Bosqich | Holat |
 |---|---|---|
 | Yuklovchilar (D49–D51), graf tahlili (D52) | 8b-1 | bajarildi |
-| H2: ASSISTments 2009 da BKT, BKT+IRT, Elo/Rasch, PFA, DKT, AKT (D53) | 8b-2 | kutilmoqda |
+| H2: ASSISTments 2009 da BKT, BKT+IRT, Elo/Rasch, PFA, DKT, AKT (D53) | 8b-2 | bajarildi |
 | H1/H3 kodi, DBE yuklovchisi, graf nazoratlari, annotatsiya vositasi | 8b-3 | kutilmoqda |
 
-`requirements.txt` 8b-2 dan boshlab kerak bo'ladigan paketlarni sanaydi
-(pandas, scikit-learn, pyKT, torch CPU); 8b-1 ularning hech biriga bog'liq
-emas.
+## Testlar qaysi muhitda
+
+| Fayl | Django venv | `experiments/.venv` |
+|---|---|---|
+| `test_tables.py`, `test_graphs.py`, `test_graph_report.py`, `test_assist09.py`, `test_splits.py` | ishlaydi | ishlaydi |
+| `test_metrics_stats.py` | numpy yo'qligi uchun skip | ishlaydi |
+| `test_models.py` | sklearn/torch yo'qligi uchun qisman skip | ishlaydi |
+
+Ildiz `conftest.py` Django'ning fixture'larini faqat Django o'rnatilgan
+muhitda qo'llaydi, shuning uchun bir xil test fayllari ikki muhitda ham
+ishlaydi.

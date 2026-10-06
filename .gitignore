@@ -21,6 +21,10 @@ exports/
 # that says where they come from is.
 experiments/data/*
 !experiments/data/README.md
+
+# The experiment pipeline's own virtualenv (torch, pykt-toolkit): kept out of
+# the Django environment on purpose (8b-2).
+experiments/.venv/
 media/
 /media/
 

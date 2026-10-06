@@ -66,13 +66,23 @@ EXPECTED_ORIGINAL_ONLY = {
 }
 
 ENCODING = "latin-1"
-REQUIRED_COLUMNS = ("order_id", "user_id", "skill_id", "skill_name", "correct", "original")
+REQUIRED_COLUMNS = (
+    "order_id", "user_id", "problem_id", "skill_id", "skill_name", "correct", "original",
+)
 
 
 class Interaction(NamedTuple):
-    """One answer, as the models read it. A tuple: there are 338 001 of them."""
+    """
+    One answer, as the models read it. A tuple: there are 338 001 of them.
+
+    ``problem_id`` is the item. ``order_id`` identifies the interaction and is
+    unique per row, so it cannot carry an item difficulty; Elo and the IRT
+    guess/slip need an identifier that repeats across learners, which is what
+    ``problem_id`` is. ``skill_id`` is the knowledge component.
+    """
     user_id: str
     order_id: int
+    problem_id: str
     skill_id: str
     correct: int
     original: bool
@@ -104,6 +114,14 @@ class Assist09:
     def skills(self) -> tuple[str, ...]:
         return tuple(sorted(self.skill_names, key=_sort_key))
 
+    @property
+    def problems(self) -> tuple[str, ...]:
+        """Item ids, in the dataset's own order (the Elo/IRT granularity)."""
+        seen: dict[str, None] = {}
+        for row in self.rows:
+            seen.setdefault(row.problem_id, None)
+        return tuple(seen)
+
     def counts(self) -> dict[str, int]:
         """The counts of the variant actually loaded."""
         return dict(self.original_only_counts if self.original_only else self.cleaned)
@@ -128,6 +146,7 @@ class Assist09:
                 "original is a flag (--original-only), off by default",
             ],
             "raw": dict(self.raw),
+            "problems": len({row.problem_id for row in self.rows}),
             "cleaned": dict(self.cleaned),
             "original_only_counts": dict(self.original_only_counts),
             "dropped": dict(self.dropped),
@@ -218,6 +237,7 @@ def load(
             kept.append(Interaction(
                 user_id=user_id,
                 order_id=order_id,
+                problem_id=(row["problem_id"] or "").strip(),
                 skill_id=skill_id,
                 correct=_flag(row["correct"], "correct", resolved),
                 original=bool(_flag(row["original"], "original", resolved)),

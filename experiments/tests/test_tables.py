@@ -72,7 +72,7 @@ def test_only_chapter_references_may_be_numbers_in_the_prose():
     the point: a result number must never be able to enter the table by being
     added to it.
     """
-    assert tables.CITATIONS == frozenset({"2.2", "2.3", "3.3"})
+    assert tables.CITATIONS == frozenset({"2.2", "2.3", "2.4", "3.3", "2016"})
 
 
 def test_writing_is_refused_when_a_number_cannot_be_traced(tmp_path, tiny_graphml):
@@ -164,13 +164,29 @@ def test_a_number_is_formatted_one_way_only():
 
 
 def test_the_allowed_set_is_built_with_the_same_formatter():
-    document = {"a": 0.7312, "b": 98, "c": "0.9999"}
+    document = {"a": 0.7312, "b": 98, "c": "0.9999", "d": "Box and Whisker"}
     allowed = tables.allowed_numbers(document)
 
     assert "0.731" in allowed      # fmt
     assert "0.7312" in allowed     # raw
     assert "98" in allowed
-    assert "0.9999" not in allowed  # a string is not a number of the metrics
+    # A numeric string is a number of the metrics, not text: ids in this data
+    # are strings, and stripping "47" as text would cut a hole in 47 037.
+    assert "0.9999" in allowed
+    assert "Box and Whisker" not in allowed
+
+
+def test_a_numeric_id_is_not_stripped_out_of_a_longer_number():
+    """
+    The bug this guards: skill "47" is a string scalar, and removing every
+    occurrence of it from the markdown turned the real count 47 037 into
+    "037", which then looked like a number from nowhere.
+    """
+    document = {"skill": "47", "count": 47037}
+    markdown = "| 47 | 47037 |"
+
+    assert "47" not in tables.allowed_strings(document)
+    assert tables.verify(markdown, document) == []
 
 
 def test_the_simulated_tree_is_separate(tmp_path):
@@ -197,3 +213,182 @@ def test_a_source_records_the_bytes_it_hashed(tmp_path):
     assert source.sha256 == (
         "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
     )
+
+
+# ---------------------------------------------------------------------------
+# The H2 table (D53)
+# ---------------------------------------------------------------------------
+
+def h2_metrics() -> dict:
+    """
+    A metrics document shaped like a real h2 run, small enough to read.
+
+    Written out by hand rather than produced by a run, because the invariant
+    being tested is about the renderer: no number may reach the table except
+    through the metrics. It includes the cases that are easy to get wrong — an
+    unavailable model, a numeric string id, a negative log-likelihood and a
+    missing AUC.
+    """
+    return {
+        "report": "h2",
+        "quick": True,
+        "epochs": 3,
+        "provenance": {
+            "command": "python -m experiments.h2 --quick",
+            "code_commit": "abc1234",
+            "code_dirty": False,
+            "created_at": "2026-10-06T00:00:00+00:00",
+            "python": "3.12.3",
+            "platform": "Linux",
+            "seeds": {"split": 20261006},
+            "sources": [{
+                "name": "assistments2009",
+                "path": "/data/as.csv",
+                "sha256": "f" * 64,
+                "bytes": 83201940,
+            }],
+        },
+        "dataset": {
+            "status": "ok",
+            "name": "assistments2009",
+            "label": "ASSISTments 2009–2010 skill builder",
+            "original_only": False,
+            "source": {"sha256": "f" * 64},
+            "raw": {"rows": 525534, "students": 4217, "blank_skill_id": 66326},
+            "cleaned": {
+                "rows": 338001, "students": 4163, "skills": 123,
+                "multi_skill_orders": 47037,
+            },
+            "answers_used": 31647,
+            "learners_used": 200,
+            "cleaning_rules": ["drop rows with an empty skill_id"],
+        },
+        "split": {"folds": 5, "validation_fraction": 0.2, "seed": 20261006},
+        "folds": [{
+            "index": 0,
+            "models": {
+                "BKT": {"status": "ok", "scores": {"all": {"auc": 0.6647}}},
+                "BKT+IRT+Pre": {"status": "unavailable", "reason": "graf yo‘q"},
+            },
+        }],
+        "pooled": {
+            "replicates": 200,
+            "confidence_percent": 95,
+            "models": {
+                "BKT": {
+                    "scores": {
+                        "all": {"auc": 0.6703, "rmse": 0.4481, "accuracy": 0.7142, "n": 31647},
+                        "first_3": {"auc": 0.6401},
+                        "first_5": {"auc": 0.6502},
+                    },
+                    "auc_interval": {
+                        "estimate": 0.6703, "ci_low": 0.6512, "ci_high": 0.6894,
+                        "replicates": 200, "clustered_by_learner": True,
+                    },
+                },
+                "DKT": {
+                    "scores": {
+                        "all": {"auc": 0.7312, "rmse": 0.4502, "accuracy": 0.7201, "n": 31647},
+                        "first_3": {"auc": None},
+                        "first_5": {"auc": 0.6902},
+                    },
+                    "auc_interval": {
+                        "estimate": 0.7312, "ci_low": 0.7101, "ci_high": 0.7503,
+                        "replicates": 200, "clustered_by_learner": True,
+                    },
+                },
+            },
+            "comparisons": [{
+                "a": "DKT", "b": "BKT", "auc_a": 0.7312, "auc_b": 0.6703,
+                "difference": 0.0609, "z": 12.4512, "p": 1.3e-05,
+                "p_holm": 1.3e-05, "significant": True,
+            }],
+        },
+        "sanity": {
+            "model": "DKT", "auc": 0.7312,
+            "expected_range": [0.7, 0.8], "literature_range": [0.73, 0.75],
+            "within_range": True,
+        },
+        "pybkt_cross_check": {
+            "skills_compared": 1,
+            "seed": 20261006,
+            "bounds": {"g_max": 0.3, "s_max": 0.1},
+            "pybkt_outside_bounds_count": 1,
+            "comparisons": [{
+                "skill": "47",
+                "status": "ok",
+                "answers": 4210,
+                "learners": 310,
+                "grid": {"p0": 0.3, "pt": 0.05, "g0": 0.25, "s0": 0.09},
+                "pybkt": {"p0": 0.5721, "pt": 0.0431, "g0": 0.3811, "s0": 0.1522},
+                "pybkt_outside_bounds": {"g0": True, "s0": True},
+                "log_likelihood": {"grid": -2612.4193, "pybkt": -2588.1072},
+            }],
+        },
+        "unavailable": [{"model": "BKT+IRT+Pre", "reason": "graf yo‘q"}],
+    }
+
+
+def test_the_h2_table_contains_no_number_that_is_not_in_the_metrics():
+    document = h2_metrics()
+    markdown = tables.render_h2_report(document)
+
+    assert tables.verify(markdown, document) == []
+
+
+def test_the_h2_table_marks_a_quick_run_as_not_a_thesis_result():
+    markdown = tables.render_h2_report(h2_metrics())
+    assert "dissertatsiya natijasi emas" in markdown
+
+
+def test_the_h2_table_shows_an_unavailable_model_rather_than_dropping_it():
+    """
+    D48: BKT+IRT+Pre is in the table, saying why it did not run.
+
+    A model that cannot run on data that *is* present gets its own sentence,
+    not the "dataset missing" one — a different thing is missing, and the
+    reason belongs in the cell once rather than twice.
+    """
+    markdown = tables.render_h2_report(h2_metrics())
+
+    assert "BKT+IRT+Pre" in markdown
+    assert f"{tables.NOT_APPLICABLE}: graf yo‘q" in markdown
+    assert tables.NOT_RUN not in markdown
+
+
+def test_each_section_is_numbered_once():
+    """
+    The provenance block is shared with the graph report, where it is section
+    5; in the H2 table there are more sections before it.
+    """
+    import re
+
+    for markdown in (tables.render_h2_report(h2_metrics()),):
+        numbers = [int(match) for match in re.findall(r"^## (\d+)\.", markdown, re.M)]
+        assert numbers == sorted(numbers)
+        assert len(numbers) == len(set(numbers))
+
+
+def test_the_h2_table_carries_the_confidence_level_and_the_hash():
+    document = h2_metrics()
+    markdown = tables.render_h2_report(document)
+
+    assert "95%" in markdown
+    assert document["provenance"]["sources"][0]["sha256"] in markdown
+    assert "python -m experiments.h2 --quick" in markdown
+
+
+def test_the_h2_table_reports_a_missing_auc_as_missing():
+    """DKT's first_3 AUC is None in the fixture; it must not render as 0."""
+    markdown = tables.render_h2_report(h2_metrics())
+    early = [line for line in markdown.splitlines() if line.startswith("| DKT |")]
+
+    assert any("—" in line for line in early)
+
+
+def test_the_h2_table_says_pybkt_went_outside_chapter_twos_bounds():
+    """The systematic difference between the two fitters, not a discrepancy."""
+    markdown = tables.render_h2_report(h2_metrics())
+
+    assert "G0" in markdown or "S0" in markdown
+    assert "pyBKT" in markdown

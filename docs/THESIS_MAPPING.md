@@ -170,8 +170,8 @@ degan holat jadvalda **son emas**, aynan shu gap bilan chiqadi (D48).
 |---|---|---|---|
 | Graf tahlili: o‘lcham, Y2 (o‘z-o‘ziga qirralar), Y3 (sikl, SCC), tranzitiv ortiqcha qirralar, Algoritm 2.2 tartibi va `lev`, eng uzun yo‘l (D52) | `experiments/graph_report.py` | `experiments/results/graphs/20261006-052348/{metrics.json, tables.md, env.txt}` | **ishga tushirilgan** — to‘rtta nashr etilgan grafda, D52 jadvaliga aynan mos |
 | Tayyorlik yangilanishi: Algoritm 2.3 inkremental, TY6 ning to‘liq qayta hisoblashiga nisbatan (D52) | `experiments/graph_report.py` (`benchmark_readiness`) | o‘sha papka, `tables.md` 4-bo‘lim | **ishga tushirilgan** — 14×…283× (vaqtlar mashinaga bog‘liq) |
-| H2 — BKT, BKT+IRT (λ=0), Elo/Rasch, PFA, DKT, AKT ASSISTments 2009 da (D53) | `experiments/h2.py` | `experiments/results/assist09/<timestamp>/` | kutilmoqda (8b-2). Ma’lumot va tozalash tayyor |
-| H2 — BKT+IRT+Pre ASSISTments 2009 da | — | — | **ishga tushirilmaydi: graf yo‘q** (D53). ASSISTments uchun prerekvizit grafi mavjud emas |
+| H2 — BKT, BKT+IRT (λ=0), Elo/Rasch, PFA, DKT, AKT ASSISTments 2009 da (D53) | `experiments/h2.py` | `experiments/results/assist09/<timestamp>/` | **ishga tushirilgan** (8b-2) |
+| H2 — BKT+IRT+Pre ASSISTments 2009 da | `experiments/models/classical.py` (`BKTFamily`, ikkala bayroq yoqilgan) | jadvalda “graf yo‘q” qatori | **ishga tushirilmaydi: graf yo‘q** (D53). Kod bor va o‘zini mavjud emas deb e’lon qiladi, tashlab ketilmaydi (D48) |
 | H1 — tayyorlik qoidalari (ehtimoliy r ≥ τ, bajarilganlik, o‘tish bali, skill builder'ning “ketma-ket 3 ta to‘g‘ri”) | `experiments/h1.py` | `experiments/results/<dataset>/<timestamp>/` | kutilmoqda (8b-3). Kod “javoblar + graf” juftligini oladi; hozir bunday juftlik yo‘q |
 | H3 — graf nazoratlari: asl, teskari, daraja saqlangan tasodifiy (20 seed), grafsiz (λ=0) | `experiments/h3.py` | o‘sha | kutilmoqda (8b-3). Graf fayli sha256 bilan oldin commit qilinadi |
 | Annotatsiya: nomzod qirralar → ikki annotator → Cohen κ → yakuniy graf | `experiments/graphs/annotate.py` | `experiments/graphs/*.csv` + sha256 | kutilmoqda (8b-3) |
@@ -188,6 +188,27 @@ degan holat jadvalda **son emas**, aynan shu gap bilan chiqadi (D48).
 | DBE-KT22 to‘liq (javoblar bilan) | **yo‘q** (ADA kirish so‘rovi) | — |
 | ASSISTments uchun o‘qituvchilar grafi | **yo‘q** (tuzilmagan) | — |
 | Mahalliy eksport | rozilik yig‘ilgach | — |
+
+### D53 — H2 ning qismlari
+
+| Talab | Kod | Test |
+|---|---|---|
+| Bo‘lish talabalar bo‘yicha, 5 qism, har birida validatsiya ulushi; seed qotirilgan | `experiments/splits.py` (`learner_folds`) | `test_splits.py::test_no_learner_is_in_two_sets_of_one_fold`, `::test_every_learner_is_in_exactly_one_test_set`, `::test_the_same_seed_gives_the_same_split_and_a_different_seed_does_not` |
+| Prognoz javobni ko‘rishdan **oldin** beriladi | `models/classical.py` (`BKTFamily.predict`, `EloRasch.predict`), `models/neural.py` | `test_models.py::test_a_prediction_cannot_see_its_own_answer` |
+| Savol qiyinligi qismlar orasida o‘tadi, talaba holati o‘tmaydi | `classical._State.with_items`, `BKTFamily._warm_items` | `test_models.py::test_the_training_fold_teaches_the_item_difficulties` |
+| Ablatsiya — bitta kod, uch bayroq (`use_irt`, `use_prereq_init`) | `classical.BKTFamily` → `neuro_model.student.observe` | `test_models.py::test_the_three_variants_are_the_same_class_with_different_flags`, `::test_the_irt_flag_changes_the_predictions` |
+| BKT+IRT+Pre grafsiz ishga tushmaydi va buni aytadi | `BKTFamily.fit` → `models.Unavailable` | `test_models.py::test_bkt_irt_pre_reports_itself_unavailable_without_a_graph` |
+| Elo/Rasch: p = σ(θ − b), K(n) = α/(1 + βn) | `classical.EloRasch` → `neuro_model.elo` | `test_models.py::test_the_sequence_models_beat_predicting_the_base_rate` |
+| PFA: KC bo‘yicha muvaffaqiyat/muvaffaqiyatsizlik + logistik regressiya | `classical.PFA` | `test_models.py::test_pfa_fits_and_predicts`, `::test_pfa_counts_only_earlier_answers` |
+| DKT va AKT pyKT orqali | `models/neural.py` (`pykt.models.dkt.DKT`, `pykt.models.akt.AKT`) | `test_models.py::test_the_neural_models_train_and_align` |
+| AUC, RMSE, aniqlik; dastlabki k ∈ {3, 5} alohida | `experiments/metrics.py` | `test_metrics_stats.py::test_the_auc_agrees_with_scikit_learn`, `::test_the_first_k_scores_cover_only_the_earliest_answers` |
+| Talabalar bo‘yicha bootstrap (1000), 95% oraliq | `experiments/stats.py` (`bootstrap_auc`, `by_learner=True`) | `test_metrics_stats.py::test_the_clustered_interval_is_wider_when_the_data_are_clustered` |
+| Fast DeLong (Sun & Xu, 2014), bootstrap bilan tekshirilgan | `stats.delong_test`, `stats.structural_components` | `test_metrics_stats.py::test_delongs_variance_matches_an_unclustered_bootstrap` |
+| Holm tuzatmasi | `stats.holm` | `test_metrics_stats.py::test_holm_is_monotone_and_steps_down` |
+| pyBKT bilan 5 mavzu bo‘yicha o‘zaro tekshiruv | `models/pybkt_check.py` | ishga tushirishning `metrics.json` i va `tables.md` 6-bo‘limi |
+| `--quick` rejimi | `h2.py` (`--quick`) | `tables.md` da “dissertatsiya natijasi emas” belgisi |
+| DKT AUC aqlga muvofiqlik chegarasi (ogohlantirish, test emas) | `h2.sanity` | `tables.md` 5-bo‘lim |
+| II bob konstantalari eksperimentda ham bir xil | `classical.CONSTANTS` | `test_models.py::test_the_constants_still_agree_with_the_django_settings` |
 
 ### D48 — natija faqat haqiqiy ishga tushirishdan
 
@@ -221,7 +242,6 @@ degan holat jadvalda **son emas**, aynan shu gap bilan chiqadi (D48).
 
 | Ish | Bosqich |
 |---|---|
-| H2 — ASSISTments 2009 (D53) | 8b-2 |
 | H1/H3 kodi, DBE yuklovchisi, graf nazoratlari, annotatsiya vositasi | 8b-3 |
 | Saqlash usullari benchmarki | 9 |
 | Yakuniy sinovlar va hisobot | 10 |

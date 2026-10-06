@@ -1,32 +1,49 @@
 # Dependencies of the experiment pipeline (stage 8b).
 #
-# 8b-1 (the loaders and the graph analysis) needs nothing from this file: it
-# runs on the standard library and on neuro_model. networkx is the oracle the
-# graph tests check neuro_model against and is declared in the project's
-# requirements-dev.txt, not here, because it is a test dependency of the suite
-# rather than a dependency of the pipeline.
+# These are the versions the results were produced with, read off the
+# environment after it resolved — not a guess. Set up:
 #
-# Everything below is needed from 8b-2 onwards (H2: BKT, BKT+IRT, Elo/Rasch,
-# PFA, DKT, AKT). Install it in its own virtualenv — torch and pykt-toolkit
-# are large and the Django side has no use for them:
+#   python -m venv experiments/.venv
+#   experiments/.venv/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch==2.5.1
+#   experiments/.venv/bin/pip install -r experiments/requirements.txt
 #
-#   python -m venv .venv-experiments
-#   .venv-experiments/bin/pip install -r experiments/requirements.txt
+# torch is installed first, from the CPU index, so no CUDA wheels are pulled
+# in; the pin below matches it but pip cannot reach the CPU index from this
+# file alone.
+#
+# Kept out of the Django environment on purpose: torch and pykt-toolkit are
+# ~1 GB installed and the backend has no use for them. 8b-1 (the loaders and
+# the graph analysis) needs none of this — it runs on the standard library and
+# neuro_model, which is why its tests still pass in the Django venv.
 
-pandas==2.2.3
-numpy==2.1.3
+# --- the ceiling, and why it is where it is --------------------------------
+# pyBKT 1.4.3 is the newest release and does not work with numpy 2.x: its
+# EM step assigns an array into a scalar slot, which numpy 2 refuses
+# (pyBKT/fit/EM_fit.py). numpy is therefore held below 2, and scipy and pandas
+# are held at the last versions that support numpy 1.26.
+#
+# pyBKT also breaks with scikit-learn >= 1.7: it probes sklearn's metrics with
+# plain lists at import time, and log_loss now requires arrays.
+#
+# Both are upstream incompatibilities, not choices. If pyBKT is ever updated,
+# the three pins below can be lifted together; until then the pyBKT
+# cross-check of D53 is what fixes them.
+numpy==1.26.4
 scipy==1.14.1
-scikit-learn==1.5.2
+pandas==2.3.3
+scikit-learn==1.6.1
 
-# Cross-check of the BKT fit on a handful of skills (D53).
-pyBKT==1.4.1
+# The cross-check of the BKT fit on five skills (D53).
+pyBKT==1.4.3
 
-# DKT and AKT, and the preprocessing the pyKT sequence format comes from.
-# Pinned by the version the loader's format contract was verified against;
-# see the pykt_format block in an export's metadata.json.
-pykt-toolkit==0.0.42
+# DKT and AKT. 0.0.38 is the newest release; the module layout the loader uses
+# is pykt.models.dkt.DKT and pykt.models.akt.AKT.
+pykt-toolkit==0.0.38
 
-# CPU wheels: the experiments are run on a laptop and DKT/AKT are not run in
-# CI at all (NEUROLEARN_REMEDIATION.md, stage 8).
---extra-index-url https://download.pytorch.org/whl/cpu
+# CPU only: the experiments are run on a laptop, and DKT/AKT are not run in CI
+# at all (NEUROLEARN_REMEDIATION.md, stage 8). Install from the CPU index, as
+# the header says, or pip will fetch the CUDA build.
 torch==2.5.1
+
+# The suite that checks all of the above.
+pytest==9.1.1

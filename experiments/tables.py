@@ -26,6 +26,11 @@ from typing import Any
 # What a row says when the dataset is not on this machine (D48).
 NOT_RUN = "ishga tushirilmagan — ma’lumot yo‘q"
 
+# What a row says when the *model* cannot run on data that is present — such
+# as BKT+IRT+Pre without a prerequisite graph. A different sentence, because a
+# different thing is missing, and the reason is given once rather than twice.
+NOT_APPLICABLE = "ishga tushirilmadi"
+
 # Length of the sha256 prefix shown in a result row; the full hash is in the
 # source block below the table and in metrics.json.
 SHA_PREFIX = 12
@@ -38,11 +43,14 @@ SHA_PREFIX = 12
 CITATIONS: frozenset[str] = frozenset({
     "2.2",   # Algorithm 2.2 — the topological order and lev
     "2.3",   # Algorithm 2.3 — the readiness update
+    "2.4",   # Algorithm 2.4 — the per-answer update the models run
     "3.3",   # section 3.3 of the thesis, where these tables go
+    "2016",  # Xiong et al., EDM 2016 — the DKT sanity range
 })
 
 _NUMBER = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_NUMERIC_TEXT = re.compile(r"^-?\d+(?:\.\d+)?$")
 
 
 def fmt(value: float | int) -> str:
@@ -76,13 +84,27 @@ def _scalars(node: Any) -> Iterator[Any]:
 
 
 def allowed_numbers(metrics: dict) -> set[str]:
-    """Every numeric scalar of the metrics, in both its raw and rendered form."""
+    """
+    Every numeric scalar of the metrics, in both its raw and rendered form.
+
+    A *string* that is a number is counted here too, not stripped as text: ids
+    in this data are strings ("47" is a skill), and removing them from the
+    markdown would cut a hole in the middle of a real number — stripping "47"
+    turns 47 037 into 037, which then looks like a figure from nowhere.
+    """
     out: set[str] = set()
     for value in _scalars(metrics):
-        if isinstance(value, bool) or not isinstance(value, (int, float)):
+        if isinstance(value, bool):
             continue
-        out.add(str(value))
-        out.add(fmt(value))
+        if isinstance(value, (int, float)):
+            out.add(str(value))
+            out.add(fmt(value))
+        elif isinstance(value, str) and _NUMERIC_TEXT.match(value):
+            out.add(value)
+            try:
+                out.add(fmt(float(value) if "." in value else int(value)))
+            except ValueError:  # pragma: no cover - the regex already matched
+                pass
     return out
 
 
@@ -94,7 +116,10 @@ def allowed_strings(metrics: dict) -> set[str]:
     """
     out: set[str] = set()
     for value in _scalars(metrics):
-        if not isinstance(value, str) or not value:
+        if not isinstance(value, str) or len(value) < 2:
+            continue
+        # A numeric string is a number, not text: see allowed_numbers.
+        if _NUMERIC_TEXT.match(value):
             continue
         out.add(value)
         if _SHA256.match(value):
@@ -125,8 +150,12 @@ def require_sources(metrics: dict) -> None:
     file's sha256; an entry that reports nothing (``status != "ok"``) needs
     neither, because it is the row that says the dataset was absent.
     """
+    entries = list(metrics.get("graphs", [])) + list(metrics.get("datasets", []))
+    dataset = metrics.get("dataset")
+    if isinstance(dataset, dict):
+        entries.append(dataset)
     missing = []
-    for entry in metrics.get("graphs", []) + metrics.get("datasets", []):
+    for entry in entries:
         if entry.get("status") != "ok":
             continue
         source = entry.get("source") or {}
@@ -190,7 +219,7 @@ def render_graph_report(metrics: dict) -> str:
     lines += _redundant_section(metrics)
     lines += _scc_section(metrics)
     lines += _readiness_section(metrics)
-    lines += _sources_section(metrics, provenance)
+    lines += _sources_section(metrics, provenance, number=5)
     return "\n".join(lines) + "\n"
 
 
@@ -274,9 +303,9 @@ def _readiness_section(metrics: dict) -> list[str]:
     return lines
 
 
-def _sources_section(metrics: dict, provenance: dict) -> list[str]:
+def _sources_section(metrics: dict, provenance: dict, number: int = 5) -> list[str]:
     """The four facts of D48, in full, under the tables that rest on them."""
-    lines = ["## 5. Manba va ishga tushirish (D48)", ""]
+    lines = [f"## {number}. Manba va ishga tushirish (D48)", ""]
     commit = provenance.get("code_commit") or "—"
     dirty = " (kuzatilmagan o‘zgarishlar bilan)" if provenance.get("code_dirty") else ""
     lines += [
@@ -331,3 +360,275 @@ def write(directory: Path, metrics: dict, env_txt: str, *, renderer=render_graph
     paths["tables"].write_text(markdown, encoding="utf-8")
     paths["env"].write_text(env_txt, encoding="utf-8")
     return paths
+
+
+# ---------------------------------------------------------------------------
+# The H2 table (D53)
+# ---------------------------------------------------------------------------
+
+MODEL_ORDER: tuple[str, ...] = (
+    "BKT",
+    "BKT+IRT (λ=0)",
+    "BKT+IRT+Pre",
+    "Elo/Rasch",
+    "PFA",
+    "DKT",
+    "AKT",
+)
+
+
+def render_h2_report(metrics: dict) -> str:
+    """``tables.md`` for ``h2.py``, generated from the metrics alone (D48)."""
+    require_sources(metrics)
+    provenance = metrics.get("provenance", {})
+    pooled = metrics.get("pooled", {}).get("models", {})
+    unavailable = {entry["model"]: entry["reason"] for entry in metrics.get("unavailable", [])}
+
+    quick = metrics.get("quick")
+    label = (metrics.get("dataset") or {}).get("label", "")
+    lines: list[str] = [
+        f"# H2 — {label}: modellarni solishtirish",
+        "",
+        "Bu fayl `metrics.json` dan avtomatik yasaladi (D48). Qo‘lda yozilgan son yo‘q.",
+    ]
+    if quick:
+        lines += [
+            "",
+            "> **`--quick` ishga tushirish — dissertatsiya natijasi emas.** Bu quvurni",
+            "> sinash uchun: talabalarning bir qismi va kam epoch. To‘liq natija uchun",
+            "> `python -m experiments.h2` bayroqsiz ishga tushiriladi.",
+        ]
+    lines += ["", "## 1. Pooled natija (barcha qismlar birga)", ""]
+    lines += _h2_main_table(
+        pooled, unavailable, metrics.get("pooled", {}).get("confidence_percent", 95),
+    )
+    lines += _h2_early_table(pooled)
+    lines += _h2_comparisons(metrics)
+    lines += _h2_folds(metrics)
+    lines += _h2_sanity(metrics)
+    lines += _h2_pybkt(metrics)
+    lines += _h2_dataset(metrics)
+    lines += _sources_section(metrics, provenance, number=8)
+    return "\n".join(lines) + "\n"
+
+
+def _auc_cell(entry: dict) -> str:
+    interval = entry.get("auc_interval") or {}
+    auc = entry.get("scores", {}).get("all", {}).get("auc")
+    if auc is None:
+        return "—"
+    low, high = interval.get("ci_low"), interval.get("ci_high")
+    if low is None or high is None:
+        return fmt(auc)
+    return f"{fmt(auc)} [{fmt(low)}, {fmt(high)}]"
+
+
+def _h2_main_table(pooled: dict, unavailable: dict, confidence_percent) -> list[str]:
+    lines = [
+        f"AUC uchun {fmt(confidence_percent)}% ishonch oralig‘i — talabalar bo‘yicha "
+        "bootstrap (javoblar talaba ichida klasterlangan).",
+        "",
+        "| Model | AUC [95% CI] | RMSE | Aniqlik | Javob |",
+        "|---|---|---|---|---|",
+    ]
+    for name in MODEL_ORDER:
+        if name in unavailable:
+            lines.append(
+                f"| {name} | {NOT_APPLICABLE}: {unavailable[name]} | — | — | — |"
+            )
+            continue
+        entry = pooled.get(name)
+        if entry is None:
+            continue
+        all_scores = entry.get("scores", {}).get("all", {})
+        lines.append(
+            f"| {name} | {_auc_cell(entry)} | {fmt(all_scores.get('rmse', 0))} | "
+            f"{fmt(all_scores.get('accuracy', 0))} | {fmt(all_scores.get('n', 0))} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _h2_early_table(pooled: dict) -> list[str]:
+    lines = [
+        "## 2. Dastlabki urinishlar (AUC)",
+        "",
+        "Har bir talabaning birinchi k javobi alohida. Prerekvizitga asoslangan",
+        "boshlang‘ich qiymat faqat shu yerda ta’sir ko‘rsatishi mumkin: o‘ninchi",
+        "javobda dalil har qanday priordan ustun bo‘lib ketadi.",
+        "",
+        "| Model | Hammasi | Birinchi 3 | Birinchi 5 |",
+        "|---|---|---|---|",
+    ]
+    for name in MODEL_ORDER:
+        entry = pooled.get(name)
+        if entry is None:
+            continue
+        scores = entry.get("scores", {})
+        cells = []
+        for key in ("all", "first_3", "first_5"):
+            auc = scores.get(key, {}).get("auc")
+            cells.append("—" if auc is None else fmt(auc))
+        lines.append(f"| {name} | " + " | ".join(cells) + " |")
+    lines.append("")
+    return lines
+
+
+def _h2_comparisons(metrics: dict) -> list[str]:
+    comparisons = metrics.get("pooled", {}).get("comparisons", [])
+    lines = [
+        "## 3. Juftlik solishtirishlari (DeLong, Holm tuzatmasi bilan)",
+        "",
+        "Juftlashgan test: ikki model bir xil javoblarda baholangan, shuning uchun",
+        "AUC'lar orasidagi korrelyatsiya ayiriladi. Holm — butun juftliklar",
+        "oilasi uchun.",
+        "",
+        "| A | B | AUC A | AUC B | Farq | z | p | p (Holm) | Muhim |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    if not comparisons:
+        lines += ["| — | — | — | — | — | — | — | — | — |", ""]
+        return lines
+    for item in sorted(comparisons, key=lambda row: row.get("p", 1.0)):
+        lines.append(
+            f"| {item['a']} | {item['b']} | {fmt(item['auc_a'])} | {fmt(item['auc_b'])} | "
+            f"{fmt(item['difference'])} | {fmt(item['z'])} | {_p(item['p'])} | "
+            f"{_p(item['p_holm'])} | {fmt(bool(item['significant']))} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _p(value) -> str:
+    """A p value, in the metrics' own rendering so verify() can find it."""
+    return "—" if value is None else fmt(value)
+
+
+def _h2_folds(metrics: dict) -> list[str]:
+    lines = [
+        "## 4. Qismlar bo‘yicha AUC",
+        "",
+        "Bo‘lish talabalar bo‘yicha: bitta talabaning javoblari hech qachon",
+        "o‘qitish va test to‘plamlariga bo‘linmaydi.",
+        "",
+    ]
+    folds = metrics.get("folds", [])
+    if not folds:
+        return lines + ["Qism yo‘q.", ""]
+    header = "| Model | " + " | ".join(f"{fold['index'] + 1}-qism" for fold in folds) + " |"
+    lines += [header, "|---|" + "---|" * len(folds)]
+    for name in MODEL_ORDER:
+        cells = []
+        present = False
+        for fold in folds:
+            entry = fold.get("models", {}).get(name, {})
+            if entry.get("status") != "ok":
+                cells.append("—")
+                continue
+            present = True
+            auc = entry.get("scores", {}).get("all", {}).get("auc")
+            cells.append("—" if auc is None else fmt(auc))
+        if present:
+            lines.append(f"| {name} | " + " | ".join(cells) + " |")
+    lines.append("")
+    return lines
+
+
+def _h2_sanity(metrics: dict) -> list[str]:
+    note = metrics.get("sanity") or {}
+    lines = ["## 5. Aqlga muvofiqlik chegarasi (D53)", ""]
+    if not note:
+        return lines + ["Tekshirilmadi.", ""]
+    auc = note.get("auc")
+    low, high = note.get("expected_range", [None, None])
+    lit_low, lit_high = note.get("literature_range", [None, None])
+    lines += [
+        f"- DKT AUC: {'—' if auc is None else fmt(auc)}",
+        f"- kutilgan oraliq: {fmt(low)}–{fmt(high)}",
+        f"- adabiyotdagi qiymat (Xiong va boshq., EDM 2016, takrorsiz): {fmt(lit_low)}–{fmt(lit_high)}",
+        f"- oraliq ichidami: {'—' if note.get('within_range') is None else fmt(bool(note['within_range']))}",
+    ]
+    if note.get("within_range") is False:
+        lines += [
+            "",
+            "> **Ogohlantirish.** DKT AUC takrorsiz ASSISTments 2009 uchun qayd etilgan",
+            "> oraliqdan tashqarida. Jadvaldagi boshqa hech narsani o‘qishdan oldin",
+            "> D50 tozalashini qayta tekshirish kerak. `--quick` ishga tushirishda bu",
+            "> kutilgan: kam talaba va kam epoch bilan DKT to‘liq o‘qitilmaydi.",
+        ]
+    lines.append("")
+    return lines
+
+
+def _h2_pybkt(metrics: dict) -> list[str]:
+    check = metrics.get("pybkt_cross_check")
+    lines = ["## 6. pyBKT bilan o‘zaro tekshiruv (D53)", ""]
+    if not check:
+        return lines + ["Ishga tushirilmadi.", ""]
+    if check.get("status") == "unavailable":
+        return lines + [f"{NOT_RUN} — {check.get('reason', '')}", ""]
+
+    bounds = check.get("bounds", {})
+    lines += [
+        "Bir xil mavzular ikki marta moslanadi: `neuro_model.calibrate` ning",
+        "chegaralangan grid search'i va pyBKT ning EM'i. Farqning tizimli sababi —",
+        f"II bobning chegaralari (G_MAX = {fmt(bounds.get('g_max', 0))}, "
+        f"S_MAX = {fmt(bounds.get('s_max', 0))}), pyBKT ularni bilmaydi. Ikkala",
+        "parametr to‘plami bir xil ta’rif bilan baholanadi: `calibrate.log_likelihood`.",
+        "",
+        f"Chegaradan tashqarida chiqqan pyBKT baholari: "
+        f"{fmt(check.get('pybkt_outside_bounds_count', 0))} / "
+        f"{fmt(check.get('skills_compared', 0))}",
+        "",
+        "| Mavzu | Javob | P0 (grid / EM) | PT | P(G) | P(S) | logL (grid / EM) | EM chegaradan tashqarida |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    for entry in check.get("comparisons", []):
+        if entry.get("status") != "ok":
+            lines.append(
+                f"| {entry.get('skill', '?')} | {fmt(entry.get('answers', 0))} | "
+                + " | ".join([NOT_RUN] + ["—"] * 5) + " |"
+            )
+            continue
+        grid, em = entry["grid"], entry["pybkt"]
+        outside = entry["pybkt_outside_bounds"]
+        flags = [key.upper() for key, value in outside.items() if value]
+        lines.append(
+            f"| {entry['skill']} | {fmt(entry['answers'])} | "
+            f"{fmt(grid['p0'])} / {fmt(em['p0'])} | {fmt(grid['pt'])} / {fmt(em['pt'])} | "
+            f"{fmt(grid['g0'])} / {fmt(em['g0'])} | {fmt(grid['s0'])} / {fmt(em['s0'])} | "
+            f"{fmt(entry['log_likelihood']['grid'])} / {fmt(entry['log_likelihood']['pybkt'])} | "
+            f"{', '.join(flags) if flags else 'yo‘q'} |"
+        )
+    lines.append("")
+    return lines
+
+
+def _h2_dataset(metrics: dict) -> list[str]:
+    dataset = metrics.get("dataset") or {}
+    split = metrics.get("split") or {}
+    cleaned = dataset.get("cleaned") or {}
+    raw = dataset.get("raw") or {}
+    lines = [
+        "## 7. Ma’lumot va tozalash (D50)",
+        "",
+        f"- xom qatorlar: {fmt(raw.get('rows', 0))}, talabalar: {fmt(raw.get('students', 0))}, "
+        f"bo‘sh `skill_id`: {fmt(raw.get('blank_skill_id', 0))}",
+        f"- tozalangandan keyin: {fmt(cleaned.get('rows', 0))} qator, "
+        f"{fmt(cleaned.get('students', 0))} talaba, {fmt(cleaned.get('skills', 0))} mavzu, "
+        f"bir nechta skill'li `order_id`: {fmt(cleaned.get('multi_skill_orders', 0))}",
+        f"- ishlatilgan: {fmt(dataset.get('answers_used', 0))} javob, "
+        f"{fmt(dataset.get('learners_used', 0))} talaba",
+        f"- `--original-only`: {fmt(bool(dataset.get('original_only')))}",
+        f"- bo‘lish: {fmt(split.get('folds', 0))} qism, talabalar bo‘yicha, "
+        f"validatsiya ulushi {fmt(split.get('validation_fraction', 0))}, "
+        f"seed {fmt(split.get('seed', 0))}",
+        f"- DKT/AKT epoch chegarasi: {fmt(metrics.get('epochs', 0))}",
+        "",
+        "Tozalash qoidalari (D50, o‘zgarmas):",
+        "",
+    ]
+    for rule in dataset.get("cleaning_rules", []):
+        lines.append(f"1. {rule}")
+    lines.append("")
+    return lines

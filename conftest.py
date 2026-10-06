@@ -1,13 +1,35 @@
 import pytest
 
 
+def _django_available() -> bool:
+    """
+    Whether this interpreter can run the Django suite at all.
+
+    ``experiments/`` is deliberately Django-free and is run from
+    ``experiments/.venv``, which has torch and pandas but no Django and no
+    pytest-django (see experiments/README.md). The autouse fixtures below are
+    for the Django suite, so in that interpreter they must stand aside rather
+    than fail at setup for every test in the file.
+    """
+    try:
+        import django  # noqa: F401
+        import pytest_django  # noqa: F401
+    except ModuleNotFoundError:
+        return False
+    return True
+
+
 @pytest.fixture(autouse=True)
-def _isolated_cache(settings):
+def _isolated_cache(request):
     """
     Tests never touch the developer's Redis; each test gets an empty LocMem
     cache and a fresh per-thread KB snapshot (the database is reset between
     tests, so KB version numbers repeat).
     """
+    if not _django_available():
+        yield
+        return
+    settings = request.getfixturevalue("settings")
     settings.CACHES = {
         "default": {
             "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
@@ -40,6 +62,8 @@ def _kb_version_singleton(request):
     ``transaction=True`` tests truncate every table after each test, which takes
     the row with it, so the harness puts it back. Production code does not.
     """
+    if not _django_available():
+        return
     present = [name for name in _DB_FIXTURES if name in request.fixturenames]
     if not present:
         return
