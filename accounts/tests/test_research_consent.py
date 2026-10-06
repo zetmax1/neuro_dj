@@ -195,11 +195,45 @@ def test_a_pseudonym_is_assigned_when_the_row_is_created(student):
 
 
 def test_a_pseudonym_is_not_derived_from_the_account(student):
-    """It must not be recomputable from a leaked user list (D43)."""
+    """
+    It must not be recomputable from a leaked user list (D43).
+
+    The failure mode this guards is a pseudonym computed from the account —
+    ``sha256(email)[:16]`` or the id in hex — because that can be recomputed
+    by anyone holding the user table, which is the one thing a pseudonym has
+    to prevent. So the check is against the digests themselves, not against
+    coincidence: an earlier version asserted that the digits of the id do not
+    appear anywhere in the pseudonym, which fails about two runs in three for
+    a single-digit id and sixteen random hex characters. That measured luck,
+    not derivation.
+    """
+    import hashlib
+
     pseudonym = student.research_pseudonym
-    for part in (str(student.pk), student.email, student.email.split("@")[0]):
-        assert part not in pseudonym
-        assert pseudonym not in part
+    fields = (
+        str(student.pk),
+        student.email,
+        student.email.split("@")[0],
+        f"{student.pk}{student.email}",
+        f"{student.email}{student.pk}",
+    )
+
+    # Not a copy of a field, and no field is a copy of it.
+    for field in fields:
+        assert pseudonym != field
+        assert pseudonym not in field
+
+    # Not a digest of a field, under any common algorithm or encoding.
+    for field in fields:
+        for algorithm in ("md5", "sha1", "sha256", "sha512", "blake2b"):
+            digest = hashlib.new(algorithm, field.encode()).hexdigest()
+            assert pseudonym != digest[: len(pseudonym)]
+            assert pseudonym != digest[-len(pseudonym):]
+            assert pseudonym not in digest
+
+    # Not the id in hex, padded or not.
+    assert pseudonym != f"{student.pk:x}"
+    assert pseudonym != f"{student.pk:0{len(pseudonym)}x}"
 
 
 def test_pseudonyms_differ_between_accounts():
