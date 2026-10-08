@@ -232,7 +232,7 @@ def test_pfa_counts_an_orders_answers_after_the_order():
 
 
 def test_dkt_reads_the_previous_step_when_every_row_is_its_own_order(fitted):
-    import torch
+    torch = pytest.importorskip("torch", reason="experiments/.venv needed from 8b-2 on")
 
     model = _model(fitted, "DKT")
     concepts = torch.tensor([[0, 1, 2, 1, 0, 2]])
@@ -245,7 +245,7 @@ def test_dkt_reads_the_previous_step_when_every_row_is_its_own_order(fitted):
 
 
 def test_akt_is_pykts_forward_when_every_row_is_its_own_order(fitted):
-    import torch
+    torch = pytest.importorskip("torch", reason="experiments/.venv needed from 8b-2 on")
 
     model = _model(fitted, "AKT")
     torch.manual_seed(1)
@@ -260,7 +260,7 @@ def test_akt_is_pykts_forward_when_every_row_is_its_own_order(fitted):
 
 def test_an_akt_row_does_not_read_its_own_orders_answers(fitted):
     """Inside the model: change a sibling's answer, the row's score stays; an earlier order's moves it."""
-    import torch
+    torch = pytest.importorskip("torch", reason="experiments/.venv needed from 8b-2 on")
 
     model = _model(fitted, "AKT")
     concepts = torch.tensor([[2, 1, 0, 1, 2]])
