@@ -1168,6 +1168,66 @@ D55 to‘liq H2 natijasidan oldin commit qilingan (ketma-ketlikdan chetga chiqis
 
 ---
 
+## D57 — masala darajasidagi baholash protokoli (2026-10-08, natijadan oldin)
+
+### To‘xtatilgan run
+
+`13edf82` dan boshlangan to‘liq H2 run (`neurolearn-h2-full-20261008-193717`) 2026-10-08 20:00:00 da `systemctl --user stop` bilan to‘xtatildi (`ExecStopPost`: `SERVICE_RESULT=success EXIT_CODE=killed EXIT_STATUS=TERM; Result=success ExecMainStatus=15`). **D57 sababli to‘xtatildi, qisman natijalar ishlatilmaydi.** Qisman sonlar dalil sifatida qoladi (`experiments/.runs/h2-full.log`, 1-fold, `005f30d` dagi run bilan bir xil):
+
+| Model | AUC (1-fold, `005f30d`) | AUC (1-fold, `13edf82`) |
+|---|---|---|
+| BKT | 0.7116 | 0.7116 |
+| BKT+IRT (λ=0) | 0.7292 | 0.7292 |
+| Elo/Rasch | 0.7784 | 0.7784 |
+| PFA | 0.7106 | 0.7106 |
+| DKT | 0.8220 | 0.8220 |
+| AKT | — (uzilgan) | — (to‘xtatilgan) |
+
+### Muammo
+
+D50 `(order_id, skill_id)` bo‘yicha takrorni oladi, lekin bir nechta skill'li masalani (47 037 `order_id`) har skill uchun alohida qator qilib qoldiradi. Bu qatorlarda `correct` bir xil va ular talaba ketma-ketligida yonma-yon turadi. Masalaning keyingi qatorini bashorat qilayotgan model shu masalaning javobini allaqachon ko‘rgan bo‘ladi. Bu ketma-ketlikdan foydalanadigan modellarga ta’sir qiladi: DKT, AKT, Elo/Rasch, BKT+IRT (θ va b har javobdan keyin yangilanadi).
+
+### QADAM 1 dalillari
+
+Skript: scratchpad'dagi `order_leak.py` (faqat o‘qish). D50 bilan tozalangan ma’lumot (sha256 `f22e3fb7…`), H2 bo‘linishi (seed 20261006, 5 fold, validatsiya 0,2).
+
+| To‘plam | Qatorlar | (a) order'ning birinchi qatori emas | (a) % | (b) `correct` oldingi qator bilan bir xil | (b) % | (c) oldingi qatorga darhol ergashadi % | (d) nusxa AUC, (a) qatorlar | (d) nusxa AUC, butun test |
+|---|---|---|---|---|---|---|---|---|
+| Butun to‘plam | 338 001 | 54 896 | 16,24 | 54 896 | 100 | 100 | — | — |
+| 1-fold test | 65 597 | 11 044 | 16,84 | 11 044 | 100 | 100 | 1,0 | 0,657301 |
+| 2-fold test | 63 804 | 10 252 | 16,07 | 10 252 | 100 | 100 | 1,0 | 0,650239 |
+| 3-fold test | 66 442 | 10 375 | 15,62 | 10 375 | 100 | 100 | 1,0 | 0,644160 |
+| 4-fold test | 74 065 | 12 373 | 16,71 | 12 373 | 100 | 100 | 1,0 | 0,656325 |
+| 5-fold test | 68 093 | 10 852 | 15,94 | 10 852 | 100 | 100 | 1,0 | 0,649338 |
+
+(d) “nusxa” modeli: order'da oldingi qator bo‘lsa — uning javobi, bo‘lmasa — fold'ning o‘qitish qismidagi o‘rtacha to‘g‘rilik (0,648735; 0,660520; 0,646016; 0,649601; 0,652905). Qaror qoidasi ((a) ≥ 5 % va (b) ≥ 95 %) — **sizish tasdiqlangan**.
+
+### Qoida
+
+Talabaning har bir qatori uchun bashorat faqat shu talabaning **qat’iy oldingi** `order_id`'laridagi javoblardan foydalanadi. Bir order'ning barcha qatorlari bir xil holatdan bashorat qilinadi. Holat yangilanishi order'ning barcha qatorlari bashorat qilingandan keyin qo‘llanadi.
+
+- Qoida oltita modelning hammasiga bir xil qo‘llanadi. Order — bir talabaning ketma-ket kelgan, bir xil `order_id` li qatorlari. `order_id` si yo‘q ma’lumotda har bir qator o‘z order'i bo‘ladi (avvalgi xatti-harakat). Bir order'ning qatorlari ketma-ketlikda uzilgan bo‘lsa, harness to‘xtaydi.
+- `neuro_model` (engine, `observe`) o‘zgarmaydi. Faqat eksperiment harness'idagi bashorat va yangilanish tartibi o‘zgaradi.
+- **BKT, BKT+IRT, Elo/Rasch:** order'ning har bir qatori uchun p̂ order boshidagi holatdan (θ, b, P(L), n) hisoblanadi. Keyin yangilanishlar avvalgidek, qator-qator qo‘llanadi, ya’ni holat traektoriyasi o‘zgarmaydi — faqat order'ning 2-, 3-… qatorlari bashorati.
+- **PFA:** bashorat paytidagi muvaffaqiyat/muvaffaqiyatsizlik hisoblari order boshidagi qiymat. D50 dan keyin order ichida skill takrorlanmaydi, shuning uchun bu ASSISTments'da hech narsani o‘zgartirmaydi.
+- **O‘qitish o‘zgarmaydi:** DKT/AKT o‘qitish ketma-ketligi, BKT+IRT va Elo'ning o‘qitish fold'idagi b isitishi, PFA'ning o‘qitish matritsasi avvalgidek. DKT/AKT ning early stopping'i uchun validatsiya AUC'i esa D57 bilan hisoblanadi: test bilan bir xil protokol.
+
+### DKT/AKT tanlovi
+
+pykt-toolkit 0.0.38 dagi savol darajasidagi baholash (`pykt.models.evaluate_model.evaluate_question`, Liu va boshq., NeurIPS 2022) ishlatilmaydi. Sabab: u pyKT'ning o‘z `DataLoader` formatini (`qseqs`, `cseqs`, `qidxs`, `rests`, `orirow`) talab qiladi va bir savolning KC bashoratlarini bitta savol bashoratiga birlashtiradi (late fusion: mean/vote/all; AKT uchun early fusion). Bu yerda esa oltita model bir xil qatorlarda juftlanadi (DeLong), shuning uchun har (order, skill) qatori o‘z bashoratini oladi. Tarixni cheklash pyKT'nikiga mos: joriy savolning javoblari ko‘rinmaydi.
+
+- **DKT:** order'ning har bir qatori oldingi order'ning oxirgi qatoridagi yashirin holatdan (o‘sha qadam chiqishidan) o‘z konsepti bo‘yicha o‘qiladi. Oynaning birinchi order'idagi qatorlar oldin hech narsa bo‘lmagani uchun base rate oladi (avval faqat 0-pozitsiya shunday edi).
+- **AKT:** Knowledge Retriever (pyKT'da `mask=0` bloklar) maskasi `j < start(t)` ga almashtiriladi: t pozitsiyasi o‘z order'idagi kalitlarni ko‘rmaydi. Ruxsat etilgan kaliti yo‘q qatorlar pyKT'ning `zero_pad` i kabi nolga tenglanadi. pyKT'da bu niqob ichkarida qotirilgan (`np.triu`), shuning uchun retriever bloki va attention funksiyasi harness'da qayta yozilgan; har bir qator alohida order bo‘lganda natija pyKT forward'i bilan bitma-bit bir xil ekani test bilan ko‘rsatiladi. Savol enkoderi (`mask=1`, faqat savollar) o‘zgarmaydi: joriy order'ning savollari ko‘rinadi, javoblari ko‘rinmaydi.
+
+### Kutilgan ta’sir doirasi
+
+- BKT va PFA: o‘zgarmaydi (1e-9). `--quick` `13edf82` bilan `experiments.reproduce --checked BKT PFA` orqali solishtiriladi.
+- Elo/Rasch, BKT+IRT (λ=0), DKT, AKT: order'ning 2-, 3-… qatorlarida bashorat o‘zgaradi; to‘liq ma’lumotda bu test qatorlarining ~16 % i.
+- Qo‘shimcha (sezgirlik, asosiy emas): har model uchun faqat order'ning birinchi qatorlari bo‘yicha AUC — `tables.md` §10.
+- D53 sanity oralig‘i (0,70–0,80) va Xiong qatori (0,73–0,75) o‘zgarmaydi.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -1218,6 +1278,7 @@ D55 to‘liq H2 natijasidan oldin commit qilingan (ketma-ketlikdan chetga chiqis
 | Q2-10 | 1-bosqichning migratsiya testi `curriculum 0009` holatiga qaytardi, bu MPTT ustunlarini qayta qo‘shishni talab qilardi | Test endi `curriculum 0012` (joriy) bilan `assessments 0005` kombinatsiyasidan boshlanadi. Curriculum migratsiyalari `assessments 0005` dan keyingilariga bog‘lanmaydi |
 | Q8b-1 | Tarixda ikkita `commit --amend` bor (reflog): `c142506` ← `47d78ee` (faqat commit xabari o‘zgargan, daraxt bir xil) va `c1a683b` ← `3f54751` (`provenance.py`/`tables.py` ga 17 qator qo‘shilgan) | D54 bo‘yicha qayd etildi; tarix o‘zgartirilmadi. Bundan keyin amend/rebase/reset --hard ishlatilmaydi, xato xabar keyingi commit'da tuzatiladi |
 | D56 | H2 dagi “DKT bilan taqqoslanadigan” iborasining ta’rifi | D56. “DKT bilan taqqoslanadigan” = BKT+IRT(λ=0) − DKT AUC farqi 95% CI pastki chegarasi ≥ −0,01. 0,01 — metodik tanlov, manbadan emas. 2026-10-08 da, to‘liq H2 natijasi mavjud bo‘lmagan paytda yozildi. |
+| D57 | Ko‘p-skill'li masalada keyingi qator shu masalaning javobini ko‘radi (sizish) | D57: bashorat faqat talabaning qat’iy oldingi `order_id`'laridan; order qatorlari bir xil holatdan bashorat qilinadi, yangilanish order'dan keyin. Batafsil — “D57” bo‘limi. 2026-10-08, yangi natijadan oldin |
 
 ---
 
