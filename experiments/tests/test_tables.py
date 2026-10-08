@@ -606,3 +606,87 @@ def test_the_published_results_verify_cell_by_cell():
     for path in found:
         metrics = json.loads((path.parent / "metrics.json").read_text(encoding="utf-8"))
         assert tables.verify(path.read_text(encoding="utf-8"), metrics) == [], path
+
+
+# ---------------------------------------------------------------------------
+# §3's second table: the hypothesis contrasts (D56)
+# ---------------------------------------------------------------------------
+
+def with_contrasts(document: dict) -> dict:
+    document["pooled"]["contrasts"] = [
+        {"a": "BKT+IRT (λ=0)", "b": "BKT", "decision": "D53", "status": "ok",
+         "difference": 0.0213, "ci_low": 0.0188, "ci_high": 0.0241,
+         "replicates": 200, "clustered_by_learner": True,
+         "delong_p": 0.0021, "p_holm": 0.0042},
+        {"a": "BKT+IRT (λ=0)", "b": "DKT", "decision": "D56", "status": "ok",
+         "difference": -0.0384, "ci_low": -0.0452, "ci_high": -0.0317,
+         "replicates": 200, "clustered_by_learner": True,
+         "delong_p": 0.033, "p_holm": 0.099},
+    ]
+    return document
+
+
+def test_the_contrasts_render_and_verify_cell_by_cell():
+    document = with_contrasts(h2_metrics())
+    markdown = tables.render_h2_report(document)
+
+    assert "| BKT+IRT (λ=0) − DKT | D56 | -0.038 [-0.045, -0.032] | 0.033 | 0.099 |" in markdown
+    assert "| BKT+IRT (λ=0) − BKT | D53 | 0.021 [0.019, 0.024] | 0.002 | 0.004 |" in markdown
+    assert tables.verify(markdown, document) == []
+
+
+def test_a_result_from_before_d56_has_no_contrast_table():
+    """The published --quick result predates D56: no key, no table, and no table is expected."""
+    document = h2_metrics()
+    markdown = tables.render_h2_report(document)
+
+    assert "Gipoteza farqlari" not in markdown
+    assert tables.verify(markdown, document) == []
+    stray = markdown.replace(
+        "## 4.", "| A − B | Qaror | Farq | DeLong p | p (Holm) |\n|---|---|---|---|---|\n\n## 4.", 1,
+    )
+    assert any(problem.startswith("§3 contrast table") for problem in tables.verify(stray, document))
+
+
+def test_a_contrast_whose_model_did_not_run_says_so():
+    document = with_contrasts(h2_metrics())
+    document["pooled"]["contrasts"][1] = {
+        "a": "BKT+IRT (λ=0)", "b": "DKT", "decision": "D56",
+        "status": "unavailable", "missing": ["DKT"],
+    }
+    markdown = tables.render_h2_report(document)
+
+    assert f"| BKT+IRT (λ=0) − DKT | D56 | {tables.NOT_APPLICABLE}: DKT natijasi yo‘q | — | — |" in markdown
+    assert tables.verify(markdown, document) == []
+
+
+def test_a_contrast_without_an_interval_shows_the_estimate_alone():
+    document = with_contrasts(h2_metrics())
+    document["pooled"]["contrasts"][0].update(ci_low=None, ci_high=None, replicates=0)
+    markdown = tables.render_h2_report(document)
+
+    assert "| BKT+IRT (λ=0) − BKT | D53 | 0.021 | 0.002 | 0.004 |" in markdown
+    assert tables.verify(markdown, document) == []
+
+
+@pytest.mark.parametrize("before, after", [
+    ("-0.038 [-0.045, -0.032]", "-0.038 [-0.032, -0.045]"),   # bounds swapped
+    ("| D56 | -0.038", "| D56 | 0.021"),                           # the other contrast's difference
+    ("| 0.033 | 0.099 |", "| 0.099 | 0.033 |"),             # p and Holm p swapped
+])
+def test_a_contrast_cell_holding_another_number_is_caught(before, after):
+    document = with_contrasts(h2_metrics())
+    markdown = tables.render_h2_report(document)
+    assert before in markdown
+
+    problems = tables.verify(markdown.replace(before, after, 1), document)
+    assert any(problem.startswith("§3 contrast rows") for problem in problems), problems
+
+
+def test_a_dropped_contrast_row_is_caught():
+    document = with_contrasts(h2_metrics())
+    markdown = tables.render_h2_report(document)
+    row = next(line for line in markdown.splitlines() if line.startswith("| BKT+IRT (λ=0) − DKT |"))
+
+    problems = tables.verify(markdown.replace(row + "\n", "", 1), document)
+    assert any(problem.startswith("§3 contrast rows") for problem in problems), problems

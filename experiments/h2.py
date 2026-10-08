@@ -232,6 +232,68 @@ def analyse_pooled(
                 labels, pooled[left], pooled[right], name_a=left, name_b=right,
             ))
     out["comparisons"] = [item.payload() for item in stats.holm(comparisons)]
+    out["contrasts"] = contrasts(
+        pooled, labels, learners, out["comparisons"], replicates=replicates, seed=seed,
+    )
+    return out
+
+
+# The differences H2 is stated in, oriented the way the hypothesis reads them:
+# the platform's model minus the one it is compared with. BKT is D53's
+# ablation; DKT is D56's "comparable with DKT", which is defined on the lower
+# end of this difference's interval.
+CONTRASTS: tuple[tuple[str, str, str], ...] = (
+    ("BKT+IRT (λ=0)", "BKT", "D53"),
+    ("BKT+IRT (λ=0)", "DKT", "D56"),
+)
+
+
+def contrasts(
+    pooled: dict,
+    labels: list[int],
+    learners: list[str],
+    comparisons: list[dict],
+    *,
+    replicates: int,
+    seed: int,
+) -> list[dict]:
+    """
+    AUC(a) − AUC(b) for each pair of ``CONTRASTS``, with a paired bootstrap
+    interval over learners (the clustering the AUC intervals respect) and the
+    DeLong p of the same pair, before and after Holm over the whole family.
+
+    The pairwise table orders a pair by model, not by hypothesis, so its
+    difference can carry the other sign; this is the difference as H2 states
+    it. A pair whose model did not run is listed with the reason, not dropped.
+    """
+    from experiments import stats
+
+    out: list[dict] = []
+    for a, b, decision in CONTRASTS:
+        entry: dict = {"a": a, "b": b, "decision": decision}
+        missing = [name for name in (a, b) if name not in pooled]
+        if missing:
+            entry["status"] = "unavailable"
+            entry["missing"] = missing
+            out.append(entry)
+            continue
+        interval = stats.bootstrap_auc_difference(
+            labels, pooled[a], pooled[b], learners, replicates=replicates, seed=seed,
+        )
+        family = next(
+            (item for item in comparisons if {item["a"], item["b"]} == {a, b}), {},
+        )
+        entry.update({
+            "status": "ok",
+            "difference": interval.payload()["estimate"],
+            "ci_low": interval.payload()["ci_low"],
+            "ci_high": interval.payload()["ci_high"],
+            "replicates": interval.replicates,
+            "clustered_by_learner": True,
+            "delong_p": family.get("p"),
+            "p_holm": family.get("p_holm"),
+        })
+        out.append(entry)
     return out
 
 

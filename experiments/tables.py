@@ -564,13 +564,55 @@ def _h2_comparisons(metrics: dict) -> list[str]:
     ]
     if not comparisons:
         lines += ["| — | — | — | — | — | — | — | — | — |", ""]
-        return lines
-    for item in sorted(comparisons, key=lambda row: row.get("p", 1.0)):
-        lines.append(
-            f"| {item['a']} | {item['b']} | {fmt(item['auc_a'])} | {fmt(item['auc_b'])} | "
-            f"{fmt(item['difference'])} | {fmt(item['z'])} | {_p(item['p'])} | "
-            f"{_p(item['p_holm'])} | {fmt(bool(item['significant']))} |"
-        )
+    else:
+        for item in sorted(comparisons, key=lambda row: row.get("p", 1.0)):
+            lines.append(
+                f"| {item['a']} | {item['b']} | {fmt(item['auc_a'])} | {fmt(item['auc_b'])} | "
+                f"{fmt(item['difference'])} | {fmt(item['z'])} | {_p(item['p'])} | "
+                f"{_p(item['p_holm'])} | {fmt(bool(item['significant']))} |"
+            )
+        lines.append("")
+    return lines + _h2_contrasts(metrics)
+
+
+def _contrast_row(item: dict) -> list[str]:
+    """The cells of one hypothesis contrast, as the renderer and verify see them."""
+    name = f"{item['a']} − {item['b']}"
+    if item.get("status") != "ok":
+        missing = ", ".join(item.get("missing", []))
+        return [name, item["decision"], f"{NOT_APPLICABLE}: {missing} natijasi yo‘q", "—", "—"]
+    return [
+        name,
+        item["decision"],
+        _interval_cell(item.get("difference"), item),
+        _p(item.get("delong_p")),
+        _p(item.get("p_holm")),
+    ]
+
+
+def _h2_contrasts(metrics: dict) -> list[str]:
+    """
+    H2's own differences, oriented as the hypothesis reads them (D53, D56).
+
+    Absent from results produced before D56; then nothing is rendered, and
+    ``verify_h2_positions`` expects nothing.
+    """
+    pooled = metrics.get("pooled", {})
+    contrasts = pooled.get("contrasts")
+    if contrasts is None:
+        return []
+    lines = [
+        "### Gipoteza farqlari",
+        "",
+        "A − B, gipotezadagi yo‘nalishda. Oraliq — talabalar bo‘yicha juftlangan",
+        "bootstrap: har bir replikatda ikkala model uchun bir xil talabalar olinadi.",
+        "p — yuqoridagi oiladagi o‘sha juftlikning DeLong p qiymati.",
+        "",
+        f"| A − B | Qaror | Farq [{fmt(pooled.get('confidence_percent', 95))}% CI] | DeLong p | p (Holm) |",
+        "|---|---|---|---|---|",
+    ]
+    for item in contrasts:
+        lines.append("| " + " | ".join(_contrast_row(item)) + " |")
     lines.append("")
     return lines
 
@@ -796,6 +838,19 @@ def _table(lines: list[str]) -> tuple[list[str], list[list[str]]]:
     return rows[0], rows[2:]
 
 
+def _all_tables(lines: list[str]) -> list[tuple[list[str], list[list[str]]]]:
+    """Header and body of every markdown table in ``lines``, in order."""
+    out = []
+    block: list[str] = []
+    for line in [*lines, ""]:
+        if line.startswith("|"):
+            block.append(line)
+        elif block:
+            out.append(_table(block))
+            block = []
+    return out
+
+
 def verify_h2_positions(markdown: str, metrics: dict) -> list[str]:
     """
     Every cell of the H2 tables against its own key; empty when they all agree.
@@ -872,6 +927,15 @@ def verify_h2_positions(markdown: str, metrics: dict) -> list[str]:
                 fmt(item["auc_a"]), fmt(item["auc_b"]), fmt(item["difference"]), fmt(item["z"]),
                 _p(item["p"]), _p(item["p_holm"]), fmt(bool(item["significant"])),
             ])
+
+    # §3 — the hypothesis contrasts, the section's second table (D56)
+    contrasts = metrics.get("pooled", {}).get("contrasts")
+    later = _all_tables(sections.get("3", []))[1:]
+    if contrasts is None:
+        check("§3 contrast table", later, [])
+    else:
+        rows = later[0][1] if later else []
+        check("§3 contrast rows", rows, [_contrast_row(item) for item in contrasts])
 
     # §4 — per fold
     folds = metrics.get("folds", [])

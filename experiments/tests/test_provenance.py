@@ -258,8 +258,9 @@ def _fake_python(directory: Path, body: str) -> Path:
     return path
 
 
-def _launch(tmp_path: Path, mode: str, fake: Path) -> subprocess.CompletedProcess:
-    env = dict(os.environ, H2_PY=str(fake), H2_LOGS=str(tmp_path / "logs"), H2_LAUNCHER="inline")
+def _launch(tmp_path: Path, mode: str, fake: Path, **extra: str) -> subprocess.CompletedProcess:
+    env = dict(os.environ, H2_PY=str(fake), H2_LOGS=str(tmp_path / "logs"), H2_LAUNCHER="inline",
+               **extra)
     return subprocess.run(["bash", str(RUN_H2), mode], env=env, capture_output=True, text=True,
                           timeout=60)
 
@@ -316,3 +317,74 @@ def test_the_detached_launch_leaves_the_launchers_cgroup_and_survives_an_oom_kil
     assert "systemd-run --user" in script
     assert "-p OOMPolicy=continue" in script
     assert "--same-dir" in script
+
+
+# What the log says about memory and about how the unit ended (C2): both
+# interrupted passes of 2026-10-06 left no cause behind once the journal was
+# gone, so the cause has to be in the log itself.
+
+@pytest.mark.skipif(shutil.which("bash") is None or not Path("/proc/meminfo").exists(),
+                    reason="needs bash and /proc")
+def test_the_log_samples_memory_while_python_runs(tmp_path):
+    fake = _fake_python(tmp_path, 'echo "args: $*"; sleep 2.5')
+    _launch(tmp_path, "quick", fake, H2_SAMPLE_SECONDS="1")
+
+    log = (tmp_path / "logs" / "h2-quick.log").read_text()
+    samples = [line for line in log.splitlines() if "] memory: " in line]
+    assert len(samples) >= 2, log
+    for line in samples:
+        for key in ("rss_kb=", "hwm_kb=", "tree_rss_kb=", "mem_available_kb=", "swap_free_kb="):
+            assert key in line, line
+    peak = max(int(line.split("tree_rss_kb=")[1].split()[0]) for line in samples)
+    assert f"finished quick (exit 0); peak sampled tree_rss_kb={peak}" in log
+    assert not list((tmp_path / "logs").glob(".peak-*"))
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_stopping_the_sampler_does_not_wait_out_its_interval(tmp_path):
+    """A 60 s nap in the sampler must not hold the run open after python exits."""
+    import time
+
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    started = time.monotonic()
+    _launch(tmp_path, "quick", fake, H2_SAMPLE_SECONDS="30")
+
+    assert time.monotonic() - started < 10
+    assert "finished quick (exit 0)" in (tmp_path / "logs" / "h2-quick.log").read_text()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_unit_end_is_written_into_the_stage_it_was_running(tmp_path):
+    """
+    What systemd's ExecStopPost writes: the result systemd saw, into the log of
+    the stage the chain had reached. Here as a stop with the session would
+    leave it — no "finished" line from the wrapper, only this one.
+    """
+    logs = tmp_path / "logs"
+    logs.mkdir()
+    (logs / ".stage-neurolearn-h2-both-x").write_text("full\n")
+    env = dict(os.environ, H2_LOGS=str(logs), SERVICE_RESULT="signal",
+               EXIT_CODE="killed", EXIT_STATUS="TERM")
+    subprocess.run(["bash", str(RUN_H2), "__ended", "neurolearn-h2-both-x"], env=env,
+                   check=True, capture_output=True, text=True, timeout=30)
+
+    line = (logs / "h2-full.log").read_text().strip()
+    assert "unit neurolearn-h2-both-x ended: SERVICE_RESULT=signal EXIT_CODE=killed EXIT_STATUS=TERM;" in line
+    assert not (logs / ".stage-neurolearn-h2-both-x").exists()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_inline_launch_records_no_unit_stage(tmp_path):
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "quick", fake)
+
+    assert not list((tmp_path / "logs").glob(".stage-*"))
+
+
+def test_the_unit_reports_how_it_ended_whatever_ends_it():
+    script = RUN_H2.read_text()
+
+    assert '-p ExecStopPost="/bin/bash $PWD/experiments/run_h2.sh __ended $UNIT"' in script
+    assert "systemctl --user show -p Result -p ExecMainStatus" in script
+    assert '--setenv=H2_LOGS="$LOGS"' in script
+    assert "--expand-environment=no" in script

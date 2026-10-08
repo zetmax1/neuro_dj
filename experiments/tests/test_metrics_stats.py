@@ -299,3 +299,80 @@ def test_the_paired_bootstrap_refuses_mismatched_inputs(sample):
     labels, strong, weak, learners = sample
     with pytest.raises(ValueError, match="same answers"):
         stats.bootstrap_auc_difference(labels, strong[:-1], weak, learners, replicates=5)
+
+
+# ---------------------------------------------------------------------------
+# H2's contrasts (D56)
+# ---------------------------------------------------------------------------
+
+def _pooled_three(sample):
+    """BKT weak, BKT+IRT strong, DKT in between — the names h2.CONTRASTS uses."""
+    labels, strong, weak, learners = sample
+    middle = (strong + weak) / 2
+    pooled = {"BKT": list(weak), "BKT+IRT (λ=0)": list(strong), "DKT": list(middle)}
+    return pooled, list(labels), learners
+
+
+def test_the_contrasts_are_oriented_as_the_hypothesis_reads_them(sample):
+    """
+    The pairwise family orders a pair by model (BKT before BKT+IRT), so its
+    difference is BKT − BKT+IRT; the contrast is BKT+IRT − BKT. Same pair, same
+    p, opposite sign.
+    """
+    from experiments import h2
+
+    pooled, labels, learners = _pooled_three(sample)
+    out = h2.analyse_pooled(pooled, labels, learners, replicates=60, seed=5)
+    by_pair = {(item["a"], item["b"]): item for item in out["comparisons"]}
+    contrasts = {item["b"]: item for item in out["contrasts"]}
+
+    assert [(item["a"], item["b"], item["decision"]) for item in out["contrasts"]] == [
+        ("BKT+IRT (λ=0)", "BKT", "D53"), ("BKT+IRT (λ=0)", "DKT", "D56"),
+    ]
+    family = by_pair[("BKT", "BKT+IRT (λ=0)")]
+    assert contrasts["BKT"]["difference"] == pytest.approx(-family["difference"], abs=2e-6)
+    assert contrasts["BKT"]["delong_p"] == family["p"]
+    assert contrasts["BKT"]["p_holm"] == family["p_holm"]
+    assert contrasts["DKT"]["delong_p"] == by_pair[("BKT+IRT (λ=0)", "DKT")]["p"]
+
+
+def test_a_contrasts_interval_is_the_paired_learner_bootstrap(sample):
+    from experiments import h2, stats
+
+    pooled, labels, learners = _pooled_three(sample)
+    out = h2.contrasts(pooled, labels, learners, [], replicates=60, seed=5)
+    expected = stats.bootstrap_auc_difference(
+        labels, pooled["BKT+IRT (λ=0)"], pooled["DKT"], learners, replicates=60, seed=5,
+    ).payload()
+
+    item = out[1]
+    assert (item["difference"], item["ci_low"], item["ci_high"]) == (
+        expected["estimate"], expected["ci_low"], expected["ci_high"],
+    )
+    assert item["replicates"] == 60 and item["clustered_by_learner"] is True
+    assert item["ci_low"] <= item["difference"] <= item["ci_high"]
+
+
+def test_a_contrast_whose_model_did_not_run_is_listed_not_dropped(sample):
+    from experiments import h2
+
+    pooled, labels, learners = _pooled_three(sample)
+    del pooled["DKT"]
+    out = h2.contrasts(pooled, labels, learners, [], replicates=20, seed=5)
+
+    assert out[0]["status"] == "ok"
+    assert out[1] == {
+        "a": "BKT+IRT (λ=0)", "b": "DKT", "decision": "D56",
+        "status": "unavailable", "missing": ["DKT"],
+    }
+
+
+def test_the_contrasts_leave_the_other_intervals_alone(sample):
+    """Each bootstrap seeds its own generator: adding the contrasts moves nothing else."""
+    from experiments import h2, stats
+
+    pooled, labels, learners = _pooled_three(sample)
+    out = h2.analyse_pooled(pooled, labels, learners, replicates=40, seed=5)
+    alone = stats.bootstrap_auc(labels, pooled["BKT"], learners, replicates=40, seed=5, by_learner=True)
+
+    assert out["models"]["BKT"]["auc_interval"] == alone.payload()

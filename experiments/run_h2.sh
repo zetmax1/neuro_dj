@@ -29,30 +29,100 @@
 #   H2_PY        interpreter            (default experiments/.venv/bin/python)
 #   H2_LOGS      log directory          (default experiments/.runs)
 #   H2_LAUNCHER  systemd | setsid | inline   (default: systemd if available)
+#   H2_SAMPLE_SECONDS  memory sample interval  (default 60)
+#
+# What the log shows, so the cause of the next stop can be read without the
+# journal. The full pass of 2026-10-06 stopped at 16:53 and the bounds pass at
+# 22:55 with no "finished" line, and by the time anyone looked the journal was
+# gone (the machine was reinstalled the next day). Now:
+# - every SAMPLE seconds a "memory:" line — the python process's RSS and peak
+#   (VmHWM), its children's RSS added in, MemAvailable and SwapFree — so a
+#   run that dies of memory pressure leaves the pressure in its own log;
+# - "finished <stage> (exit N)" with the sampled peak, from the wrapper;
+# - under systemd, "unit … ended:" from ExecStopPost, which systemd runs
+#   however the unit ends — killed, OOM-killed, or stopped with the session —
+#   with SERVICE_RESULT, EXIT_CODE and EXIT_STATUS, and the unit's own
+#   Result and ExecMainStatus. A log with neither of the last two lines is a
+#   machine that went down.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 MODE="${1:-both}"
 PY="${H2_PY:-experiments/.venv/bin/python}"
 LOGS="${H2_LOGS:-experiments/.runs}"
+SAMPLE="${H2_SAMPLE_SECONDS:-60}"
 mkdir -p "$LOGS"
+
+# ExecStopPost of the unit below: write how the unit ended into the log of
+# the stage it was running. Called by systemd, not by hand.
+if [[ "$MODE" == "__ended" ]]; then
+    UNIT="$2"
+    STAGE="$(cat "$LOGS/.stage-$UNIT" 2>/dev/null || echo unit)"
+    SHOWN="$(systemctl --user show -p Result -p ExecMainStatus "$UNIT" 2>/dev/null | paste -sd' ' || true)"
+    echo "[$(date -Is)] unit $UNIT ended: SERVICE_RESULT=${SERVICE_RESULT:-?}" \
+         "EXIT_CODE=${EXIT_CODE:-?} EXIT_STATUS=${EXIT_STATUS:-?}; ${SHOWN:-unit state unavailable}" \
+         >> "$LOGS/h2-$STAGE.log"
+    rm -f "$LOGS/.stage-$UNIT"
+    exit 0
+fi
 
 if [[ ! -x "$PY" ]]; then
     echo "$PY is missing; see experiments/README.md" >&2
     exit 2
 fi
 
+memory() {
+    # One "memory:" line for process $1, sizes in kB. Children (worker
+    # processes) are added into tree_rss; the peak of the sampled tree is kept
+    # in $2 for the "finished" line.
+    local pid="$1" peak_file="$2" rss hwm children tree avail swap peak
+    rss="$(awk '/^VmRSS:/{print $2}' "/proc/$pid/status" 2>/dev/null)"
+    hwm="$(awk '/^VmHWM:/{print $2}' "/proc/$pid/status" 2>/dev/null)"
+    [[ -n "$rss" ]] || return 0
+    children="$(ps -o rss= --ppid "$pid" 2>/dev/null | awk '{s+=$1} END{print s+0}')"
+    tree=$(( rss + children ))
+    avail="$(awk '/^MemAvailable:/{print $2}' /proc/meminfo)"
+    swap="$(awk '/^SwapFree:/{print $2}' /proc/meminfo)"
+    peak="$(cat "$peak_file" 2>/dev/null || echo 0)"
+    (( tree > peak )) && echo "$tree" > "$peak_file"
+    echo "[$(date -Is)] memory: rss_kb=$rss hwm_kb=${hwm:-?} tree_rss_kb=$tree" \
+         "mem_available_kb=$avail swap_free_kb=$swap"
+}
+
+sample() {
+    # Every $SAMPLE seconds until process $1 exits. The sleep is a child that
+    # TERM takes down with the loop, so stopping the sampler is immediate.
+    local pid="$1" peak_file="$2" nap
+    trap 'kill "$nap" 2>/dev/null; exit 0' TERM
+    while kill -0 "$pid" 2>/dev/null; do
+        memory "$pid" "$peak_file"
+        sleep "$SAMPLE" & nap=$!
+        wait "$nap"
+    done
+}
+
 run() {
     local name="$1" module="$2"; shift 2
-    echo "[$(date -Is)] starting $name: $*" >> "$LOGS/h2-$name.log"
+    local log="$LOGS/h2-$name.log" peak_file="$LOGS/.peak-$name"
+    echo "[$(date -Is)] starting $name: $*" >> "$log"
+    [[ -n "${UNIT:-}" ]] && echo "$name" > "$LOGS/.stage-$UNIT"
     # The status is captured before anything else runs: $(date -Is) in the
     # line below executes first and would reset $? to its own success, so a
     # failed run reported "exit 0" and the chain carried on as if it had
     # worked. `|| status=$?` keeps a non-zero exit from ending the shell
     # before the line is written.
-    local status=0
-    "$PY" -u -W ignore -m "$module" "$@" >> "$LOGS/h2-$name.log" 2>&1 || status=$?
-    echo "[$(date -Is)] finished $name (exit $status)" >> "$LOGS/h2-$name.log"
+    local status=0 pid sampler peak
+    echo 0 > "$peak_file"
+    "$PY" -u -W ignore -m "$module" "$@" >> "$log" 2>&1 &
+    pid=$!
+    sample "$pid" "$peak_file" >> "$log" 2>&1 &
+    sampler=$!
+    wait "$pid" || status=$?
+    kill "$sampler" 2>/dev/null || true
+    wait "$sampler" 2>/dev/null || true
+    peak="$(cat "$peak_file" 2>/dev/null || echo 0)"
+    rm -f "$peak_file"
+    echo "[$(date -Is)] finished $name (exit $status); peak sampled tree_rss_kb=$peak" >> "$log"
     return $status
 }
 
@@ -67,7 +137,6 @@ case "$MODE" in
     bounds-both)  CHAIN="run bounds-quick $BOUNDS --quick && run bounds-full $BOUNDS" ;;
     *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both}" >&2; exit 2 ;;
 esac
-BODY="$(declare -f run); LOGS='$LOGS' PY='$PY'; $CHAIN"
 
 LAUNCHER="${H2_LAUNCHER:-}"
 if [[ -z "$LAUNCHER" ]]; then
@@ -77,14 +146,21 @@ if [[ -z "$LAUNCHER" ]]; then
         LAUNCHER=setsid
     fi
 fi
+UNIT=""
+[[ "$LAUNCHER" == systemd ]] && UNIT="neurolearn-h2-$MODE-$(date +%Y%m%d-%H%M%S)"
+BODY="$(declare -f memory sample run); LOGS='$LOGS' PY='$PY' SAMPLE='$SAMPLE' UNIT='$UNIT'; $CHAIN"
 
 case "$LAUNCHER" in
     systemd)
-        UNIT="neurolearn-h2-$MODE-$(date +%Y%m%d-%H%M%S)"
-        ENV_ARGS=()
+        ENV_ARGS=(--setenv=H2_LOGS="$LOGS")
+        # The body is shell, not a unit file line: systemd would otherwise
+        # expand $VAR and turn $$ into $ before bash ever saw it.
+        systemd-run --help 2>/dev/null | grep -q -- --expand-environment \
+            && ENV_ARGS+=(--expand-environment=no)
         [[ -n "${NEUROLEARN_DATA:-}" ]] && ENV_ARGS+=(--setenv=NEUROLEARN_DATA="$NEUROLEARN_DATA")
         systemd-run --user --collect --quiet --same-dir --unit="$UNIT" \
             -p OOMPolicy=continue -p OOMScoreAdjust=100 \
+            -p ExecStopPost="/bin/bash $PWD/experiments/run_h2.sh __ended $UNIT" \
             "${ENV_ARGS[@]}" bash -c "$BODY"
         echo "started ($MODE) as user unit $UNIT. Progress: tail -f $LOGS/h2-*.log"
         echo "  status: systemctl --user status $UNIT"
