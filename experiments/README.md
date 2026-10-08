@@ -46,6 +46,7 @@ isbotlamaydi.
 | `models/pybkt_check.py` | 5 mavzu bo'yicha pyBKT EM bilan o'zaro tekshiruv | D53 |
 | `h2.py` | H2 ishga tushirish: `--quick` va to'liq | D53 |
 | `h2_bounds.py` | H2 ning G_MAX/S_MAX ga sezgirligi: BKT va BKT+IRT (λ=0), uch sozlama | D55 |
+| `reproduce.py` | ikki H2 natijasini solishtiradi: BKT, BKT+IRT, Elo/Rasch, PFA 1e-9 gacha teng bo'lishi kerak, DKT/AKT faqat ko'rsatiladi | muhit tiklanishi |
 
 ## Muhit
 
