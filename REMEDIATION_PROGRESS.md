@@ -1126,6 +1126,48 @@ Testlar: `test_a_cell_holding_another_keys_number_is_caught` (har bir bo‘lim u
 
 ---
 
+## Muhit tiklanishi (Ubuntu 26.04) va ikki uzilishning sababi — 2026-10-08
+
+Kompyuterga Ubuntu 26.04 qayta o‘rnatildi. `/var/log/installer` bo‘yicha bu yangilash emas, toza o‘rnatish (2026-10-07 11:52–12:07). Repo saqlangan, muhit va tizim loglari yo‘qolgan.
+
+### A1 — fayl rejimlari
+
+Backend'da 251 ta, frontend'da 167 ta fayl `100644 → 100755` bo‘lgan. `git diff --numstat` bo‘yicha mazmun farqi 0 qator. Frontend'dagi yagona binar fayl `public/image.png` ning blob hash'i HEAD bilan bir xil (`1983e535…`). Har bir faylga eski rejim `chmod 644` bilan qaytarildi, ro‘yxat `git diff --raw` dan olindi. `core.fileMode` ga tegilmadi. Ikkala repoda `git status` toza.
+
+### A2–A3 — Python 3.12.3 va lock fayllar
+
+Tizimda faqat Python 3.14.4 bor. numpy 1.26.4, scipy 1.14.1, scikit-learn 1.6.1 va torch 2.5.1 ning 3.14 uchun wheel'i yo‘q, pyBKT esa numpy < 2 ni talab qiladi. Shuning uchun natijalar olingan interpretator — CPython 3.12.3 — uv bilan olindi (`~/.local/share/uv/python`). uv tizimda o‘rnatilmagan ekan, u scratchpad'dagi vaqtinchalik venv'ga o‘rnatildi. Ikkala venv shu interpretator bilan qayta yaratildi, 3.14 dagi `venv/` ning `pip freeze` i o‘chirishdan oldin saqlandi. Paket versiyalari o‘zgartirilmadi. Yagona istisno: `experiments/.venv` da networkx'ni torch versiyasiz tortgan (3.6.1). U `requirements-dev.txt` dagi e’lon qilingan 3.4.2 ga tushirildi; faqat test oracle'i sifatida ishlatiladi. `505ff0c`: `.python-version`, `requirements.lock`, `experiments/requirements.lock` (sha256 hash'lari bilan; toza venv'ga `--require-hashes` bilan o‘rnatilib, freeze bilan solishtirilgan) va `experiments/README.md` dagi “Muhitni tiklash” bo‘limi.
+
+### A4 — ma’lumot fayllari
+
+`as.csv` va to‘rtta graf fayli (DBE-KT22, Junyi, WDKG-Course, WDKG-KnowledgePoints) — sha256 qayd qilingan qiymatlarga (D49, `experiments/results/graphs/20261006-052348/metrics.json`) mos.
+
+### B — ikki uzilish
+
+Dalillar:
+
+| Log | Oxirgi yozuv (mtime) | Oxirgi qator | “finished” |
+|---|---|---|---|
+| `h2-full.log` (`005f30d`) | 2026-10-06 16:53:40 | 1-fold, `DKT auc=0.8220` | yo‘q |
+| `h2-bounds-quick.log` (`944681d`) | 2026-10-06 22:55:40 | `fitted kengroq / fold 2 in 317s` (15 tadan 8-fit) | yo‘q |
+
+- `last` buyrug‘i o‘rnatilmagan. `/var/log/wtmp` 2026-10-07 12:08 dan boshlanadi (4 ta login yozuvi). `journalctl --list-boots` ham 2026-10-07 12:08 dan boshlanadi.
+- `/var/log/kern.log` va `syslog` 2026-10-07 12:08 dan boshlanadi, rotatsiya qilingan fayllar yo‘q. Ulardagi `OOM killer disabled/enabled` qatorlari suspend/resume belgilari, o‘ldirish emas; `Killed process` qatori yo‘q.
+- `loginctl show-user zokhidjon -p Linger` → `Linger=no`.
+
+Xulosa:
+
+- **`h2-full` — sessiya yopilishi.** Birlamchi dalil (journal) yo‘qolgan. Ikkilamchi dalil — o‘sha paytda journal'dan yozib olingan qayd (yuqorida, “Tekshiruv topilmalari R1–R3” bo‘limi): 16:55:01 da Chrome scope'i OOM bilan yopilgan, 16:55:56 da foydalanuvchining systemd menejeri unit'ni sessiya bilan birga to‘xtatgan. Linger o‘chiq bo‘lsa, user unit sessiya tugashi bilan to‘xtaydi. OOM python'ni o‘ldirgani isbotlanmagan.
+- **`h2-bounds-quick` — aniqlanmadi.** O‘ram ham “finished” yozmagan, ya’ni unit to‘xtatilgan yoki mashina o‘chgan. Lekin 2026-10-06 ga oid hech qanday tizim logi qolmagan. Repo ichida 22:55:40 dan keyin o‘zgargan fayl yo‘q, ammo uy papkasi faqat qisman tiklangani uchun bu dalil emas.
+
+Keyingi ishga tushirishlar uchun sabab logning o‘zida qoladi: `run_h2.sh` har 60 soniyada xotira qatorini, `ExecStopPost` esa unit qanday tugaganini yozadi (C2).
+
+### D55 ketma-ketligi
+
+D55 to‘liq H2 natijasidan oldin commit qilingan (ketma-ketlikdan chetga chiqish), tarix o‘zgartirilmagan. `944681d` `neuro_model/` va `config/settings.py` ga tegmagan (`git diff 005f30d HEAD -- neuro_model config/settings.py` bo‘sh). `test_the_platforms_constants_do_not_move` `CONSTANTS` ni (0,30; 0,10) da qotiradi. “Parametr berilmaganda natija `944681d` dan oldingi kod bilan bitma-bit bir xil” degan test yo‘q: `test_the_main_setting_reproduces_h2s_bkt_and_bkt_irt` HEAD dagi ikki yo‘lni o‘zaro solishtiradi. Bu dalil eski `--quick` natijasini qayta tiklash orqali olinadi (C4).
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -1175,6 +1217,7 @@ Testlar: `test_a_cell_holding_another_keys_number_is_caught` (har bir bo‘lim u
 | Q2-9 | `benchmark_tree.py` MPTT ustunlariga bog‘liq edi | O‘chirildi; 9-bosqichda `benchmarks` app'i bilan almashtiriladi. Bu va `test_mptt_tree.py` ning o‘chirilishi xato bilan `5e5cb09` ga tushib qoldi (oldindan stage qilingan edi); tarix qayta yozilmadi |
 | Q2-10 | 1-bosqichning migratsiya testi `curriculum 0009` holatiga qaytardi, bu MPTT ustunlarini qayta qo‘shishni talab qilardi | Test endi `curriculum 0012` (joriy) bilan `assessments 0005` kombinatsiyasidan boshlanadi. Curriculum migratsiyalari `assessments 0005` dan keyingilariga bog‘lanmaydi |
 | Q8b-1 | Tarixda ikkita `commit --amend` bor (reflog): `c142506` ← `47d78ee` (faqat commit xabari o‘zgargan, daraxt bir xil) va `c1a683b` ← `3f54751` (`provenance.py`/`tables.py` ga 17 qator qo‘shilgan) | D54 bo‘yicha qayd etildi; tarix o‘zgartirilmadi. Bundan keyin amend/rebase/reset --hard ishlatilmaydi, xato xabar keyingi commit'da tuzatiladi |
+| D56 | H2 dagi “DKT bilan taqqoslanadigan” iborasining ta’rifi | D56. “DKT bilan taqqoslanadigan” = BKT+IRT(λ=0) − DKT AUC farqi 95% CI pastki chegarasi ≥ −0,01. 0,01 — metodik tanlov, manbadan emas. 2026-10-08 da, to‘liq H2 natijasi mavjud bo‘lmagan paytda yozildi. |
 
 ---
 
