@@ -138,3 +138,31 @@ def test_the_command_exits_by_the_result(tmp_path, capsys):
     (new_dir / "metrics.json").write_text(json.dumps(changed), encoding="utf-8")
     assert reproduce.main([str(old_dir), str(new_dir)]) == 1
     assert "MISMATCH folds[0]/BKT/scores/all/rmse" in capsys.readouterr().out
+
+
+def test_checked_names_the_models_that_must_match_and_reports_the_rest():
+    """A D57 run against a pre-D57 one: BKT and PFA must match, Elo and BKT+IRT may move."""
+    new = document()
+    new["folds"][0]["models"]["Elo/Rasch"]["scores"]["all"]["auc"] = 0.9
+    new["pooled"]["models"]["BKT+IRT (λ=0)"]["scores"]["all"]["auc"] = 0.5
+
+    result = reproduce.compare(document(), new, checked=("BKT", "PFA"))
+    assert result["reproduced"] and result["checked_models"] == ["BKT", "PFA"]
+    reported = {item["where"]: item for item in result["reported"]}
+    assert reported["folds[0]/Elo/Rasch"]["new_auc"] == 0.9
+    assert reported["pooled/BKT+IRT (λ=0)"]["new_auc"] == 0.5
+    assert "folds[0]/DKT" in reported
+
+    assert not reproduce.compare(document(), new)["reproduced"]     # the default still checks four
+
+
+def test_a_checked_model_that_moves_still_fails(tmp_path, capsys):
+    old_dir, new_dir = tmp_path / "old", tmp_path / "new"
+    changed = document()
+    changed["folds"][0]["models"]["PFA"]["scores"]["all"]["auc"] += 1e-6
+    for directory, payload in ((old_dir, document()), (new_dir, changed)):
+        directory.mkdir()
+        (directory / "metrics.json").write_text(json.dumps(payload), encoding="utf-8")
+
+    assert reproduce.main([str(old_dir), str(new_dir), "--checked", "BKT", "PFA"]) == 1
+    assert "MISMATCH folds[0]/PFA/scores/all/auc" in capsys.readouterr().out

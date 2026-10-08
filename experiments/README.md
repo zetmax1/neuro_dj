@@ -47,6 +47,8 @@ isbotlamaydi.
 | `h2.py` | H2 ishga tushirish: `--quick` va to'liq | D53 |
 | `h2_bounds.py` | H2 ning G_MAX/S_MAX ga sezgirligi: BKT va BKT+IRT (λ=0), uch sozlama | D55 |
 | `reproduce.py` | ikki H2 natijasini solishtiradi: BKT, BKT+IRT, Elo/Rasch, PFA 1e-9 gacha teng bo'lishi kerak, DKT/AKT faqat ko'rsatiladi | muhit tiklanishi |
+| `orders.py` | qator qaysi masalaga (`order_id`) tegishli; D57 bo'yicha bashorat faqat oldingi masalalardan | D57 |
+| `default_coverage.py` | H2 natijasida standart BKT parametrlari bilan bashorat qilingan javoblar ulushi | D53 |
 
 ## Muhit
 
@@ -133,6 +135,14 @@ experiments/.venv/bin/python -m experiments.h2
 # yopilsa ham, browser OOM'ga uchrasa ham o'lmaydi). Log: experiments/.runs/
 experiments/run_h2.sh both
 ```
+
+**D57 — masala darajasidagi baholash.** ASSISTments'da bir nechta skill'li
+masala har skill uchun alohida qator, bir xil `correct` bilan va yonma-yon.
+Shuning uchun har bir qator faqat talabaning oldingi masalalaridagi javoblardan
+bashorat qilinadi; masalaning barcha qatorlari bir xil holatdan, yangilanish
+masaladan keyin (`orders.py`; xulq testi — `tests/test_order_protocol.py`).
+O'qitish o'zgarmaydi. `tables.md` §10 — masalaning faqat birinchi qatorlari
+bo'yicha AUC (sezgirlik).
 
 Ishga tushirish paytida ishchi daraxtga tegilmaydi (D54). Provenance git
 holatini boshida va oxirida yozadi; boshida toza bo'lmasa yoki ikkalasi farq

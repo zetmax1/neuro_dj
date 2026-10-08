@@ -690,3 +690,80 @@ def test_a_dropped_contrast_row_is_caught():
 
     problems = tables.verify(markdown.replace(row + "\n", "", 1), document)
     assert any(problem.startswith("§3 contrast rows") for problem in problems), problems
+
+
+# ---------------------------------------------------------------------------
+# §10: the first row of each order (D57)
+# ---------------------------------------------------------------------------
+
+def with_first_rows(document: dict) -> dict:
+    document["pooled"]["evaluation_protocol"] = "D57"
+    document["pooled"]["models"]["BKT"]["first_in_order"] = {
+        "auc": 0.6621, "rmse": 0.4501, "accuracy": 0.7011, "n": 26512, "positives": 17001,
+    }
+    document["pooled"]["models"]["DKT"]["first_in_order"] = {
+        "auc": 0.7144, "rmse": 0.4413, "accuracy": 0.7222, "n": 26512, "positives": 17001,
+    }
+    return document
+
+
+def test_the_first_row_section_renders_and_verifies_cell_by_cell():
+    document = with_first_rows(h2_metrics())
+    markdown = tables.render_h2_report(document)
+
+    assert "## 10. Masalaning birinchi qatorlari (D57, sezgirlik)" in markdown
+    assert "| BKT | 0.662 | 0.45 | 0.701 | 26512 |" in markdown
+    assert "| DKT | 0.714 | 0.441 | 0.722 | 26512 |" in markdown
+    assert "Baholash protokoli: D57" in markdown
+    assert tables.verify(markdown, document) == []
+
+
+def test_a_result_from_before_d57_has_no_first_row_section_and_no_protocol_line():
+    document = h2_metrics()
+    markdown = tables.render_h2_report(document)
+
+    assert "## 10." not in markdown and "Baholash protokoli" not in markdown
+    assert tables.verify(markdown, document) == []
+    stray = markdown + "\n## 10. Masalaning birinchi qatorlari\n\n| Model | AUC |\n|---|---|\n| BKT | 0.67 |\n"
+    assert any(problem.startswith("§10") for problem in tables.verify(stray, document))
+
+
+def test_a_first_row_auc_the_run_could_not_compute_is_a_dash():
+    document = with_first_rows(h2_metrics())
+    document["pooled"]["models"]["DKT"]["first_in_order"]["auc"] = None
+    markdown = tables.render_h2_report(document)
+
+    assert "| DKT | — | 0.441 | 0.722 | 26512 |" in markdown
+    assert tables.verify(markdown, document) == []
+
+
+def test_only_the_models_with_first_rows_are_listed():
+    document = with_first_rows(h2_metrics())
+    del document["pooled"]["models"]["DKT"]["first_in_order"]
+    markdown = tables.render_h2_report(document)
+
+    section = markdown.split("## 10.")[1]
+    assert "| BKT |" in section and "| DKT |" not in section
+    assert tables.verify(markdown, document) == []
+
+
+@pytest.mark.parametrize("before, after", [
+    ("| BKT | 0.662 | 0.45 |", "| BKT | 0.714 | 0.45 |"),          # DKT's AUC in BKT's row
+    ("| DKT | 0.714 | 0.441 |", "| DKT | 0.441 | 0.714 |"),        # AUC and RMSE swapped
+])
+def test_a_first_row_cell_holding_another_number_is_caught(before, after):
+    document = with_first_rows(h2_metrics())
+    markdown = tables.render_h2_report(document)
+    assert before in markdown
+
+    problems = tables.verify(markdown.replace(before, after, 1), document)
+    assert any(problem.startswith("§10 rows") for problem in problems), problems
+
+
+def test_a_dropped_first_row_is_caught():
+    document = with_first_rows(h2_metrics())
+    markdown = tables.render_h2_report(document)
+    row = next(line for line in markdown.splitlines() if line.startswith("| DKT | 0.714 | 0.441"))
+
+    problems = tables.verify(markdown.replace(row + "\n", "", 1), document)
+    assert any(problem.startswith("§10 rows") for problem in problems), problems

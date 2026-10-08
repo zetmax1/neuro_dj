@@ -444,6 +444,13 @@ def render_h2_report(metrics: dict) -> str:
         "Bu fayl `metrics.json` dan avtomatik yasaladi (D48). Qo‘lda yozilgan son yo‘q.",
     ]
     lines += _tree_warning(provenance)
+    protocol = metrics.get("pooled", {}).get("evaluation_protocol")
+    if protocol:
+        lines += [
+            "",
+            f"Baholash protokoli: {protocol} — har bir qator faqat talabaning oldingi",
+            "masalalaridagi (`order_id`) javoblardan bashorat qilinadi.",
+        ]
     if quick:
         lines += [
             "",
@@ -463,7 +470,44 @@ def render_h2_report(metrics: dict) -> str:
     lines += _h2_pybkt(metrics)
     lines += _h2_dataset(metrics)
     lines += _sources_section(metrics, provenance, number=9)
+    lines += _h2_first_in_order(pooled)
     return "\n".join(lines) + "\n"
+
+
+def _first_in_order_rows(pooled: dict) -> list[list[str]]:
+    rows = []
+    for name in MODEL_ORDER:
+        entry = (pooled.get(name) or {}).get("first_in_order")
+        if entry is None:
+            continue
+        rows.append([name, _cell(entry.get("auc")), _cell(entry.get("rmse")),
+                     _cell(entry.get("accuracy")), _cell(entry.get("n"))])
+    return rows
+
+
+def _h2_first_in_order(pooled: dict) -> list[str]:
+    """
+    §10 — D57's sensitivity view: AUC on the first row of each order only.
+
+    Absent from results produced before D57; then nothing is rendered and
+    ``verify_h2_positions`` expects nothing.
+    """
+    rows = _first_in_order_rows(pooled)
+    if not rows:
+        return []
+    lines = [
+        "",
+        "## 10. Masalaning birinchi qatorlari (D57, sezgirlik)",
+        "",
+        "Har bir masalaning (`order_id`) faqat birinchi qatori. Asosiy natija emas:",
+        "bu qatorlarda hech bir model shu masalaning boshqa qatorini ko‘rmagan.",
+        "",
+        "| Model | AUC | RMSE | Aniqlik | Javob |",
+        "|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows]
+    lines.append("")
+    return lines
 
 
 def _auc_cell(entry: dict) -> str:
@@ -927,6 +971,14 @@ def verify_h2_positions(markdown: str, metrics: dict) -> list[str]:
                 fmt(item["auc_a"]), fmt(item["auc_b"]), fmt(item["difference"]), fmt(item["z"]),
                 _p(item["p"]), _p(item["p_holm"]), fmt(bool(item["significant"])),
             ])
+
+    # §10 — first rows of each order (D57)
+    expected_first = _first_in_order_rows(pooled)
+    if not expected_first:
+        check("§10", "10" in sections, False)
+    else:
+        _, rows = body("10")
+        check("§10 rows", rows, expected_first)
 
     # §3 — the hypothesis contrasts, the section's second table (D56)
     contrasts = metrics.get("pooled", {}).get("contrasts")

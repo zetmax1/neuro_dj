@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from neuro_model import bkt, calibrate, elo
 from neuro_model import student as engine
 
+from experiments import orders
 from experiments.models import Unavailable
 
 # Chapter II's constants. Mirrors ``settings.THESIS_MODEL``; the experiments
@@ -298,34 +299,51 @@ class BKTFamily:
         return state.difficulty, state.difficulty_n
 
     def predict(self, rows) -> list[float]:
-        """p̂ before each answer, then the full Algorithm 2.4 update on it."""
+        """
+        p̂ before each answer, then the full Algorithm 2.4 update on it.
+
+        D57: every row of an order gets its p̂ from the state before the
+        order; the order's updates are then applied row by row, as before, so
+        the state trajectory is unchanged and only the second and later rows
+        of a multi-skill problem are predicted differently. ``observe`` is
+        called once more for those rows, on the saved state, for p̂ alone.
+        """
         state = _State.with_items(*self._items)
         out: list[float] = []
-        for row in rows:
-            key = (row.user_id, row.skill_id)
-            params = self._params.get(row.skill_id, DEFAULTS)
-            observation = engine.Observation(
-                is_correct=bool(row.correct),
-                p_l=state.mastery.get(key),
-                theta=state.theta.get(row.user_id, 0.0),
-                b_q=state.difficulty.get(row.problem_id, 0.0),
-                n_student=state.theta_n.get(row.user_id, 0),
-                n_question=state.difficulty_n.get(row.problem_id, 0),
-                prerequisites=(),
-            )
-            result = engine.observe(
-                params=params,
-                constants=self.constants,
-                observation=observation,
-                flags=self.flags,
-            )
-            out.append(result.p_hat)
-            state.mastery[key] = result.p_after
-            state.theta[row.user_id] = result.theta_after
-            state.theta_n[row.user_id] = observation.n_student + 1
-            state.difficulty[row.problem_id] = result.b_after
-            state.difficulty_n[row.problem_id] = observation.n_question + 1
+        for group in orders.groups(rows):
+            before = [self._observation(state, rows[index]) for index in group]
+            for position, index in enumerate(group):
+                row = rows[index]
+                observation = before[0] if position == 0 else self._observation(state, row)
+                result = self._observe(row, observation)
+                out.append(result.p_hat if position == 0 else self._observe(row, before[position]).p_hat)
+                key = (row.user_id, row.skill_id)
+                state.mastery[key] = result.p_after
+                state.theta[row.user_id] = result.theta_after
+                state.theta_n[row.user_id] = observation.n_student + 1
+                state.difficulty[row.problem_id] = result.b_after
+                state.difficulty_n[row.problem_id] = observation.n_question + 1
         return out
+
+    @staticmethod
+    def _observation(state: _State, row) -> engine.Observation:
+        return engine.Observation(
+            is_correct=bool(row.correct),
+            p_l=state.mastery.get((row.user_id, row.skill_id)),
+            theta=state.theta.get(row.user_id, 0.0),
+            b_q=state.difficulty.get(row.problem_id, 0.0),
+            n_student=state.theta_n.get(row.user_id, 0),
+            n_question=state.difficulty_n.get(row.problem_id, 0),
+            prerequisites=(),
+        )
+
+    def _observe(self, row, observation: engine.Observation):
+        return engine.observe(
+            params=self._params.get(row.skill_id, DEFAULTS),
+            constants=self.constants,
+            observation=observation,
+            flags=self.flags,
+        )
 
 
 def _step(state: _State, row, theta: float, b: float) -> None:
@@ -375,13 +393,23 @@ class EloRasch:
         }
 
     def predict(self, rows) -> list[float]:
+        """σ(θ − b) from the state before the row's order (D57); the steps as before."""
         state = _State.with_items(*self._items)
         out: list[float] = []
-        for row in rows:
-            theta = state.theta.get(row.user_id, 0.0)
-            b = state.difficulty.get(row.problem_id, 0.0)
-            out.append(elo.expected(theta=theta, b=b))
-            _step(state, row, theta, b)
+        for group in orders.groups(rows):
+            before = [
+                (state.theta.get(rows[index].user_id, 0.0),
+                 state.difficulty.get(rows[index].problem_id, 0.0))
+                for index in group
+            ]
+            out.extend(elo.expected(theta=theta, b=b) for theta, b in before)
+            for index in group:
+                row = rows[index]
+                _step(
+                    state, row,
+                    state.theta.get(row.user_id, 0.0),
+                    state.difficulty.get(row.problem_id, 0.0),
+                )
         return out
 
     @staticmethod
@@ -443,15 +471,21 @@ class PFA:
     def predict(self, rows) -> list[float]:
         if self._model is None:
             raise RuntimeError("PFA.predict before PFA.fit")
-        features, _ = self._design(rows)
+        features, _ = self._design(rows, by_order=True)
         if features.shape[0] == 0:
             return []
         return [float(value) for value in self._model.predict_proba(features)[:, 1]]
 
-    def _design(self, rows):
+    def _design(self, rows, *, by_order: bool = False):
         """
         One row per answer: the KC's intercept and this learner's running
         success and failure counts on that KC, *before* this answer.
+
+        ``by_order`` (prediction, D57): the counts are those before the row's
+        order, and an order's answers are counted after all its rows. Within
+        an ASSISTments order no skill repeats (D50), so the matrix is the same
+        either way there; the rule is applied so it holds on any data. The
+        training matrix is built as before.
 
         Built as a sparse CSR matrix. The dense form is 3·|skills| wide — 369
         columns on the full dataset — with exactly three non-zeros per row, so
@@ -473,7 +507,17 @@ class PFA:
         values: list[float] = []
         labels: list[int] = []
 
-        for row in rows:
+        starts = orders.order_starts(rows) if by_order else range(len(rows))
+        pending: list = []
+        for row_index, row in enumerate(rows):
+            if starts[row_index] == row_index:
+                for earlier in pending:
+                    earlier_key = (earlier.user_id, earlier.skill_id)
+                    if earlier.correct:
+                        successes[earlier_key] = successes.get(earlier_key, 0) + 1
+                    else:
+                        failures[earlier_key] = failures.get(earlier_key, 0) + 1
+                pending = []
             position = index.get(row.skill_id)
             key = (row.user_id, row.skill_id)
             done = successes.get(key, 0)
@@ -493,10 +537,7 @@ class PFA:
                     values.append(float(missed))
             indptr.append(len(indices))
             labels.append(int(row.correct))
-            if row.correct:
-                successes[key] = done + 1
-            else:
-                failures[key] = missed + 1
+            pending.append(row)
 
         matrix = csr_matrix(
             (np.asarray(values, dtype=float),

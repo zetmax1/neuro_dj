@@ -376,3 +376,26 @@ def test_the_contrasts_leave_the_other_intervals_alone(sample):
     alone = stats.bootstrap_auc(labels, pooled["BKT"], learners, replicates=40, seed=5, by_learner=True)
 
     assert out["models"]["BKT"]["auc_interval"] == alone.payload()
+
+
+def test_the_first_row_auc_is_scored_on_the_first_rows_only(sample):
+    from experiments import h2, metrics
+
+    pooled, labels, learners = _pooled_three(sample)
+    firsts = [index % 3 != 2 for index in range(len(labels))]
+    out = h2.analyse_pooled(pooled, labels, learners, replicates=20, seed=5, first_in_order=firsts)
+
+    picked = [index for index, first in enumerate(firsts) if first]
+    expected = metrics.score([labels[i] for i in picked], [pooled["DKT"][i] for i in picked]).payload()
+    assert out["models"]["DKT"]["first_in_order"] == expected
+    assert out["evaluation_protocol"] == "D57"
+
+
+def test_without_first_rows_no_first_row_score_is_reported(sample):
+    from experiments import h2
+
+    pooled, labels, learners = _pooled_three(sample)
+    out = h2.analyse_pooled(pooled, labels, learners, replicates=20, seed=5)
+    assert all("first_in_order" not in entry for entry in out["models"].values())
+    with pytest.raises(ValueError, match="parallel"):
+        h2.analyse_pooled(pooled, labels, learners, replicates=20, seed=5, first_in_order=[True])

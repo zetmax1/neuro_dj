@@ -2,6 +2,7 @@
 experiments/reproduce.py — does a new H2 run reproduce an old one?
 
     python -m experiments.reproduce OLD_RESULT_DIR NEW_RESULT_DIR [--tolerance 1e-9]
+        [--checked BKT PFA ...]
 
 The evidence that the environment rebuilt after the Ubuntu 26.04 reinstall
 (Python 3.12.3 through uv, the locks of 505ff0c) computes what the old one
@@ -15,6 +16,9 @@ same numbers to ``tolerance``:
 - each fold's shared BKT parameter metadata (the grid search) and the split.
 
 DKT and AKT are reported, not checked: R3 (f9bf7a7) changed what they see.
+``--checked`` names the models that must match instead (D57 changes Elo/Rasch
+and BKT+IRT as well, so a run under it is checked on BKT and PFA only); every
+other model is then reported.
 Timings are never compared. A key the new run has and the old one lacks is
 counted, not failed — later commits added fields (fit_log_likelihood,
 contrasts); a key the old run has and the new one lacks is a failure.
@@ -73,10 +77,19 @@ def compare_tree(old, new, where: str, tolerance: float, out: dict) -> None:
     out["added"] += sum(1 for path in new_leaves if path not in old_leaves)
 
 
-def compare(old: dict, new: dict, *, tolerance: float = DEFAULT_TOLERANCE) -> dict:
+def compare(
+    old: dict,
+    new: dict,
+    *,
+    tolerance: float = DEFAULT_TOLERANCE,
+    checked: tuple[str, ...] = CHECKED,
+) -> dict:
+    reported = tuple(
+        name for name in (*CHECKED, *REPORTED) if name not in checked
+    )
     out: dict = {
         "tolerance": tolerance,
-        "checked_models": list(CHECKED),
+        "checked_models": list(checked),
         "checked": 0,
         "added": 0,
         "mismatches": [],
@@ -94,7 +107,7 @@ def compare(old: dict, new: dict, *, tolerance: float = DEFAULT_TOLERANCE) -> di
         compare_tree(old_fold.get("counts"), new_fold.get("counts"), f"{label}/counts", tolerance, out)
         compare_tree(old_fold.get("parameters"), new_fold.get("parameters"),
                      f"{label}/parameters", tolerance, out)
-        for name in CHECKED:
+        for name in checked:
             if name not in old_fold.get("models", {}):
                 continue
             if name not in new_fold.get("models", {}):
@@ -104,7 +117,7 @@ def compare(old: dict, new: dict, *, tolerance: float = DEFAULT_TOLERANCE) -> di
             for part in ("status", "scores", "fit"):
                 compare_tree(old_model.get(part), new_model.get(part),
                              f"{label}/{name}/{part}", tolerance, out)
-        for name in REPORTED:
+        for name in reported:
             out["reported"].append(_reported(
                 f"{label}/{name}",
                 old_fold.get("models", {}).get(name, {}).get("scores", {}).get("all", {}).get("auc"),
@@ -113,7 +126,7 @@ def compare(old: dict, new: dict, *, tolerance: float = DEFAULT_TOLERANCE) -> di
 
     old_pooled = old.get("pooled", {}).get("models", {})
     new_pooled = new.get("pooled", {}).get("models", {})
-    for name in CHECKED:
+    for name in checked:
         if name not in old_pooled:
             continue
         if name not in new_pooled:
@@ -122,7 +135,7 @@ def compare(old: dict, new: dict, *, tolerance: float = DEFAULT_TOLERANCE) -> di
         for part in ("scores", "auc_interval"):
             compare_tree(old_pooled[name].get(part), new_pooled[name].get(part),
                          f"pooled/{name}/{part}", tolerance, out)
-    for name in REPORTED:
+    for name in reported:
         out["reported"].append(_reported(
             f"pooled/{name}",
             old_pooled.get(name, {}).get("scores", {}).get("all", {}).get("auc"),
@@ -131,7 +144,7 @@ def compare(old: dict, new: dict, *, tolerance: float = DEFAULT_TOLERANCE) -> di
 
     new_pairs = {(item["a"], item["b"]): item for item in new.get("pooled", {}).get("comparisons", [])}
     for item in old.get("pooled", {}).get("comparisons", []):
-        if item["a"] not in CHECKED or item["b"] not in CHECKED:
+        if item["a"] not in checked or item["b"] not in checked:
             continue
         pair = (item["a"], item["b"])
         where = f"pooled/comparisons/{item['a']} vs {item['b']}"
@@ -160,7 +173,7 @@ def _render(result: dict) -> str:
     ]
     for item in result["mismatches"][:50]:
         lines.append(f"  MISMATCH {item['where']}: old {item['old']!r}, new {item['new']!r}")
-    lines.append("reported, not checked (DKT/AKT, changed by R3):")
+    lines.append("reported, not checked:")
     for item in result["reported"]:
         lines.append(f"  {item['where']}: old {item['old_auc']}, new {item['new_auc']}, "
                      f"new − old {item['difference']}")
@@ -173,11 +186,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("new", type=Path)
     parser.add_argument("--tolerance", type=float, default=DEFAULT_TOLERANCE)
     parser.add_argument("--json", action="store_true", help="print the full result as JSON")
+    parser.add_argument("--checked", nargs="+", default=list(CHECKED),
+                        help="the models that must match (default: %(default)s)")
     args = parser.parse_args(argv)
 
     old = json.loads((args.old / "metrics.json").read_text(encoding="utf-8"))
     new = json.loads((args.new / "metrics.json").read_text(encoding="utf-8"))
-    result = compare(old, new, tolerance=args.tolerance)
+    result = compare(old, new, tolerance=args.tolerance, checked=tuple(args.checked))
     result["old"], result["new"] = str(args.old), str(args.new)
     print(json.dumps(result, ensure_ascii=False, indent=2) if args.json else _render(result))
     return 0 if result["reproduced"] else 1

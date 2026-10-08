@@ -39,7 +39,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field
 
-from experiments import metrics
+from experiments import metrics, orders
 from experiments.models import Unavailable
 
 DEFAULT_MAX_LEN = 200
@@ -56,6 +56,9 @@ class Window:
     responses: list[int]
     length: int
     row_indices: list[int] = field(default_factory=list)
+    # D57: per position, the position (in this window) of the first row of its
+    # order. Equal to the position itself when every row is its own order.
+    order_starts: list[int] = field(default_factory=list)
 
 
 def _require_torch():
@@ -104,10 +107,14 @@ class _SequenceModel:
     def _build(self, num_concepts: int):  # pragma: no cover - overridden
         raise NotImplementedError
 
-    def _scores(self, concepts, responses):
+    def _scores(self, concepts, responses, starts=None):
         """
         Per-position probabilities aligned with the input, where position *t*
         is predicted from the answers before it. Position 0 is NaN.
+
+        ``starts`` (prediction only, D57): per position, where its order
+        begins; position *t* is then predicted from the answers before
+        ``starts[t]``. ``None`` is the training path, unchanged.
         """
         raise NotImplementedError  # pragma: no cover - overridden
 
@@ -129,15 +136,23 @@ class _SequenceModel:
                 continue
             per_learner.setdefault(row.user_id, []).append((concept, int(row.correct), index))
 
+        order_of = orders.order_starts(rows)
         windows: list[Window] = []
         for sequence in per_learner.values():
             for start in range(0, len(sequence), self.max_len):
                 chunk = sequence[start:start + self.max_len]
+                # An order cut by the window edge starts again at position 0
+                # of the next window: nothing is carried across windows.
+                first: dict[int, int] = {}
                 windows.append(Window(
                     concepts=[concept for concept, _, _ in chunk],
                     responses=[response for _, response, _ in chunk],
                     length=len(chunk),
                     row_indices=[index for _, _, index in chunk],
+                    order_starts=[
+                        first.setdefault(order_of[index], position)
+                        for position, (_, _, index) in enumerate(chunk)
+                    ],
                 ))
         return windows
 
@@ -229,7 +244,9 @@ class _SequenceModel:
                 "position 0 of each window has no history and is scored with the "
                 "training base rate; windows are max_len long with no carry-over; "
                 "a row whose skill is absent from training is left out of the "
-                "sequence and scored with the base rate"
+                "sequence and scored with the base rate; D57: at prediction a row "
+                "sees only the answers before its order (the rows of the window's "
+                "first order are scored with the base rate); training is unchanged"
             ),
         }
 
@@ -243,10 +260,16 @@ class _SequenceModel:
         self._model.eval()
         with torch.no_grad():
             for batch, concepts, responses, mask in self._batches(self._windows(rows)):
-                scores = self._scores(concepts, responses)
+                # D57: each row is predicted from the answers before its order.
+                # Padding positions point at themselves; they are never read.
+                starts = torch.arange(concepts.size(1)).repeat(len(batch), 1)
+                for position, window in enumerate(batch):
+                    starts[position, :window.length] = torch.tensor(window.order_starts)
+                scores = self._scores(concepts, responses, starts)
                 for position, window in enumerate(batch):
                     for offset, row_index in enumerate(window.row_indices):
-                        if offset == 0:
+                        if window.order_starts[offset] == 0:
+                            # Nothing before this order in the window.
                             cold += 1
                             continue
                         value = float(scores[position, offset].item())
@@ -290,11 +313,20 @@ class DKTModel(_SequenceModel):
             dropout=float(self.model_kwargs["dropout"]),
         )
 
-    def _scores(self, concepts, responses):
+    def _scores(self, concepts, responses, starts=None):
         torch = _require_torch()
         output = self._model(concepts, responses)          # (B, L, C)
-        shifted = torch.zeros_like(output)
-        shifted[:, 1:, :] = output[:, :-1, :]              # step t-1 predicts t
+        if starts is None:
+            shifted = torch.zeros_like(output)
+            shifted[:, 1:, :] = output[:, :-1, :]          # step t-1 predicts t
+            return shifted.gather(2, concepts.unsqueeze(-1)).squeeze(-1)
+        # D57: position t reads the hidden state after the last row of the
+        # previous order, i.e. step starts[t] − 1; none before the window's
+        # first order.
+        source = starts - 1
+        read = source.clamp(min=0).unsqueeze(-1).expand(-1, -1, output.size(2))
+        shifted = output.gather(1, read)
+        shifted = torch.where((source >= 0).unsqueeze(-1), shifted, torch.zeros_like(shifted))
         return shifted.gather(2, concepts.unsqueeze(-1)).squeeze(-1)
 
 
@@ -342,9 +374,100 @@ class AKTModel(_SequenceModel):
             final_fc_dim=int(kwargs["final_fc_dim"]),
         )
 
-    def _scores(self, concepts, responses):
-        output = self._model(concepts, responses)
-        return output[0] if isinstance(output, tuple) else output
+    def _scores(self, concepts, responses, starts=None):
+        if starts is None:
+            output = self._model(concepts, responses)
+            return output[0] if isinstance(output, tuple) else output
+        return _akt_by_order(self._model, concepts, responses, starts)
+
+
+# ---------------------------------------------------------------------------
+# AKT under D57
+# ---------------------------------------------------------------------------
+#
+# pyKT's AKT builds its attention masks inside TransformerLayer.forward from
+# the sequence length alone (np.triu), so the Knowledge Retriever — the blocks
+# with mask=0, which read the encoded answers — always sees every earlier
+# position. D57 needs position t to see only the positions before its order.
+# The retriever block and the attention function are therefore restated here
+# with a mask passed in; everything else (the embeddings, both encoders, the
+# output layer) is pyKT's own modules, called as pyKT calls them. With every
+# row its own order the result is pyKT's forward, bit for bit
+# (tests/test_order_protocol.py).
+
+
+def _akt_by_order(model, concepts, responses, starts):
+    torch = _require_torch()
+    q_embed, qa_embed = model.base_emb(concepts, responses)      # n_pid = 0, emb_type "qid"
+    length = concepts.size(1)
+    # allowed[b, 0, t, j]: position t may read position j's answer.
+    allowed = (torch.arange(length)[None, None, :] < starts[:, :, None]).unsqueeze(1)
+
+    architecture = model.model
+    y, x = qa_embed, q_embed
+    for block in architecture.blocks_1:                           # encode the answers
+        y = block(mask=1, query=y, key=y, values=y, pdiff=None)
+    first = True
+    for block in architecture.blocks_2:
+        if first:                                                 # the questions: no answers in them
+            x = block(mask=1, query=x, key=x, values=x, apply_pos=False, pdiff=None)
+        else:                                                     # the Knowledge Retriever
+            x = _retriever(block, allowed, x, y)
+        first = not first
+    output = model.out(torch.cat([x, q_embed], dim=-1)).squeeze(-1)
+    return torch.sigmoid(output)
+
+
+def _retriever(block, allowed, query, values):
+    """pyKT's ``TransformerLayer.forward`` with ``mask=0`` and ``apply_pos=True``, mask given."""
+    head = block.masked_attn_head
+    batch = query.size(0)
+    k = head.k_linear(query).view(batch, -1, head.h, head.d_k).transpose(1, 2)
+    if head.kq_same is False:
+        q = head.q_linear(query).view(batch, -1, head.h, head.d_k).transpose(1, 2)
+    else:
+        q = head.k_linear(query).view(batch, -1, head.h, head.d_k).transpose(1, 2)
+    v = head.v_linear(values).view(batch, -1, head.h, head.d_k).transpose(1, 2)
+    attended = _attention(q, k, v, head.d_k, allowed, head.dropout, head.gammas)
+    query2 = head.out_proj(attended.transpose(1, 2).contiguous().view(batch, -1, head.d_model))
+
+    query = block.layer_norm1(query + block.dropout1(query2))
+    query2 = block.linear2(block.dropout(block.activation(block.linear1(query))))
+    return block.layer_norm2(query + block.dropout2(query2))
+
+
+def _attention(q, k, v, d_k, mask, dropout, gamma):
+    """
+    pyKT's ``akt.attention`` (monotonic attention with the distance decay),
+    with ``zero_pad`` generalised: a row with no allowed position — the first
+    of the sequence in pyKT, the window's first order here — attends to
+    nothing, instead of only row 0.
+    """
+    torch = _require_torch()
+    import torch.nn.functional as F
+    from torch import nn
+
+    scores = torch.matmul(q, k.transpose(-2, -1)) / math.sqrt(d_k)
+    seqlen = scores.size(2)
+    x1 = torch.arange(seqlen).expand(seqlen, -1)
+    x2 = x1.transpose(0, 1).contiguous()
+    with torch.no_grad():
+        scores_ = scores.masked_fill(mask == 0, -1e32)
+        scores_ = F.softmax(scores_, dim=-1)
+        scores_ = scores_ * mask.float()
+        distcum_scores = torch.cumsum(scores_, dim=-1)
+        disttotal_scores = torch.sum(scores_, dim=-1, keepdim=True)
+        position_effect = torch.abs(x1 - x2)[None, None, :, :].type(torch.FloatTensor)
+        dist_scores = torch.clamp((disttotal_scores - distcum_scores) * position_effect, min=0.)
+        dist_scores = dist_scores.sqrt().detach()
+    gamma = -1. * nn.Softplus()(gamma).unsqueeze(0)
+    total_effect = torch.clamp(torch.clamp((dist_scores * gamma).exp(), min=1e-5), max=1e5)
+    scores = scores * total_effect
+    scores.masked_fill_(mask == 0, -1e32)
+    scores = F.softmax(scores, dim=-1)
+    scores = torch.where(mask.any(dim=-1, keepdim=True), scores, torch.zeros_like(scores))
+    scores = dropout(scores)
+    return torch.matmul(scores, v)
 
 
 def _sort_key(value: str) -> tuple[int, float | str]:

@@ -22,7 +22,9 @@ What each fold does:
 2. fit each model, giving the neural ones the validation set for early
    stopping — the test fold is not touched until step 3;
 3. predict the test fold, streaming each learner's answers in order so every
-   prediction is made before its answer is seen;
+   prediction is made before its answer is seen — and, under D57, before any
+   answer of its own problem (``order_id``) is seen: a multi-skill problem's
+   rows are all predicted from the state before the problem;
 4. score: AUC, RMSE, accuracy, over everything and over each learner's first
    3 and first 5 answers.
 
@@ -45,7 +47,7 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
-from experiments import metrics, splits, tables
+from experiments import metrics, orders, splits, tables
 from experiments.datasets import DatasetMissing, assist09
 from experiments.models import Unavailable
 from experiments.models.classical import PFA, BKTFamily, EloRasch
@@ -54,6 +56,11 @@ from experiments.provenance import GitState, Provenance, Source, results_dir
 # Xiong et al. (EDM 2016), DKT on ASSISTments 2009 with duplicates removed.
 DKT_SANITY_RANGE = (0.70, 0.80)
 DKT_LITERATURE_RANGE = (0.73, 0.75)
+
+# D57: a row is predicted only from the learner's strictly earlier orders
+# (experiments.orders). Recorded in the metrics so a result says which
+# protocol produced it; results without the key predate it.
+EVALUATION_PROTOCOL = "D57"
 
 QUICK_LEARNERS = 500
 QUICK_EPOCHS = 3
@@ -193,6 +200,7 @@ def analyse_pooled(
     replicates: int,
     seed: int,
     cold_rows: dict[str, int] | None = None,
+    first_in_order: list[bool] | None = None,
 ) -> dict:
     """
     Intervals per model, pairwise DeLong tests, Holm over the family.
@@ -212,7 +220,10 @@ def analyse_pooled(
         "replicates": replicates,
         # In the metrics so the table can print it without writing a literal (D48).
         "confidence_percent": int(round(stats.CONFIDENCE * 100)),
+        "evaluation_protocol": EVALUATION_PROTOCOL,
     }
+    if first_in_order is not None and len(first_in_order) != len(labels):
+        raise ValueError("first_in_order must be parallel to the pooled answers")
     for name, scores in pooled.items():
         measured = metrics.by_first_k(labels, scores, learners)
         interval = stats.bootstrap_auc(
@@ -223,6 +234,11 @@ def analyse_pooled(
             "auc_interval": interval.payload(),
             "cold_rows": (cold_rows or {}).get(name, 0),
         }
+        if first_in_order is not None:
+            picked = [index for index, first in enumerate(first_in_order) if first]
+            out["models"][name]["first_in_order"] = metrics.score(
+                [labels[index] for index in picked], [scores[index] for index in picked],
+            ).payload()
 
     names = list(pooled)
     comparisons = []
@@ -351,6 +367,12 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
 
     pooled, labels, pooled_learners = pool(fold_outputs)
     print(f"  pooled {len(labels)} answers from {len(set(pooled_learners))} learners")
+    # D57's sensitivity view: the first row of each order, where no model can
+    # have read a sibling row. Built from the test rows in the order pool()
+    # concatenates them.
+    first_rows: list[bool] = []
+    for fold in folds:
+        first_rows.extend(orders.first_in_order(splits.subset(rows, fold.test)))
     cold = {}
     for report in fold_reports:
         for name, entry in report["models"].items():
@@ -358,7 +380,7 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
                 cold[name] = cold.get(name, 0) + entry["cold_rows"]
     analysis = analyse_pooled(
         pooled, labels, pooled_learners,
-        replicates=args.replicates, seed=args.seed, cold_rows=cold,
+        replicates=args.replicates, seed=args.seed, cold_rows=cold, first_in_order=first_rows,
     )
     warning = sanity(analysis["models"])
     if warning.get("warning"):
