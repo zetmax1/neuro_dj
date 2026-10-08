@@ -64,6 +64,41 @@ Ulardagi uchta pin tanlov emas, upstream nomuvofiqlik: pyBKT 1.4.3 numpy 2.x
 bilan ham, scikit-learn ≥ 1.7 bilan ham ishlamaydi, shuning uchun numpy < 2
 va unga mos scipy/pandas qotirilgan. Sabab fayl ichida yozilgan.
 
+### Muhitni tiklash
+
+Natijalar Python 3.12.3 da olingan (`.python-version`). Tizim Python'i boshqa
+bo'lsa (masalan, Ubuntu 26.04 da 3.14), numpy 1.26.4, scipy 1.14.1,
+scikit-learn 1.6.1 va torch 2.5.1 o'rnatilmaydi — ularning 3.14 uchun wheel'i
+yo'q. Shuning uchun interpretator uv bilan olinadi, tizimnikiga tegilmaydi.
+Ikkala venv `*.lock` fayllaridan quriladi: ularda har bir paket, tranzitivlari
+ham, versiyasi va sha256'i bilan.
+
+```sh
+# 0. uv (tizimda bo'lmasa — istalgan vaqtinchalik venv'ga: python3 -m venv /tmp/uv && /tmp/uv/bin/pip install uv)
+uv python install 3.12.3
+PY=$(uv python find 3.12.3)
+
+# 1. Django venv
+$PY -m venv venv
+venv/bin/pip install --require-hashes -r requirements.lock
+
+# 2. Eksperiment venv (torch — CPU index'dan)
+$PY -m venv experiments/.venv
+experiments/.venv/bin/pip install --require-hashes \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    -r experiments/requirements.lock
+
+# 3. Tekshiruv
+venv/bin/pip check && experiments/.venv/bin/pip check
+experiments/.venv/bin/python -m pytest experiments/tests -q -p no:cacheprovider
+sha256sum experiments/data/assistments2009/as.csv experiments/data/kg/*.graphml   # data/README.md dagi qiymatlar bilan
+```
+
+Lock fayllar `pip freeze` dan `uv pip compile --generate-hashes` bilan
+yasalgan va toza venv'ga `--require-hashes` bilan o'rnatilib, freeze bilan
+solishtirilgan. `requirements.txt` fayllari to'g'ridan-to'g'ri pin'lar va
+ularning sababi uchun qoladi; lock — ularning yopilishi.
+
 ## Ishga tushirish
 
 ```sh
