@@ -59,9 +59,39 @@ def synthetic_dataset(tmp_path, learners=40, per_learner=30, skills=3, seed=11) 
 
 def arguments(**overrides):
     defaults = vars(h2_bounds.build_parser().parse_args([]))
-    defaults.update(folds=2, replicates=20, workers=1, check_skills=2)
+    defaults.update(folds=2, replicates=20, workers=1, check_skills=2, epochs=2, no_checkpoint=True)
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
+
+
+def h2_reference(dataset, args) -> dict:
+    """
+    What the reproduction gate compares with, computed by H2 itself
+    (``h2.run_fold`` and ``h2.pool``) on the same data and split — the oracle
+    is the other program, not this one.
+    """
+    from experiments import metrics
+
+    _, rows, learners, folds = h2.prepare(args, dataset=dataset, log=lambda *a, **k: None)
+    reports, outputs = [], []
+    for fold in folds:
+        report, output = h2.run_fold(fold, rows, epochs=h2.epochs_for(args),
+                                     seed=h2.fold_seed(args, fold), log=lambda *a, **k: None)
+        reports.append(report)
+        outputs.append(output)
+    pooled, labels, _ = h2.pool(outputs)
+    return {
+        "path": "synthetic H2 run", "commit": None, "learners": len(learners),
+        "fold_1": {name: reports[0]["models"][name]["scores"]["all"]["auc"]
+                   for name in h2_bounds.MODELS},
+        "pooled": {name: round(metrics.auc(labels, pooled[name]), 6)
+                   for name in (*h2_bounds.MODELS, h2_bounds.DKT, h2_bounds.ELO)},
+    }
+
+
+@pytest.fixture(scope="module")
+def reference(dataset):
+    return h2_reference(dataset, arguments())
 
 
 @pytest.fixture(scope="module")
@@ -70,8 +100,9 @@ def dataset(tmp_path_factory):
 
 
 @pytest.fixture(scope="module")
-def document(dataset):
-    result, _ = h2_bounds.run(arguments(), [], dataset=dataset, log=lambda *a, **k: None)
+def document(dataset, reference):
+    result, _ = h2_bounds.run(arguments(), [], dataset=dataset, log=lambda *a, **k: None,
+                              reference=reference)
     return result
 
 
@@ -150,14 +181,14 @@ def test_the_lbfgs_check_fails_on_a_grid_that_cannot_reach_the_optimum(dataset):
     assert check["max_relative_gap"] > h2_bounds.LBFGS_TOLERANCE
 
 
-def test_a_failed_check_stops_the_run_before_anything_is_fitted(dataset, monkeypatch, tmp_path):
+def test_a_failed_check_stops_the_run_before_anything_is_fitted(dataset, reference, monkeypatch, tmp_path):
     poor = calibrate.Grid(p0=(0.05,), pt=(0.4,), g0=(0.29,), s0=(0.097,))
     monkeypatch.setattr(h2_bounds, "scaled_grid", lambda setting: poor)
     fitted = []
     monkeypatch.setattr(h2_bounds, "fit_all", lambda *a, **k: fitted.append(1))
 
     with pytest.raises(h2_bounds.BoundsCheckFailed, match="Nothing was written") as failure:
-        h2_bounds.run(arguments(), [], dataset=dataset, log=lambda *a, **k: None)
+        h2_bounds.run(arguments(), [], dataset=dataset, log=lambda *a, **k: None, reference=reference)
     assert fitted == []
     # The message says where the grid's best sat and where the optimum is.
     assert "grid best on p0=min, pt=min, g0=min, s0=min" in str(failure.value)
@@ -174,11 +205,12 @@ def test_the_check_names_the_grid_edges_its_best_sits_on(dataset):
         assert entry["grid"][name] == (min if side == "min" else max)(getattr(grid, name))
 
 
-def test_main_exits_without_writing_when_the_check_fails(dataset, monkeypatch, tmp_path):
+def test_main_exits_without_writing_when_the_check_fails(dataset, reference, monkeypatch, tmp_path):
     poor = calibrate.Grid(p0=(0.05,), pt=(0.4,), g0=(0.29,), s0=(0.097,))
     monkeypatch.setattr(h2_bounds, "scaled_grid", lambda setting: poor)
     real_run = h2_bounds.run
-    monkeypatch.setattr(h2_bounds, "run", lambda args, argv: real_run(args, argv, dataset=dataset))
+    monkeypatch.setattr(h2_bounds, "run",
+                        lambda args, argv: real_run(args, argv, dataset=dataset, reference=reference))
 
     out = tmp_path / "out"
     assert h2_bounds.main(["--folds", "2", "--check-skills", "2", "--workers", "1", "--out", str(out)]) == 3
@@ -203,7 +235,8 @@ def test_the_main_setting_reproduces_h2s_bkt_and_bkt_irt(dataset):
 
     from experiments.models.classical import BKTFamily, fit_skill_params
 
-    fitting, test = splits.subset(rows, fold.fitting), splits.subset(rows, fold.test)
+    sets = h2.fold_sets(fold, rows)
+    fitting, test = sets["fitting"], sets["test"]
     params, _ = fit_skill_params(fitting)
     expected = {}
     for name, use_irt in ((h2_bounds.BKT, False), (h2_bounds.BKT_IRT, True)):
@@ -213,12 +246,13 @@ def test_the_main_setting_reproduces_h2s_bkt_and_bkt_irt(dataset):
 
     _, _, bounds_params, _, _ = h2_bounds._fit_task((0, h2_bounds.SETTINGS[0], 0, fitting))
     assert bounds_params == params
-    assert h2_bounds.predict_fold(h2_bounds.SETTINGS[0], bounds_params, fitting, test) == expected
+    assert h2_bounds.predict_fold(h2_bounds.SETTINGS[0], bounds_params, sets) == expected
 
 
-def test_the_result_does_not_depend_on_the_number_of_workers(dataset, document):
+def test_the_result_does_not_depend_on_the_number_of_workers(dataset, reference, document):
     one = document  # workers=1
-    many, _ = h2_bounds.run(arguments(workers=3), [], dataset=dataset, log=lambda *a, **k: None)
+    many, _ = h2_bounds.run(arguments(workers=3), [], dataset=dataset, log=lambda *a, **k: None,
+                            reference=reference)
     strip = lambda doc: [  # noqa: E731 - timings and provenance legitimately differ
         {k: v for k, v in s.items() if k != "folds"} for s in doc["settings"]
     ]
@@ -292,10 +326,44 @@ def test_each_cell_shows_its_own_value(document):
     assert cells[2].startswith(tables.fmt(bkt["scores"]["auc"]) + " [")
     assert cells[3] == tables.fmt(bkt["scores"]["rmse"])
     assert cells[5] == tables.fmt(bkt["log_likelihood"])
-    _, saturation = tables._table(tables._sections(markdown)["4"])
-    row4 = next(cells for cells in saturation if cells[0] == widest["name"])
+    _, saturation = tables._table(tables._sections(markdown)["6"])
+    row6 = next(cells for cells in saturation if cells[0] == widest["name"])
     g0 = widest["grid_check"]["parameters"]["g0"]
-    assert row4[2:4] == [tables.fmt(g0["at_highest"]), tables.fmt(g0["share_at_highest"])]
+    assert row6[2:4] == [tables.fmt(g0["at_highest"]), tables.fmt(g0["share_at_highest"])]
+    _, contrasts = tables._table(tables._sections(markdown)["4"])
+    row4 = next(cells for cells in contrasts if cells[0] == widest["name"])
+    dkt, elo = widest["dkt_difference"], widest["elo_difference"]
+    assert row4[1] == f"{tables.fmt(dkt['estimate'])} [{tables.fmt(dkt['ci_low'])}, {tables.fmt(dkt['ci_high'])}]"
+    assert row4[2:] == [tables.fmt(h2_bounds.D56_MARGIN), tables.fmt(elo["difference"]),
+                        tables.fmt(elo["elo_auc_h2"])]
+    _, gate_rows = tables._table(tables._sections(markdown)["5"])
+    assert [cells[:2] for cells in gate_rows] == [
+        ["1-fold", "BKT"], ["1-fold", "BKT+IRT (λ=0)"], ["pooled", "BKT"], ["pooled", "BKT+IRT (λ=0)"],
+        ["pooled", "DKT"],
+    ]
+
+
+def test_a_result_without_gates_or_dkt_has_no_sections_four_and_five(document):
+    """A D55 document from before D58 (no gates, no DKT) renders §1–§3 and §6–§9 only."""
+    old = {key: value for key, value in document.items() if key not in ("gates", "reference")}
+    old["settings"] = [
+        {key: value for key, value in setting.items() if key not in ("dkt_difference", "elo_difference")}
+        for setting in document["settings"]
+    ]
+    markdown = tables.render_h2_bounds_report(old)
+    assert "## 4." not in markdown and "## 5." not in markdown
+    assert tables.verify(markdown, old) == []
+    stray = markdown.replace("## 6.", "## 5. Takrorlanish\n\n| a | b |\n|---|---|\n| x | y |\n\n## 6.", 1)
+    assert any(problem.startswith("§5") for problem in tables.verify(stray, old))
+
+
+def test_a_gate_cell_holding_another_number_is_caught(document):
+    markdown = tables.render_h2_bounds_report(document)
+    gate = document["gates"]["fold_1"]["models"]["BKT"]
+    before = f"| 1-fold | BKT | {tables.fmt(gate['bounds'])} |"
+    assert before in markdown
+    tampered = markdown.replace(before, "| 1-fold | BKT | 0.999 |", 1)
+    assert any(problem.startswith("§5") for problem in tables.verify(tampered, document))
 
 
 def test_a_number_moved_between_settings_is_caught(document):
@@ -320,3 +388,152 @@ def test_writing_goes_through_the_d48_check(document, tmp_path):
     written = json.loads(paths["metrics"].read_text(encoding="utf-8"))
     assert written["report"] == "h2_bounds"
     assert tables.verify(paths["tables"].read_text(encoding="utf-8"), written) == []
+
+
+# ---------------------------------------------------------------------------
+# D58: the reproduction gates, DKT, and the checkpoint
+# ---------------------------------------------------------------------------
+
+def _quiet(*args, **kwargs):
+    return None
+
+
+def test_the_main_setting_passes_both_gates_against_h2_itself(document):
+    gates = document["gates"]
+    assert gates["fold_1"]["passed"] and gates["pooled"]["passed"]
+    assert gates["dkt"]["passed"] and gates["dkt"]["difference"] == 0.0
+    assert document["evaluation_protocol"] == "D57"
+    for setting in document["settings"]:
+        assert setting["dkt_difference"]["status"] == "ok"
+        assert setting["dkt_difference"]["d56_margin"] == h2_bounds.D56_MARGIN
+        assert setting["elo_difference"]["elo_auc_h2"] == document["reference"]["pooled"]["Elo/Rasch"]
+
+
+def test_a_fold_one_mismatch_stops_the_run_after_the_first_fit(dataset, reference, monkeypatch):
+    fits = []
+    real = h2_bounds._fit_task
+    monkeypatch.setattr(h2_bounds, "_fit_task", lambda task: fits.append(task[:3]) or real(task))
+    wrong = {**reference, "fold_1": {**reference["fold_1"], "BKT": reference["fold_1"]["BKT"] + 1e-6}}
+
+    with pytest.raises(h2_bounds.ReproductionFailed, match="fold 1: BKT"):
+        h2_bounds.run(arguments(), [], dataset=dataset, log=_quiet, reference=wrong)
+    assert len(fits) == 1 and fits[0][0] == 0 and fits[0][2] == 0      # the main setting's first fold
+
+
+def test_a_pooled_mismatch_stops_the_run_too(dataset, reference):
+    wrong = {**reference, "pooled": {**reference["pooled"], "BKT+IRT (λ=0)": 0.5}}
+    with pytest.raises(h2_bounds.ReproductionFailed, match="pooled: BKT\\+IRT"):
+        h2_bounds.run(arguments(), [], dataset=dataset, log=_quiet, reference=wrong)
+
+
+def test_main_exits_5_and_writes_nothing_when_a_gate_fails(dataset, reference, monkeypatch, tmp_path, capsys):
+    wrong = {**reference, "fold_1": {**reference["fold_1"], "BKT+IRT (λ=0)": 0.1}}
+    real_run = h2_bounds.run
+    monkeypatch.setattr(h2_bounds, "run",
+                        lambda args, argv: real_run(args, argv, dataset=dataset, reference=wrong))
+    out = tmp_path / "out"
+    assert h2_bounds.main(["--folds", "2", "--check-skills", "2", "--workers", "1", "--epochs", "2",
+                           "--no-checkpoint", "--out", str(out)]) == 5
+    assert not out.exists()
+    assert "reproduction gate failed" in capsys.readouterr().err
+
+
+def test_a_dkt_that_does_not_reproduce_gets_no_contrast(dataset, reference):
+    off = {**reference, "pooled": {**reference["pooled"], "DKT": reference["pooled"]["DKT"] + 0.001}}
+    result, _ = h2_bounds.run(arguments(), [], dataset=dataset, log=_quiet, reference=off)
+
+    assert result["gates"]["dkt"]["passed"] is False
+    for setting in result["settings"]:
+        assert setting["dkt_difference"] == {
+            "a": "BKT+IRT (λ=0)", "b": "DKT", "d56_margin": h2_bounds.D56_MARGIN,
+            "status": "not_computed", "reason": "DKT qayta tiklanmadi",
+        }
+    markdown = tables.render_h2_bounds_report(result)
+    assert "hisoblanmadi — DKT qayta tiklanmadi" in markdown
+    assert tables.verify(markdown, result) == []
+
+
+@pytest.mark.parametrize("auc, passed", [(0.7273, True), (0.727807, True), (0.727808, False), (None, False)])
+def test_the_dkt_gate_is_half_a_thousandth(auc, passed):
+    assert h2_bounds.dkt_gate(auc, 0.727307)["passed"] is passed
+
+
+def test_the_reference_must_be_an_h2_run_under_d57_on_the_same_data(tmp_path, dataset):
+    document = {
+        "report": "h2", "quick": False, "pooled": {"evaluation_protocol": "D57", "models": {}},
+        "dataset": {"sha256": dataset.sha256}, "split": {"seed": 20261006, "folds": 2, "validation_fraction": 0.2},
+        "folds": [],
+    }
+    (tmp_path / "metrics.json").write_text(json.dumps(document), encoding="utf-8")
+    args = arguments(seed=20261006, validation_fraction=0.2)
+    for change, message in ((("quick", True), "quick"), (("report", "h2_bounds"), "report")):
+        bad = dict(document)
+        bad[change[0]] = change[1]
+        (tmp_path / "metrics.json").write_text(json.dumps(bad), encoding="utf-8")
+        with pytest.raises(h2_bounds.ReproductionFailed, match=message):
+            h2_bounds.load_reference(tmp_path, dataset=dataset, args=args)
+    bad = dict(document, pooled={"evaluation_protocol": None, "models": {}})
+    (tmp_path / "metrics.json").write_text(json.dumps(bad), encoding="utf-8")
+    with pytest.raises(h2_bounds.ReproductionFailed, match="D57"):
+        h2_bounds.load_reference(tmp_path, dataset=dataset, args=args)
+
+
+def _key(**changes):
+    key = {"commit": "abc1234", "data_sha256": "e" * 64, "seeds": {"split": 1}, "settings": [["a", 0.3, 0.1]]}
+    return key | changes
+
+
+def test_a_checkpoint_resumes_only_under_the_same_key(tmp_path):
+    from neuro_model import student as engine
+
+    params = {"1": engine.TopicParams(p0=0.3, pt=0.1, g0=0.2, s0=0.05)}
+    first = h2_bounds.Checkpoint(tmp_path, _key(), enabled=True)
+    first.save_fit(0, 0, params, {"skills_fitted": 1}, 12.5)
+
+    again = h2_bounds.Checkpoint(tmp_path, _key(), enabled=True)
+    assert again.load_fit(0, 0) == (params, {"skills_fitted": 1}, 12.5)
+    assert again.payload()["resumed_items"] == 1
+
+    for changed in (_key(commit="def5678"), _key(data_sha256="f" * 64), _key(seeds={"split": 2})):
+        other = h2_bounds.Checkpoint(tmp_path, changed, enabled=True)
+        assert other.directory != first.directory
+        assert other.load_fit(0, 0) is None
+
+
+def test_a_checkpoint_whose_stored_key_differs_is_not_used(tmp_path):
+    checkpoint = h2_bounds.Checkpoint(tmp_path, _key(), enabled=True)
+    checkpoint.save_dkt(0, {"scores": [0.5]})
+    (checkpoint.directory / "key.json").write_text(json.dumps(_key(commit="other")), encoding="utf-8")
+
+    assert checkpoint.load_dkt(0) is None
+    with pytest.raises(h2_bounds.ReproductionFailed, match="another run's key"):
+        checkpoint.save_dkt(1, {"scores": [0.5]})
+
+
+def test_a_disabled_checkpoint_writes_nothing(tmp_path):
+    checkpoint = h2_bounds.Checkpoint(tmp_path / "c", _key(), enabled=False)
+    checkpoint.save_dkt(0, {"scores": [0.5]})
+    assert not (tmp_path / "c").exists() and checkpoint.load_dkt(0) is None
+
+
+def test_an_interrupted_run_resumes_and_a_new_commit_does_not(dataset, reference, monkeypatch, tmp_path):
+    from experiments.provenance import GitState
+
+    commit = {"value": "c0ffee1"}
+    monkeypatch.setattr(h2_bounds.GitState, "capture",
+                        classmethod(lambda cls, root=None: GitState(commit["value"], False, (), "now")))
+    fits = []
+    real = h2_bounds._fit_task
+    monkeypatch.setattr(h2_bounds, "_fit_task", lambda task: fits.append(task[:3]) or real(task))
+    args = arguments(no_checkpoint=False, checkpoint_dir=str(tmp_path))
+
+    first, _ = h2_bounds.run(args, [], dataset=dataset, log=_quiet, reference=reference)
+    assert len(fits) == 6 and first["checkpoint"]["enabled"]
+    second, _ = h2_bounds.run(args, [], dataset=dataset, log=_quiet, reference=reference)
+    assert len(fits) == 6                                     # nothing refitted
+    assert second["checkpoint"]["resumed_items"] == 6 + 2     # six fits, two DKT folds
+    assert second["settings"] == first["settings"]
+
+    commit["value"] = "d00d1e5"
+    h2_bounds.run(args, [], dataset=dataset, log=_quiet, reference=reference)
+    assert len(fits) == 12                                    # another commit: fitted again

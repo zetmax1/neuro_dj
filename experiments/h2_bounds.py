@@ -42,25 +42,43 @@ The grid search is the slow part (about 20 minutes per fold on the full
 data), so the (setting, fold) fits run in parallel processes. Each one is the
 same pure function of its rows, so the result does not depend on how many
 workers ran it.
+
+D58 (under D57). The run goes through H2's own path — ``h2.prepare``,
+``h2.fold_sets``, ``h2.fit_predict``, ``h2.dkt_model`` — so the data, the
+cleaning, the split, the seeds and the order-level evaluation are H2's, not a
+copy of them. Three additions:
+
+- **Reproduction gates.** The main setting's fold-1 BKT and BKT+IRT AUCs, and
+  then the pooled ones, rounded to six places, must equal the H2 result named
+  by ``--reference``; otherwise the run stops with exit status 5 and writes
+  nothing. The fold-1 gate runs as soon as that fit arrives (it is fitted first).
+- **DKT**, retrained as H2 trains it, for BKT+IRT − DKT (D56) per setting. If
+  its pooled AUC is more than ``DKT_TOLERANCE`` from H2's, that contrast is
+  "hisoblanmadi — DKT qayta tiklanmadi", not a number.
+- **Checkpoints** in experiments/.runs/checkpoints, keyed by commit, data
+  sha256, seeds, mode, split, settings and epochs; a run with another key
+  starts afresh. Nothing partial is written under results/ (D48).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import math
 import os
 import sys
 import time
-from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 
 from neuro_model import calibrate
 from neuro_model import student as engine
 
-from experiments import metrics, splits, stats, tables
-from experiments.datasets import DatasetMissing, assist09
+from experiments import h2, metrics, splits, stats, tables
+from experiments.datasets import DatasetMissing
 from experiments.h2 import QUICK_LEARNERS, _packages, aggregate_grid_checks
+from experiments.models import Unavailable
 from experiments.models.classical import CONSTANTS, BKTFamily, fit_skill_params
 from experiments.models.pybkt_check import busiest_skills, sequences_by_skill
 from experiments.provenance import GitState, Provenance, Source, results_dir
@@ -70,7 +88,20 @@ BKT = "BKT"
 BKT_IRT = "BKT+IRT (λ=0)"
 MODELS: tuple[str, ...] = (BKT, BKT_IRT)
 
+DKT = "DKT"
+ELO = "Elo/Rasch"
+
 DEFAULT_REPLICATES = 200
+# D58: the retrained DKT must land within this of H2's pooled AUC for its
+# contrast to be computed. A methodological choice, not from a source.
+DKT_TOLERANCE = 5e-4
+# D56: "comparable with DKT" is the lower end of BKT+IRT − DKT's interval at or
+# above this. Recorded next to the contrast; nothing here decides with it.
+D56_MARGIN = -0.01
+# The H2 results the main setting must reproduce (D58), per mode.
+REFERENCE_FULL = "experiments/results/assist09/20261009-055443"
+REFERENCE_QUICK = "experiments/results/assist09-quick/20261008-153338"
+CHECKPOINTS = "experiments/.runs/checkpoints"
 CHECK_SKILLS = 5
 LBFGS_TOLERANCE = 0.01
 # Rescaled grid values are rounded to this many decimals, which is also what
@@ -97,6 +128,10 @@ SETTINGS: tuple[Setting, ...] = (
     Setting("kengroq", 0.40, 0.20),
     Setting("eng keng", 0.49, 0.30),
 )
+
+
+class ReproductionFailed(RuntimeError):
+    """The main setting does not reproduce H2, or the reference is not H2's run (D58)."""
 
 
 class BoundsCheckFailed(RuntimeError):
@@ -271,8 +306,15 @@ def _fit_task(task: tuple[int, Setting, int, list]) -> tuple[int, int, dict, dic
     return setting_index, fold_index, params, meta, time.perf_counter() - started
 
 
-def fit_all(tasks: list, *, workers: int, log=print) -> dict[tuple[int, int], tuple[dict, dict, float]]:
-    """Run the fits, in a process pool when ``workers > 1``."""
+def fit_all(tasks: list, *, workers: int, log=print, on_fit=None) -> dict[tuple[int, int], tuple[dict, dict, float]]:
+    """
+    Run the fits, in a process pool when ``workers > 1``, in the order given.
+
+    ``on_fit(setting_index, fold_index, params, meta, seconds)`` is called in
+    this process as each fit arrives — the checkpoint and the reproduction
+    gate hang on it. If it raises, the pool is terminated (not waited for)
+    and the error propagates.
+    """
     out: dict[tuple[int, int], tuple[dict, dict, float]] = {}
     names = {task[0]: task[1].name for task in tasks}
 
@@ -281,32 +323,192 @@ def fit_all(tasks: list, *, workers: int, log=print) -> dict[tuple[int, int], tu
         out[(setting_index, fold_index)] = (params, meta, seconds)
         log(f"    fitted {names[setting_index]} / fold {fold_index + 1} "
             f"in {seconds:.0f}s ({meta['skills_fitted']} skills)")
+        if on_fit is not None:
+            on_fit(setting_index, fold_index, params, meta, seconds)
 
-    if workers <= 1:
+    if workers <= 1 or len(tasks) <= 1:
         for task in tasks:
             record(_fit_task(task))
         return out
 
     import multiprocessing
-    from concurrent.futures import as_completed
 
     # Logged as each fit finishes, so a long run shows progress; the results
     # are keyed by (setting, fold), so the order they arrive in is irrelevant.
-    with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("fork")) as pool:
-        for future in as_completed([pool.submit(_fit_task, task) for task in tasks]):
-            record(future.result())
+    # Pool rather than ProcessPoolExecutor: leaving the block on an error
+    # terminates the workers instead of waiting out fits that no longer matter.
+    with multiprocessing.get_context("fork").Pool(processes=workers) as pool:
+        for result in pool.imap_unordered(_fit_task, tasks):
+            record(result)
     return out
 
 
-def predict_fold(setting: Setting, params: dict, fitting, test) -> dict[str, list[float]]:
-    """BKT and BKT+IRT (λ=0) on the test fold, with the shared parameters (D53)."""
+def predict_fold(setting: Setting, params: dict, sets: dict[str, list]) -> dict[str, list[float]]:
+    """
+    BKT and BKT+IRT (λ=0) on the test fold, with the shared parameters (D53),
+    through H2's own fit-and-predict (``h2.fit_predict``, D57).
+    """
     constants = constants_for(setting)
     out = {}
     for name, use_irt in ((BKT, False), (BKT_IRT, True)):
         model = BKTFamily(name, use_irt=use_irt, use_prereq_init=False, params=params, constants=constants)
-        model.fit(fitting)
-        out[name] = model.predict(test)
+        _, out[name] = h2.fit_predict(model, sets)
     return out
+
+
+# ---------------------------------------------------------------------------
+# The reference H2 run, and the gates on it (D58)
+# ---------------------------------------------------------------------------
+
+def load_reference(path: str | Path, *, dataset, args) -> dict:
+    """
+    The H2 numbers the main setting must reproduce, from that run's metrics.
+    The run must be H2 under D57 on the same file, mode, seed and split.
+    """
+    metrics_path = Path(path) / "metrics.json"
+    if not metrics_path.exists():
+        raise ReproductionFailed(f"reference {metrics_path} does not exist")
+    document = json.loads(metrics_path.read_text(encoding="utf-8"))
+    split = document.get("split") or {}
+    pooled = (document.get("pooled") or {}).get("models") or {}
+    problems = []
+    if document.get("report") != "h2":
+        problems.append(f"report is {document.get('report')!r}, not 'h2'")
+    if (document.get("pooled") or {}).get("evaluation_protocol") != h2.EVALUATION_PROTOCOL:
+        problems.append(f"not evaluated under {h2.EVALUATION_PROTOCOL}")
+    if bool(document.get("quick")) != bool(args.quick):
+        problems.append(f"quick is {document.get('quick')}, this run's is {bool(args.quick)}")
+    if (document.get("dataset") or {}).get("sha256") != dataset.sha256:
+        problems.append("a different data file")
+    for key, value in (("seed", args.seed), ("folds", args.folds),
+                       ("validation_fraction", args.validation_fraction)):
+        if split.get(key) != value:
+            problems.append(f"split {key} {split.get(key)!r}, this run's {value!r}")
+    if problems:
+        raise ReproductionFailed(f"reference {path}: " + "; ".join(problems))
+    first = document["folds"][0]["models"]
+    return {
+        "path": str(path),
+        "commit": (document.get("provenance") or {}).get("code_commit"),
+        "learners": split.get("learners"),
+        "fold_1": {name: first[name]["scores"]["all"]["auc"] for name in MODELS},
+        "pooled": {name: pooled[name]["scores"]["all"]["auc"] for name in (*MODELS, DKT, ELO)
+                   if name in pooled},
+    }
+
+
+def reproduction_gate(where: str, got: dict[str, float], expected: dict[str, float]) -> dict:
+    """Each model's AUC, rounded to six places as H2 records it, must equal H2's."""
+    models = {}
+    for name in MODELS:
+        value = None if got.get(name) is None else round(got[name], 6)
+        models[name] = {"bounds": value, "h2": expected.get(name), "equal": value == expected.get(name)}
+    return {"where": where, "models": models, "passed": all(entry["equal"] for entry in models.values())}
+
+
+def _gate_failure(gate: dict) -> str:
+    return f"{gate['where']}: " + "; ".join(
+        f"{name} {entry['bounds']} is not H2's {entry['h2']}"
+        for name, entry in gate["models"].items() if not entry["equal"]
+    )
+
+
+def dkt_gate(auc: float | None, reference: float | None, *, tolerance: float = DKT_TOLERANCE) -> dict:
+    """The retrained DKT against H2's pooled DKT AUC (D58)."""
+    if auc is None or reference is None:
+        return {"auc": auc, "h2": reference, "difference": None, "tolerance": tolerance, "passed": False}
+    difference = round(auc - reference, 6)
+    return {"auc": round(auc, 6), "h2": reference, "difference": difference,
+            "tolerance": tolerance, "passed": abs(auc - reference) <= tolerance}
+
+
+# ---------------------------------------------------------------------------
+# Checkpoints (experiments/.runs, never results/)
+# ---------------------------------------------------------------------------
+
+class Checkpoint:
+    """
+    Finished (setting, fold) fits and DKT folds, so an interrupted run resumes.
+
+    Kept under a directory named by the digest of the key — commit, data
+    sha256, seeds, mode and split, settings, epochs, protocol — and the key is
+    stored and compared on every read: anything that changed starts afresh.
+    Disabled when the tree is dirty, because the commit then does not name
+    the code. Nothing here is a result (D48); results/ is written only at the end.
+    """
+
+    def __init__(self, root: str | Path, key: dict, *, enabled: bool, log=print) -> None:
+        self.key = key
+        self.enabled = enabled
+        self.digest = hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()[:16]
+        self.directory = Path(root) / f"h2-bounds-{self.digest}"
+        self.resumed = 0
+        self.log = log
+
+    def _matches(self) -> bool:
+        stored = self.directory / "key.json"
+        if not stored.exists():
+            return False
+        return json.loads(stored.read_text(encoding="utf-8")) == self.key
+
+    def _read(self, name: str):
+        if not self.enabled or not self._matches():
+            return None
+        path = self.directory / name
+        if not path.exists():
+            return None
+        self.resumed += 1
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def _write(self, name: str, payload) -> None:
+        if not self.enabled:
+            return
+        self.directory.mkdir(parents=True, exist_ok=True)
+        if not (self.directory / "key.json").exists():
+            (self.directory / "key.json").write_text(json.dumps(self.key, sort_keys=True), encoding="utf-8")
+        elif not self._matches():
+            raise ReproductionFailed(f"checkpoint {self.directory} holds another run's key")
+        temporary = self.directory / (name + ".tmp")
+        temporary.write_text(json.dumps(payload), encoding="utf-8")
+        temporary.replace(self.directory / name)
+
+    def load_fit(self, setting_index: int, fold_index: int):
+        payload = self._read(f"fit-{setting_index}-{fold_index}.json")
+        if payload is None:
+            return None
+        params = {skill: engine.TopicParams(**values) for skill, values in payload["params"].items()}
+        return params, payload["meta"], payload["seconds"]
+
+    def save_fit(self, setting_index: int, fold_index: int, params: dict, meta: dict, seconds: float) -> None:
+        self._write(f"fit-{setting_index}-{fold_index}.json", {
+            "params": {skill: asdict(value) for skill, value in params.items()},
+            "meta": meta, "seconds": seconds,
+        })
+
+    def load_dkt(self, fold_index: int):
+        return self._read(f"dkt-{fold_index}.json")
+
+    def save_dkt(self, fold_index: int, payload: dict) -> None:
+        self._write(f"dkt-{fold_index}.json", payload)
+
+    def payload(self) -> dict:
+        return {"enabled": self.enabled, "key_digest": self.digest, "resumed_items": self.resumed}
+
+
+def checkpoint_key(git_start: GitState, dataset, args, settings: tuple[Setting, ...]) -> dict:
+    return {
+        "commit": git_start.commit,
+        "data_sha256": dataset.sha256,
+        "seeds": {"split": args.seed, "models": args.seed, "bootstrap": args.seed},
+        "quick": bool(args.quick),
+        "quick_learners": args.quick_learners if args.quick else None,
+        "original_only": bool(args.original_only),
+        "folds": args.folds,
+        "validation_fraction": args.validation_fraction,
+        "epochs": h2.epochs_for(args),
+        "settings": [[setting.name, setting.g_max, setting.s_max] for setting in settings],
+        "protocol": h2.EVALUATION_PROTOCOL,
+    }
 
 
 def held_out_log_likelihood(labels: list[int], scores: list[float]) -> float:
@@ -345,25 +547,25 @@ def analyse(pooled: dict[str, list[float]], labels: list[int], learners: list[st
 # ---------------------------------------------------------------------------
 
 def run(args, argv: list[str], *, dataset=None, settings: tuple[Setting, ...] = SETTINGS,
-        log=print) -> tuple[dict, Provenance]:
+        log=print, reference: dict | None = None) -> tuple[dict, Provenance]:
     validate(settings)
     # D54: taken before anything is loaded, so a tree edited mid-run shows.
     git_start = GitState.capture()
-    if dataset is None:
-        dataset = assist09.load(args.data or None, original_only=args.original_only)
-    rows = list(dataset.rows)
-    learners = list(dict.fromkeys(row.user_id for row in rows))
-    if args.quick:
-        learners = learners[:args.quick_learners]
-        rows = splits.subset(rows, learners)
-        log(f"  --quick: {len(learners)} learners, {len(rows)} answers")
-
-    folds = splits.learner_folds(
-        learners, folds=args.folds, validation_fraction=args.validation_fraction, seed=args.seed,
-    )
-    fitting_rows = [splits.subset(rows, fold.fitting) for fold in folds]
-    test_rows = [splits.subset(rows, fold.test) for fold in folds]
+    # H2's own data, cleaning, quick cap and split (D58: one evaluation path).
+    dataset, rows, learners, folds = h2.prepare(args, dataset=dataset, log=log)
+    if reference is None:
+        reference = load_reference(
+            args.reference or (REFERENCE_QUICK if args.quick else REFERENCE_FULL),
+            dataset=dataset, args=args,
+        )
+    if reference.get("learners") not in (None, len(learners)):
+        raise ReproductionFailed(
+            f"reference has {reference['learners']} learners, this run {len(learners)}")
+    sets = [h2.fold_sets(fold, rows) for fold in folds]
+    fitting_rows = [fold_set["fitting"] for fold_set in sets]
+    test_rows = [fold_set["test"] for fold_set in sets]
     grids = [scaled_grid(setting) for setting in settings]
+    main_index = next(index for index, setting in enumerate(settings) if setting.main)
 
     # 1. The grid check, before any fold is fitted (D55).
     checks = []
@@ -385,46 +587,127 @@ def run(args, argv: list[str], *, dataset=None, settings: tuple[Setting, ...] = 
             )
         )
 
-    # 2. Every (setting, fold) fit.
-    tasks = [
-        (index, setting, fold.index, fitting_rows[fold.index])
-        for index, setting in enumerate(settings)
-        for fold in folds
-    ]
-    workers = max(1, min(args.workers, len(tasks)))
-    log(f"  fitting {len(tasks)} (setting, fold) pairs on {workers} worker(s)")
-    fits = fit_all(tasks, workers=workers, log=log)
+    checkpoint = Checkpoint(
+        args.checkpoint_dir, checkpoint_key(git_start, dataset, args, settings),
+        enabled=(git_start.dirty is False and git_start.commit is not None
+                 and not args.no_checkpoint),
+        log=log,
+    )
+    log(f"  checkpoint: {checkpoint.directory if checkpoint.enabled else 'off (tree not clean or --no-checkpoint)'}")
 
-    # 3. Predictions and the pooled analysis, per setting.
+    # 2. Every (setting, fold) fit, the main setting's first fold first: its
+    # gate is the first thing the run can be wrong about (D58).
+    gates: dict = {}
+    fits: dict[tuple[int, int], tuple[dict, dict, float]] = {}
+
+    def on_fit(setting_index, fold_index, params, meta, seconds, *, stored=False) -> None:
+        fits[(setting_index, fold_index)] = (params, meta, seconds)
+        if not stored:
+            checkpoint.save_fit(setting_index, fold_index, params, meta, seconds)
+        if setting_index == main_index and fold_index == 0:
+            predictions = predict_fold(settings[main_index], params, sets[0])
+            labels_first = [int(row.correct) for row in test_rows[0]]
+            gate = reproduction_gate(
+                "fold 1", {name: metrics.auc(labels_first, predictions[name]) for name in MODELS},
+                reference["fold_1"],
+            )
+            gates["fold_1"] = gate
+            log(f"  reproduction gate, {settings[main_index].name} fold 1: "
+                + ", ".join(f"{name} {entry['bounds']} vs H2 {entry['h2']}"
+                            for name, entry in gate["models"].items())
+                + (" — passed" if gate["passed"] else " — FAILED"))
+            if not gate["passed"]:
+                raise ReproductionFailed(_gate_failure(gate))
+
+    order = sorted(
+        ((index, setting, fold.index) for index, setting in enumerate(settings) for fold in folds),
+        key=lambda item: (item[0] != main_index or item[2] != 0, item[0], item[2]),
+    )
+    tasks = []
+    for index, setting, fold_index in order:
+        stored = checkpoint.load_fit(index, fold_index)
+        if stored is not None:
+            log(f"    resumed {setting.name} / fold {fold_index + 1} from the checkpoint")
+            on_fit(index, fold_index, *stored, stored=True)
+        else:
+            tasks.append((index, setting, fold_index, fitting_rows[fold_index]))
+    workers = max(1, min(args.workers, len(tasks) or 1))
+    log(f"  fitting {len(tasks)} (setting, fold) pairs on {workers} worker(s)")
+    fit_all(tasks, workers=workers, log=log, on_fit=on_fit)
+
+    # 3. DKT, retrained as H2 trains it (D58); one per fold, not per setting.
+    dkt_scores: list[float] = []
+    dkt_folds = []
+    dkt_status = "ok"
+    for fold in folds:
+        stored = checkpoint.load_dkt(fold.index)
+        if stored is None:
+            started = time.perf_counter()
+            try:
+                info, scores = h2.fit_predict(
+                    h2.dkt_model(epochs=h2.epochs_for(args), seed=h2.fold_seed(args, fold)),
+                    sets[fold.index],
+                )
+            except Unavailable as unavailable:
+                dkt_status = f"unavailable: {unavailable.reason}"
+                log(f"    DKT unavailable — {unavailable.reason}")
+                break
+            stored = {"scores": scores, "epochs_run": info.get("epochs_run"),
+                      "seconds": round(time.perf_counter() - started, 1)}
+            checkpoint.save_dkt(fold.index, stored)
+        fold_labels = [int(row.correct) for row in test_rows[fold.index]]
+        dkt_folds.append({"index": fold.index, "auc": metrics.auc(fold_labels, stored["scores"]),
+                          "epochs_run": stored["epochs_run"], "seconds": stored["seconds"]})
+        dkt_scores.extend(stored["scores"])
+        log(f"    DKT fold {fold.index + 1}: auc={dkt_folds[-1]['auc']:.4f}")
+
+    # 4. Predictions and the pooled analysis, per setting.
+    labels = [int(row.correct) for fold_rows in test_rows for row in fold_rows]
+    pooled_learners = [row.user_id for fold_rows in test_rows for row in fold_rows]
+    dkt_auc = metrics.auc(labels, dkt_scores) if dkt_status == "ok" else None
+    gates["dkt"] = dkt_gate(dkt_auc, reference["pooled"].get(DKT))
+    log(f"  DKT gate: {gates['dkt']}")
+
     results = []
     for index, (setting, grid, check) in enumerate(zip(settings, grids, checks)):
         pooled: dict[str, list[float]] = {name: [] for name in MODELS}
-        labels: list[int] = []
-        pooled_learners: list[str] = []
         fold_reports = []
         fit_log_likelihood = 0.0
         for fold in folds:
             params, meta, seconds = fits[(index, fold.index)]
-            test = test_rows[fold.index]
-            predictions = predict_fold(setting, params, fitting_rows[fold.index], test)
-            fold_labels = [int(row.correct) for row in test]
-            labels.extend(fold_labels)
-            pooled_learners.extend(row.user_id for row in test)
+            predictions = predict_fold(setting, params, sets[fold.index])
+            fold_labels = [int(row.correct) for row in test_rows[fold.index]]
             for name in MODELS:
                 pooled[name].extend(predictions[name])
             fit_log_likelihood += meta["fit_log_likelihood"]
             fold_reports.append({
                 "index": fold.index,
-                "counts": fold.counts() | {"test_answers": len(test)},
+                "counts": fold.counts() | {"test_answers": len(test_rows[fold.index])},
                 "seconds": round(seconds, 1),
                 "parameters": meta,
                 "auc": {name: metrics.auc(fold_labels, predictions[name]) for name in MODELS},
             })
+        if index == main_index:
+            gates["pooled"] = reproduction_gate(
+                "pooled", {name: metrics.auc(labels, pooled[name]) for name in MODELS},
+                reference["pooled"],
+            )
+            if not gates["pooled"]["passed"]:
+                raise ReproductionFailed(_gate_failure(gates["pooled"]))
         analysis = analyse(pooled, labels, pooled_learners,
                            replicates=args.replicates, seed=args.seed)
         log(f"  {setting.name}: " + ", ".join(
             f"{name} auc={analysis['models'][name]['scores']['auc']:.4f}" for name in MODELS
         ))
+        if gates["dkt"]["passed"]:
+            dkt_contrast = {"status": "ok"} | stats.bootstrap_auc_difference(
+                labels, pooled[BKT_IRT], dkt_scores, pooled_learners,
+                replicates=args.replicates, seed=args.seed,
+            ).payload()
+        else:
+            dkt_contrast = {"status": "not_computed", "reason": "DKT qayta tiklanmadi"}
+        bkt_irt_auc = analysis["models"][BKT_IRT]["scores"]["auc"]
+        elo_auc = reference["pooled"].get(ELO)
         results.append({
             "name": setting.name,
             "g_max": setting.g_max,
@@ -441,6 +724,12 @@ def run(args, argv: list[str], *, dataset=None, settings: tuple[Setting, ...] = 
                 "delong": analysis["delong"],
                 "bootstrap": analysis["bootstrap_difference"],
             },
+            "dkt_difference": {"a": BKT_IRT, "b": DKT, "d56_margin": D56_MARGIN} | dkt_contrast,
+            "elo_difference": {
+                "a": BKT_IRT, "b": ELO, "elo_auc_h2": elo_auc,
+                "difference": None if elo_auc is None or bkt_irt_auc is None
+                else round(bkt_irt_auc - elo_auc, 6),
+            },
             "folds": [
                 {key: value for key, value in report.items() if key != "parameters"}
                 | {"skills_fitted": report["parameters"]["skills_fitted"],
@@ -456,7 +745,7 @@ def run(args, argv: list[str], *, dataset=None, settings: tuple[Setting, ...] = 
 
     provenance = Provenance.capture(
         sources=(Source.of("assistments2009", dataset.path),),
-        seeds={"split": args.seed, "bootstrap": args.seed},
+        seeds={"split": args.seed, "models": args.seed, "bootstrap": args.seed},
         argv=["python", "-m", "experiments.h2_bounds", *argv],
         packages=_packages(),
         git_start=git_start,
@@ -466,6 +755,7 @@ def run(args, argv: list[str], *, dataset=None, settings: tuple[Setting, ...] = 
         "spec": "D55",
         "quick": bool(args.quick),
         "thesis_result": not args.quick,
+        "evaluation_protocol": h2.EVALUATION_PROTOCOL,
         "provenance": provenance.payload(),
         "dataset": dataset.metadata() | {
             "status": "ok",
@@ -486,6 +776,11 @@ def run(args, argv: list[str], *, dataset=None, settings: tuple[Setting, ...] = 
             "fitting_set": "fold 1, train + validation",
             "starts": "grid optimum, centre of the box, near the caps",
         },
+        "reference": reference,
+        "gates": gates,
+        "dkt": {"status": dkt_status, "auc": None if dkt_auc is None else round(dkt_auc, 6),
+                "epochs": h2.epochs_for(args), "folds": dkt_folds},
+        "checkpoint": checkpoint.payload(),
         "workers": workers,
         "settings": results,
     }
@@ -511,6 +806,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Processes for the (setting, fold) grid searches; the result does not depend on it.",
     )
     parser.add_argument("--seed", type=int, default=splits.DEFAULT_SEED)
+    parser.add_argument("--epochs", type=int, default=h2.FULL_EPOCHS,
+                        help="DKT's epoch cap, as in H2 (--quick uses H2's quick cap).")
+    parser.add_argument("--reference", default=None,
+                        help=f"The H2 result to reproduce (default {REFERENCE_FULL}, "
+                             f"or {REFERENCE_QUICK} with --quick).")
+    parser.add_argument("--checkpoint-dir", default=CHECKPOINTS)
+    parser.add_argument("--no-checkpoint", action="store_true")
     parser.add_argument("--out", default=None)
     return parser
 
@@ -527,6 +829,10 @@ def main(argv: list[str] | None = None) -> int:
     except BoundsCheckFailed as failed:
         print(f"h2_bounds: {failed}", file=sys.stderr)
         return 3
+    except ReproductionFailed as failed:
+        # D58: the main setting does not reproduce H2; nothing is written.
+        print(f"h2_bounds: reproduction gate failed — {failed}. Nothing was written.", file=sys.stderr)
+        return 5
 
     directory = (
         Path(args.out).expanduser() if args.out

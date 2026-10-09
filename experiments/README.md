@@ -163,6 +163,13 @@ experiments/.venv/bin/python -m experiments.h2_bounds --quick
 experiments/run_h2.sh bounds-both     # quick, keyin to'liq; log: experiments/.runs/h2-bounds-*.log
 ```
 
+D58: H2 ning o'z yo'li (`h2.prepare`, `h2.fold_sets`, `h2.fit_predict`, D57) orqali.
+Asosiy sozlama H2 natijasini takrorlashi shart (1-fold, keyin pooled, 6 xona;
+aks holda chiqish kodi 5, hech narsa yozilmaydi). DKT H2 sozlamasi bilan qayta
+o'qitiladi (BKT+IRT − DKT, D56); u H2 dagidan 5e-4 dan ko'p farq qilsa, bu farq
+hisoblanmaydi. Tugagan (sozlama, fold) lar `experiments/.runs/checkpoints/` ga
+yoziladi va xuddi shu commit/ma'lumot/seed bilan davom ettiriladi.
+
 Faqat BKT va BKT+IRT (λ=0), uch sozlama: (0,30; 0,10) — II bob, asosiy natija;
 (0,40; 0,20) va (0,49; 0,30) — faqat eksperiment parametri. Platformaning
 konstantalari o'zgarmaydi. Grid har sozlamada chegaraga nisbatan quriladi

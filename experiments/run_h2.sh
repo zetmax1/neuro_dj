@@ -158,10 +158,20 @@ case "$LAUNCHER" in
         systemd-run --help 2>/dev/null | grep -q -- --expand-environment \
             && ENV_ARGS+=(--expand-environment=no)
         [[ -n "${NEUROLEARN_DATA:-}" ]] && ENV_ARGS+=(--setenv=NEUROLEARN_DATA="$NEUROLEARN_DATA")
+        # The full H2 pass of 2026-10-08 died with the laptop's battery; a
+        # suspend would stop a run just as surely. systemd-inhibit holds a
+        # sleep/idle block for as long as the body runs (tested from a user
+        # unit on this machine). Without it the run still starts, and says so.
+        INHIBIT=()
+        if command -v systemd-inhibit >/dev/null 2>&1; then
+            INHIBIT=(systemd-inhibit --what=sleep:idle --who="$UNIT" --why="NeuroLearn experiment run" --mode=block)
+        else
+            echo "warning: systemd-inhibit not found; the machine may sleep during the run" >&2
+        fi
         systemd-run --user --collect --quiet --same-dir --unit="$UNIT" \
             -p OOMPolicy=continue -p OOMScoreAdjust=100 \
             -p ExecStopPost="/bin/bash $PWD/experiments/run_h2.sh __ended $UNIT" \
-            "${ENV_ARGS[@]}" bash -c "$BODY"
+            "${ENV_ARGS[@]}" "${INHIBIT[@]}" bash -c "$BODY"
         echo "started ($MODE) as user unit $UNIT. Progress: tail -f $LOGS/h2-*.log"
         echo "  status: systemctl --user status $UNIT"
         ;;

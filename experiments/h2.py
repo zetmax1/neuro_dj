@@ -72,7 +72,7 @@ def build_models(params, *, epochs: int, seed: int) -> list:
     The six models of D53, in table order. Built per fold, because each one
     carries fitted state.
     """
-    from experiments.models.neural import AKTModel, DKTModel
+    from experiments.models.neural import AKTModel
 
     return [
         BKTFamily("BKT", use_irt=False, use_prereq_init=False, params=params),
@@ -80,9 +80,76 @@ def build_models(params, *, epochs: int, seed: int) -> list:
         BKTFamily("BKT+IRT+Pre", use_irt=True, use_prereq_init=True, params=params),
         EloRasch(),
         PFA(seed=seed),
-        DKTModel(epochs=epochs, seed=seed),
+        dkt_model(epochs=epochs, seed=seed),
         AKTModel(epochs=epochs, seed=seed),
     ]
+
+
+# ---------------------------------------------------------------------------
+# The evaluation path, shared with experiments.h2_bounds (D55 under D57)
+# ---------------------------------------------------------------------------
+
+def dkt_model(*, epochs: int, seed: int):
+    """DKT as H2 builds it; D55 retrains it with these settings."""
+    from experiments.models.neural import DKTModel
+
+    return DKTModel(epochs=epochs, seed=seed)
+
+
+def epochs_for(args) -> int:
+    return QUICK_EPOCHS if args.quick else args.epochs
+
+
+def fold_seed(args, fold) -> int:
+    """Each fold's model seed: the run's seed plus the fold index."""
+    return args.seed + fold.index
+
+
+def prepare(args, *, dataset=None, log=print):
+    """
+    The data and the split every H2 run uses: the D50 cleaning (in the
+    loader), the --quick cap on the first learners, five folds by learner.
+    Returns (dataset, rows, learners, folds).
+    """
+    if dataset is None:
+        dataset = assist09.load(args.data or None, original_only=args.original_only)
+    rows = list(dataset.rows)
+    learners = list(dict.fromkeys(row.user_id for row in rows))
+    if args.quick:
+        learners = learners[:args.quick_learners]
+        rows = splits.subset(rows, learners)
+        log(f"  --quick: {len(learners)} learners, {len(rows)} answers")
+    folds = splits.learner_folds(
+        learners, folds=args.folds, validation_fraction=args.validation_fraction, seed=args.seed,
+    )
+    return dataset, rows, learners, folds
+
+
+def fold_sets(fold, rows) -> dict[str, list]:
+    """train, validation, test, and fitting = train + validation."""
+    return {
+        "train": splits.subset(rows, fold.train),
+        "validation": splits.subset(rows, fold.validation),
+        "test": splits.subset(rows, fold.test),
+        "fitting": splits.subset(rows, fold.fitting),
+    }
+
+
+def fit_predict(model, sets: dict[str, list]) -> tuple[dict, list[float]]:
+    """
+    Fit one model the H2 way and predict the test fold under D57 (the model's
+    own ``predict``). The neural models train on train and stop early on
+    validation; the rest fit on train + validation. Raises ``Unavailable``.
+    """
+    wants = _wants_validation(model)
+    info = model.fit(sets["train"] if wants else sets["fitting"],
+                     sets["validation"] if wants else None)
+    scores = model.predict(sets["test"])
+    if len(scores) != len(sets["test"]):
+        raise RuntimeError(
+            f"{model.name} returned {len(scores)} predictions for {len(sets['test'])} answers"
+        )
+    return info, scores
 
 
 def run_fold(fold, rows, *, epochs: int, seed: int, log=print) -> tuple[dict, dict]:
@@ -95,10 +162,8 @@ def run_fold(fold, rows, *, epochs: int, seed: int, log=print) -> tuple[dict, di
     """
     from experiments.models.classical import fit_skill_params
 
-    train = splits.subset(rows, fold.train)
-    validation = splits.subset(rows, fold.validation)
-    test = splits.subset(rows, fold.test)
-    fitting = splits.subset(rows, fold.fitting)
+    sets = fold_sets(fold, rows)
+    test, fitting = sets["test"], sets["fitting"]
 
     started = time.perf_counter()
     params, params_metadata = fit_skill_params(fitting)
@@ -119,8 +184,7 @@ def run_fold(fold, rows, *, epochs: int, seed: int, log=print) -> tuple[dict, di
     for model in build_models(params, epochs=epochs, seed=seed):
         started = time.perf_counter()
         try:
-            info = model.fit(train if _wants_validation(model) else fitting,
-                             validation if _wants_validation(model) else None)
+            info, scores = fit_predict(model, sets)
         except Unavailable as unavailable:
             report["models"][model.name] = {
                 "status": "unavailable",
@@ -129,11 +193,6 @@ def run_fold(fold, rows, *, epochs: int, seed: int, log=print) -> tuple[dict, di
             log(f"    {model.name:16s} unavailable — {unavailable.reason}")
             continue
 
-        scores = model.predict(test)
-        if len(scores) != len(labels):
-            raise RuntimeError(
-                f"{model.name} returned {len(scores)} predictions for {len(labels)} answers"
-            )
         measured = metrics.by_first_k(labels, scores, learners)
         entry = {
             "status": "ok",
@@ -341,27 +400,14 @@ def sanity(pooled_models: dict) -> dict:
 def run(args, argv: list[str]) -> tuple[dict, Provenance]:
     # D54: taken before anything is loaded, so a tree edited mid-run shows.
     git_start = GitState.capture()
-    dataset = assist09.load(
-        args.data or None, original_only=args.original_only,
-    )
-    rows = list(dataset.rows)
-    learners = list(dict.fromkeys(row.user_id for row in rows))
-
-    if args.quick:
-        learners = learners[:args.quick_learners]
-        rows = splits.subset(rows, learners)
-        print(f"  --quick: {len(learners)} learners, {len(rows)} answers")
-
-    folds = splits.learner_folds(
-        learners, folds=args.folds, validation_fraction=args.validation_fraction, seed=args.seed,
-    )
-    epochs = QUICK_EPOCHS if args.quick else args.epochs
+    dataset, rows, learners, folds = prepare(args)
+    epochs = epochs_for(args)
 
     fold_reports = []
     fold_outputs = []
     for fold in folds:
         print(f"  fold {fold.index + 1}/{len(folds)}: {fold.counts()}")
-        report, output = run_fold(fold, rows, epochs=epochs, seed=args.seed + fold.index)
+        report, output = run_fold(fold, rows, epochs=epochs, seed=fold_seed(args, fold))
         fold_reports.append(report)
         fold_outputs.append(output)
 

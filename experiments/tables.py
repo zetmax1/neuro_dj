@@ -1085,7 +1085,16 @@ def _bounds_rows(metrics: dict) -> dict[str, list[list[str]]]:
     """
     settings = metrics.get("settings", [])
     models = metrics.get("models", [])
-    rows: dict[str, list[list[str]]] = {"1": [], "2": [], "3": [], "4": [], "5": []}
+    rows: dict[str, list[list[str]]] = {"1": [], "2": [], "3": [], "4": [], "5": [], "6": [], "7": []}
+    gates = metrics.get("gates") or {}
+    for key, label in (("fold_1", "1-fold"), ("pooled", "pooled")):
+        for model, entry in ((gates.get(key) or {}).get("models") or {}).items():
+            rows["5"].append([label, model, _cell(entry.get("bounds")), _cell(entry.get("h2")),
+                              _passed(entry.get("equal"))])
+    dkt_gate = gates.get("dkt")
+    if dkt_gate is not None:
+        rows["5"].append(["pooled", "DKT", _cell(dkt_gate.get("auc")), _cell(dkt_gate.get("h2")),
+                          _passed(dkt_gate.get("passed"))])
     for setting in settings:
         name = setting["name"]
         grid = setting.get("grid", {})
@@ -1117,20 +1126,29 @@ def _bounds_rows(metrics: dict) -> dict[str, list[list[str]]]:
             _cell(delong.get("z")), _p(delong.get("p")), _p(delong.get("p_holm")),
             "—" if delong.get("significant") is None else fmt(bool(delong["significant"])),
         ])
+        dkt = setting.get("dkt_difference")
+        if dkt is not None:
+            if dkt.get("status") == "ok":
+                dkt_cell = _interval_cell(dkt.get("estimate"), dkt)
+            else:
+                dkt_cell = f"hisoblanmadi — {dkt.get('reason', '')}"
+            elo = setting.get("elo_difference") or {}
+            rows["4"].append([name, dkt_cell, _cell(dkt.get("d56_margin")),
+                              _cell(elo.get("difference")), _cell(elo.get("elo_auc_h2"))])
         check_grid = setting.get("grid_check") or {}
         parameters = check_grid.get("parameters") or {}
         g0, s0 = parameters.get("g0") or {}, parameters.get("s0") or {}
-        rows["4"].append([
+        rows["6"].append([
             name, _cell(check_grid.get("fits")),
             _cell(g0.get("at_highest")), _cell(g0.get("share_at_highest")),
             _cell(s0.get("at_highest")), _cell(s0.get("share_at_highest")),
             _cell(setting.get("fit_log_likelihood")),
         ])
         for model in models:
-            rows["5"].append([name, model] + [
+            rows["7"].append([name, model] + [
                 _cell(fold.get("auc", {}).get(model)) for fold in setting.get("folds", [])
             ])
-    return rows
+    return {number: body for number, body in rows.items() if body or number not in ("4", "5")}
 
 
 def render_h2_bounds_report(metrics: dict) -> str:
@@ -1216,8 +1234,35 @@ def render_h2_bounds_report(metrics: dict) -> str:
         ["Sozlama", "AUC farqi", f"{confidence}% CI (bootstrap)", "z (DeLong)", "p", "p (Holm)", "Muhim"],
         rows["3"],
     )
+    if "4" in rows:
+        lines += [
+            f"## 4. {first['a']} − DKT (D56) va {first['a']} − Elo/Rasch (H2)",
+            "",
+            "DKT bu yerda H2 dagi sozlama, seed va protokol bilan qayta o‘qitiladi; farqning",
+            "ishonch oralig‘i — talabalar bo‘yicha juftlik bootstrap. Qayta o‘qitilgan DKT",
+            "H2 dagi qiymatdan D58 chegarasidan ko‘p farq qilsa, farq hisoblanmaydi.",
+            "Elo/Rasch qayta ishga tushirilmaydi: uning AUC'i H2 natijasidan olinadi va",
+            "farq faqat nuqtaviy.",
+            "",
+        ]
+        lines += table(
+            ["Sozlama", f"− DKT [{confidence}% CI]", "D56 chegarasi", "− Elo/Rasch (nuqtaviy)",
+             "Elo/Rasch AUC (H2)"],
+            rows["4"],
+        )
+    if "5" in rows:
+        reference = metrics.get("reference") or {}
+        lines += [
+            "## 5. Takrorlanish darvozalari (D58)",
+            "",
+            f"Asosiy sozlama H2 natijasini (`{reference.get('path', '—')}`) takrorlashi shart:",
+            "BKT va BKT+IRT AUC'i olti xonagacha teng bo‘lmasa, ishga tushirish to‘xtaydi",
+            "va hech narsa yozilmaydi. DKT — D58 chegarasi ichida.",
+            "",
+        ]
+        lines += table(["Darvoza", "Model", "Bu ishga tushirish", "H2", "Natija"], rows["5"])
     lines += [
-        "## 4. Chegaraga tiralgan moslashlar",
+        "## 6. Chegaraga tiralgan moslashlar",
         "",
         "Har bir fold o‘z parametrlarini moslaydi; sonlar barcha fold'lar bo‘yicha",
         "jamlangan. “Eng yuqorida” — grid'ning shu sozlamadagi eng yuqori ruxsat",
@@ -1228,18 +1273,18 @@ def render_h2_bounds_report(metrics: dict) -> str:
     lines += table(
         ["Sozlama", "Moslashlar", "P(G) eng yuqorida", "Ulushi", "P(S) eng yuqorida", "Ulushi",
          "O‘qitish log-likelihood"],
-        rows["4"],
+        rows["6"],
     )
-    lines += ["## 5. Fold'lar bo‘yicha AUC", ""]
+    lines += ["## 7. Fold'lar bo‘yicha AUC", ""]
     lines += table(
         ["Sozlama", "Model"] + [f"{fold['index'] + 1}-qism" for fold in folds],
-        rows["5"],
+        rows["7"],
     )
 
     dataset = metrics.get("dataset") or {}
     split = metrics.get("split") or {}
     lines += [
-        "## 6. Ma’lumot va bo‘lish",
+        "## 8. Ma’lumot va bo‘lish",
         "",
         f"- ishlatilgan: {fmt(dataset.get('answers_used', 0))} javob, "
         f"{fmt(dataset.get('learners_used', 0))} talaba",
@@ -1250,7 +1295,7 @@ def render_h2_bounds_report(metrics: dict) -> str:
         f"- grid search: {fmt(metrics.get('workers', 0))} jarayonda parallel; natija bunga bog‘liq emas",
         "",
     ]
-    lines += _sources_section(metrics, provenance, number=7)
+    lines += _sources_section(metrics, provenance, number=9)
     return "\n".join(lines) + "\n"
 
 
@@ -1264,7 +1309,11 @@ def verify_h2_bounds_positions(markdown: str, metrics: dict) -> list[str]:
     """
     problems: list[str] = []
     sections = _sections(markdown)
-    for number, expected in _bounds_rows(metrics).items():
+    expected_rows = _bounds_rows(metrics)
+    for number in ("4", "5"):
+        if number not in expected_rows and number in sections:
+            problems.append(f"§{number}: in the table but not in the metrics")
+    for number, expected in expected_rows.items():
         if number not in sections:
             problems.append(f"§{number}: section missing")
             continue

@@ -388,3 +388,10 @@ def test_the_unit_reports_how_it_ended_whatever_ends_it():
     assert "systemctl --user show -p Result -p ExecMainStatus" in script
     assert '--setenv=H2_LOGS="$LOGS"' in script
     assert "--expand-environment=no" in script
+
+
+def test_the_unit_keeps_the_machine_awake_while_it_runs():
+    script = RUN_H2.read_text()
+    assert 'systemd-inhibit --what=sleep:idle --who="$UNIT"' in script
+    assert '--mode=block' in script
+    assert '"${INHIBIT[@]}" bash -c "$BODY"' in script
