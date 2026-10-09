@@ -1310,6 +1310,28 @@ Backend kutilgan soni endi **1018 passed / 14 skipped** (Django venv). Avval yoz
 
 ---
 
+## D58 — D55 (chegaralar sezgirligi) D57 protokolida: savollar va darvozalar (2026-10-09, natijadan oldin)
+
+**D55 tavsifiy.** Asosiy natija II bobning (G_MAX; S_MAX) = (0,30; 0,10) sozlamasi bo‘lib qoladi. Sezgirlik natijasi uni almashtirmaydi va sozlama AUC bo‘yicha tanlanmaydi. Kengroq sozlamalar (0,40; 0,20) va (0,49; 0,30) faqat eksperiment parametri; `neuro_model` va Django sozlamalaridagi konstantalar o‘zgarmaydi.
+
+**Uchta savol** (natijani ko‘rgach o‘zgartirilmaydi):
+
+1. BKT+IRT(λ=0) − BKT AUC farqining 95% CI si (talabalar bo‘yicha juftlangan bootstrap) har uch sozlamada 0 dan yuqorimi?
+2. BKT+IRT(λ=0) − DKT AUC farqining 95% CI pastki chegarasi har sozlamada ≥ −0,01 (D56) mi?
+3. G0 va S0 sozlama chegarasida (grid'ning eng yuqori qiymatida) to‘planish ulushi har sozlamada qancha?
+
+Qo‘shimcha, faqat nuqtaviy: BKT+IRT(λ=0) va Elo/Rasch orasidagi AUC farqi (Elo/Rasch — H2 natijasidagi 0,762142, qayta ishga tushirilmaydi) sozlamalar bo‘yicha qanchaga kamayadi.
+
+**Bitta baholash yo‘li.** `h2_bounds` H2 ning o‘z funksiyalari orqali ishlaydi (`h2.prepare`, `h2.fold_sets`, `h2.fit_predict`, `h2.dkt_model`; D57, D50 tozalashi, bo‘linish, seed'lar), nusxa emas (`88b9749`).
+
+**Darvozalar.**
+
+- Takrorlanish: asosiy sozlamaning 1-fold BKT va BKT+IRT AUC'lari, 6 xonaga yaxlitlanganda, H2 natijasidagiga (`experiments/results/assist09/20261009-055443`: 0.711614 va 0.727693) aynan teng bo‘lishi shart. Oxirida pooled (0.707077; 0.7234) ham shunday tekshiriladi. Teng bo‘lmasa ishga tushirish nolmas kod (5) bilan to‘xtaydi va hech narsa yozilmaydi.
+- DKT: H2 sozlamasi, seed'i va protokoli bilan qayta o‘qitiladi. Pooled AUC'i H2 dagi 0.727307 dan |Δ| ≤ 5e-4 bo‘lishi kerak. **5e-4 — metodik tanlov, manbadan olinmagan.** Oshsa, BKT+IRT − DKT farqi son emas, “hisoblanmadi — DKT qayta tiklanmadi” deb chiqadi.
+- Bootstrap: 200 replikat (D55), H2 ning seed'i.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -1361,6 +1383,7 @@ Backend kutilgan soni endi **1018 passed / 14 skipped** (Django venv). Avval yoz
 | Q8b-1 | Tarixda ikkita `commit --amend` bor (reflog): `c142506` ← `47d78ee` (faqat commit xabari o‘zgargan, daraxt bir xil) va `c1a683b` ← `3f54751` (`provenance.py`/`tables.py` ga 17 qator qo‘shilgan) | D54 bo‘yicha qayd etildi; tarix o‘zgartirilmadi. Bundan keyin amend/rebase/reset --hard ishlatilmaydi, xato xabar keyingi commit'da tuzatiladi |
 | D56 | H2 dagi “DKT bilan taqqoslanadigan” iborasining ta’rifi | D56. “DKT bilan taqqoslanadigan” = BKT+IRT(λ=0) − DKT AUC farqi 95% CI pastki chegarasi ≥ −0,01. 0,01 — metodik tanlov, manbadan emas. 2026-10-08 da, to‘liq H2 natijasi mavjud bo‘lmagan paytda yozildi. |
 | D57 | Ko‘p-skill'li masalada keyingi qator shu masalaning javobini ko‘radi (sizish) | D57: bashorat faqat talabaning qat’iy oldingi `order_id`'laridan; order qatorlari bir xil holatdan bashorat qilinadi, yangilanish order'dan keyin. Batafsil — “D57” bo‘limi. 2026-10-08, yangi natijadan oldin |
+| D58 | D55 D57 protokolida qanday ishga tushiriladi va qanday o‘qiladi | D55 tavsifiy, asosiy natija (0,30; 0,10); uchta savol va Elo nuqtaviy farqi; takrorlanish darvozalari (6 xona) va DKT darvozasi (5e-4, metodik tanlov). Batafsil — “D58” bo‘limi. 2026-10-09, natijadan oldin |
 
 ---
 
