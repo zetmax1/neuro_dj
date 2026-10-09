@@ -1,0 +1,1507 @@
+{
+  "report": "h2_bounds",
+  "spec": "D55",
+  "quick": true,
+  "thesis_result": false,
+  "evaluation_protocol": "D57",
+  "provenance": {
+    "command": "python -m experiments.h2_bounds --quick",
+    "code_commit": "a5effd0",
+    "code_dirty": false,
+    "created_at": "2026-10-09T10:13:49.217615+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "split": 20261006,
+      "models": 20261006,
+      "bootstrap": 20261006
+    },
+    "sources": [
+      {
+        "name": "assistments2009",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/assistments2009/as.csv",
+        "sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+        "bytes": 83201940
+      }
+    ],
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.3.3",
+      "scipy": "1.14.1",
+      "sklearn": "1.6.1",
+      "torch": "2.5.1+cpu",
+      "pyBKT": "1.4.3",
+      "pykt": "0.0.38"
+    },
+    "env": {},
+    "git_start": {
+      "commit": "a5effd0",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-09T10:01:37.694579+00:00"
+    },
+    "git_end": {
+      "commit": "a5effd0",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-09T10:13:49.217594+00:00"
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  },
+  "dataset": {
+    "name": "assistments2009",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/assistments2009/as.csv",
+    "sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+    "known_sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+    "sha256_matches_known": true,
+    "original_only": false,
+    "encoding": "latin-1",
+    "cleaning_rules": [
+      "drop rows with an empty skill_id",
+      "de-duplicate on (order_id, skill_id), keeping the first occurrence",
+      "order by user_id, then order_id",
+      "original is a flag (--original-only), off by default"
+    ],
+    "raw": {
+      "rows": 525534,
+      "students": 4217,
+      "skills": 123,
+      "blank_skill_id": 66326
+    },
+    "problems": 17751,
+    "cleaned": {
+      "rows": 338001,
+      "students": 4163,
+      "skills": 123,
+      "multi_skill_orders": 47037
+    },
+    "original_only_counts": {
+      "rows": 312232,
+      "students": 4163
+    },
+    "dropped": {
+      "blank_skill_id": 66326,
+      "duplicate_order_skill": 121207
+    },
+    "status": "ok",
+    "label": "ASSISTments 2009–2010 skill builder",
+    "source": {
+      "name": "assistments2009",
+      "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/assistments2009/as.csv",
+      "sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+      "bytes": 83201940
+    },
+    "learners_used": 500,
+    "answers_used": 53652
+  },
+  "split": {
+    "scheme": "k-fold by learner, with a validation split of each training fold",
+    "folds": 5,
+    "seed": 20261006,
+    "validation_fraction": 0.2,
+    "learners": 500,
+    "per_fold": [
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 0
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 1
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 2
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 3
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 4
+      }
+    ]
+  },
+  "models": [
+    "BKT",
+    "BKT+IRT (λ=0)"
+  ],
+  "chapter_two_bounds": {
+    "g_max": 0.3,
+    "s_max": 0.1
+  },
+  "replicates": 200,
+  "confidence_percent": 95,
+  "lbfgs": {
+    "skills": 5,
+    "tolerance": 0.01,
+    "fitting_set": "fold 1, train + validation",
+    "starts": "grid optimum, centre of the box, near the caps"
+  },
+  "reference": {
+    "path": "experiments/results/assist09-quick/20261008-153338",
+    "commit": "2f7365b",
+    "learners": 500,
+    "fold_1": {
+      "BKT": 0.727122,
+      "BKT+IRT (λ=0)": 0.737803
+    },
+    "pooled": {
+      "BKT": 0.696762,
+      "BKT+IRT (λ=0)": 0.710037,
+      "DKT": 0.645664,
+      "Elo/Rasch": 0.696066
+    }
+  },
+  "gates": {
+    "fold_1": {
+      "where": "fold 1",
+      "models": {
+        "BKT": {
+          "bounds": 0.727122,
+          "h2": 0.727122,
+          "equal": true
+        },
+        "BKT+IRT (λ=0)": {
+          "bounds": 0.737803,
+          "h2": 0.737803,
+          "equal": true
+        }
+      },
+      "passed": true
+    },
+    "dkt": {
+      "auc": 0.645664,
+      "h2": 0.645664,
+      "difference": -0.0,
+      "tolerance": 0.0005,
+      "passed": true
+    },
+    "pooled": {
+      "where": "pooled",
+      "models": {
+        "BKT": {
+          "bounds": 0.696762,
+          "h2": 0.696762,
+          "equal": true
+        },
+        "BKT+IRT (λ=0)": {
+          "bounds": 0.710037,
+          "h2": 0.710037,
+          "equal": true
+        }
+      },
+      "passed": true
+    }
+  },
+  "dkt": {
+    "status": "ok",
+    "auc": 0.645664,
+    "epochs": 3,
+    "folds": [
+      {
+        "index": 0,
+        "auc": 0.6710378348792664,
+        "epochs_run": 3,
+        "seconds": 3.1
+      },
+      {
+        "index": 1,
+        "auc": 0.6352009927220038,
+        "epochs_run": 3,
+        "seconds": 1.2
+      },
+      {
+        "index": 2,
+        "auc": 0.616453788987165,
+        "epochs_run": 3,
+        "seconds": 1.2
+      },
+      {
+        "index": 3,
+        "auc": 0.650225569013765,
+        "epochs_run": 3,
+        "seconds": 1.2
+      },
+      {
+        "index": 4,
+        "auc": 0.6517252980318438,
+        "epochs_run": 3,
+        "seconds": 1.2
+      }
+    ]
+  },
+  "checkpoint": {
+    "enabled": true,
+    "key_digest": "a40076242aaffdda",
+    "resumed_items": 0
+  },
+  "workers": 8,
+  "settings": [
+    {
+      "name": "asosiy",
+      "g_max": 0.3,
+      "s_max": 0.1,
+      "main": true,
+      "grid": {
+        "p0": [
+          0.05,
+          0.1,
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6,
+          0.7,
+          0.8,
+          0.9
+        ],
+        "pt": [
+          0.05,
+          0.1,
+          0.15,
+          0.2,
+          0.3,
+          0.4
+        ],
+        "g0": [
+          0.05,
+          0.1,
+          0.15,
+          0.2,
+          0.25,
+          0.29
+        ],
+        "s0": [
+          0.01,
+          0.03,
+          0.05,
+          0.07,
+          0.09,
+          0.097
+        ],
+        "ceiling_share_g0": 0.9667,
+        "ceiling_share_s0": 0.97,
+        "candidates": 2160
+      },
+      "lbfgs_check": {
+        "skills": [
+          "311",
+          "47",
+          "75",
+          "50",
+          "85"
+        ],
+        "tolerance": 0.01,
+        "max_relative_gap": 0.005666,
+        "passed": true,
+        "entries": [
+          {
+            "skill": "311",
+            "answers": 3805,
+            "grid": {
+              "p0": 0.5,
+              "pt": 0.05,
+              "g0": 0.29,
+              "s0": 0.097,
+              "log_likelihood": -2323.0504
+            },
+            "lbfgs": {
+              "log_likelihood": -2309.962242,
+              "p0": 0.502926,
+              "pt": 0.042933,
+              "g0": 0.299999,
+              "s0": 0.099999
+            },
+            "relative_gap": 0.005666,
+            "within_tolerance": true,
+            "grid_edges": [
+              "pt=min",
+              "g0=max",
+              "s0=max"
+            ]
+          },
+          {
+            "skill": "47",
+            "answers": 2427,
+            "grid": {
+              "p0": 0.7,
+              "pt": 0.05,
+              "g0": 0.29,
+              "s0": 0.097,
+              "log_likelihood": -1360.2611
+            },
+            "lbfgs": {
+              "log_likelihood": -1352.631159,
+              "p0": 0.70294,
+              "pt": 0.041547,
+              "g0": 0.299999,
+              "s0": 0.099999
+            },
+            "relative_gap": 0.005641,
+            "within_tolerance": true,
+            "grid_edges": [
+              "pt=min",
+              "g0=max",
+              "s0=max"
+            ]
+          },
+          {
+            "skill": "75",
+            "answers": 1732,
+            "grid": {
+              "p0": 0.7,
+              "pt": 0.15,
+              "g0": 0.29,
+              "s0": 0.097,
+              "log_likelihood": -925.3421
+            },
+            "lbfgs": {
+              "log_likelihood": -920.869953,
+              "p0": 0.672192,
+              "pt": 0.14299,
+              "g0": 0.299999,
+              "s0": 0.099999
+            },
+            "relative_gap": 0.004856,
+            "within_tolerance": true,
+            "grid_edges": [
+              "g0=max",
+              "s0=max"
+            ]
+          },
+          {
+            "skill": "50",
+            "answers": 1575,
+            "grid": {
+              "p0": 0.7,
+              "pt": 0.1,
+              "g0": 0.29,
+              "s0": 0.09,
+              "log_likelihood": -673.5688
+            },
+            "lbfgs": {
+              "log_likelihood": -671.695005,
+              "p0": 0.670906,
+              "pt": 0.125583,
+              "g0": 0.299999,
+              "s0": 0.081589
+            },
+            "relative_gap": 0.00279,
+            "within_tolerance": true,
+            "grid_edges": [
+              "g0=max"
+            ]
+          },
+          {
+            "skill": "85",
+            "answers": 1373,
+            "grid": {
+              "p0": 0.8,
+              "pt": 0.3,
+              "g0": 0.29,
+              "s0": 0.097,
+              "log_likelihood": -546.0508
+            },
+            "lbfgs": {
+              "log_likelihood": -545.134822,
+              "p0": 0.837786,
+              "pt": 0.215564,
+              "g0": 0.299999,
+              "s0": 0.099999
+            },
+            "relative_gap": 0.00168,
+            "within_tolerance": true,
+            "grid_edges": [
+              "g0=max",
+              "s0=max"
+            ]
+          }
+        ]
+      },
+      "grid_check": {
+        "folds": 5,
+        "fits": 420,
+        "bounds": {
+          "g_max": 0.3,
+          "s_max": 0.1
+        },
+        "parameters": {
+          "p0": {
+            "admissible_values": [
+              0.05,
+              0.1,
+              0.2,
+              0.3,
+              0.4,
+              0.5,
+              0.6,
+              0.7,
+              0.8,
+              0.9
+            ],
+            "lowest": 0.05,
+            "highest": 0.9,
+            "at_lowest": 37,
+            "at_highest": 58,
+            "share_at_highest": 0.1381,
+            "share_at_lowest": 0.0881,
+            "ceiling_is_chapter_two": false
+          },
+          "pt": {
+            "admissible_values": [
+              0.05,
+              0.1,
+              0.15,
+              0.2,
+              0.3,
+              0.4
+            ],
+            "lowest": 0.05,
+            "highest": 0.4,
+            "at_lowest": 84,
+            "at_highest": 130,
+            "share_at_highest": 0.3095,
+            "share_at_lowest": 0.2,
+            "ceiling_is_chapter_two": false
+          },
+          "g0": {
+            "admissible_values": [
+              0.05,
+              0.1,
+              0.15,
+              0.2,
+              0.25,
+              0.29
+            ],
+            "lowest": 0.05,
+            "highest": 0.29,
+            "at_lowest": 23,
+            "at_highest": 332,
+            "share_at_highest": 0.7905,
+            "share_at_lowest": 0.0548,
+            "ceiling_is_chapter_two": true
+          },
+          "s0": {
+            "admissible_values": [
+              0.01,
+              0.03,
+              0.05,
+              0.07,
+              0.09,
+              0.097
+            ],
+            "lowest": 0.01,
+            "highest": 0.097,
+            "at_lowest": 7,
+            "at_highest": 363,
+            "share_at_highest": 0.8643,
+            "share_at_lowest": 0.0167,
+            "ceiling_is_chapter_two": true
+          }
+        }
+      },
+      "fit_log_likelihood": -117185.4729,
+      "models": {
+        "BKT": {
+          "scores": {
+            "auc": 0.696762,
+            "rmse": 0.431611,
+            "accuracy": 0.735704,
+            "n": 53652,
+            "positives": 38128
+          },
+          "auc_interval": {
+            "estimate": 0.696762,
+            "ci_low": 0.683751,
+            "ci_high": 0.710686,
+            "replicates": 200,
+            "clustered_by_learner": true
+          },
+          "log_likelihood": -30177.2686
+        },
+        "BKT+IRT (λ=0)": {
+          "scores": {
+            "auc": 0.710037,
+            "rmse": 0.430585,
+            "accuracy": 0.735928,
+            "n": 53652,
+            "positives": 38128
+          },
+          "auc_interval": {
+            "estimate": 0.710037,
+            "ci_low": 0.698003,
+            "ci_high": 0.723603,
+            "replicates": 200,
+            "clustered_by_learner": true
+          },
+          "log_likelihood": -30114.4083
+        }
+      },
+      "difference": {
+        "a": "BKT+IRT (λ=0)",
+        "b": "BKT",
+        "delong": {
+          "a": "BKT+IRT (λ=0)",
+          "b": "BKT",
+          "auc_a": 0.710037,
+          "auc_b": 0.696762,
+          "difference": 0.013275,
+          "z": 22.448909,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        "bootstrap": {
+          "estimate": 0.013275,
+          "ci_low": 0.011512,
+          "ci_high": 0.015269,
+          "replicates": 200,
+          "clustered_by_learner": true
+        }
+      },
+      "dkt_difference": {
+        "a": "BKT+IRT (λ=0)",
+        "b": "DKT",
+        "d56_margin": -0.01,
+        "status": "ok",
+        "estimate": 0.064374,
+        "ci_low": 0.056663,
+        "ci_high": 0.072404,
+        "replicates": 200,
+        "clustered_by_learner": true
+      },
+      "elo_difference": {
+        "a": "BKT+IRT (λ=0)",
+        "b": "Elo/Rasch",
+        "elo_auc_h2": 0.696066,
+        "difference": 0.013971
+      },
+      "folds": [
+        {
+          "index": 0,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 10918
+          },
+          "seconds": 221.7,
+          "auc": {
+            "BKT": 0.7271215190261838,
+            "BKT+IRT (λ=0)": 0.737803159635187
+          },
+          "skills_fitted": 81,
+          "skills_kept_defaults": 27
+        },
+        {
+          "index": 1,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 8064
+          },
+          "seconds": 235.9,
+          "auc": {
+            "BKT": 0.7173305800332033,
+            "BKT+IRT (λ=0)": 0.7288743217034019
+          },
+          "skills_fitted": 87,
+          "skills_kept_defaults": 28
+        },
+        {
+          "index": 2,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 10654
+          },
+          "seconds": 221.2,
+          "auc": {
+            "BKT": 0.6674792225473462,
+            "BKT+IRT (λ=0)": 0.6836671857566151
+          },
+          "skills_fitted": 83,
+          "skills_kept_defaults": 32
+        },
+        {
+          "index": 3,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 11371
+          },
+          "seconds": 216.8,
+          "auc": {
+            "BKT": 0.6824585202172107,
+            "BKT+IRT (λ=0)": 0.6984565322670254
+          },
+          "skills_fitted": 85,
+          "skills_kept_defaults": 30
+        },
+        {
+          "index": 4,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 12645
+          },
+          "seconds": 210.3,
+          "auc": {
+            "BKT": 0.6874571942045006,
+            "BKT+IRT (λ=0)": 0.6996052326702311
+          },
+          "skills_fitted": 84,
+          "skills_kept_defaults": 27
+        }
+      ]
+    },
+    {
+      "name": "kengroq",
+      "g_max": 0.4,
+      "s_max": 0.2,
+      "main": false,
+      "grid": {
+        "p0": [
+          0.05,
+          0.1,
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6,
+          0.7,
+          0.8,
+          0.9
+        ],
+        "pt": [
+          0.05,
+          0.1,
+          0.15,
+          0.2,
+          0.3,
+          0.4
+        ],
+        "g0": [
+          0.0667,
+          0.1333,
+          0.2,
+          0.2667,
+          0.3333,
+          0.3867
+        ],
+        "s0": [
+          0.02,
+          0.06,
+          0.1,
+          0.14,
+          0.18,
+          0.194
+        ],
+        "ceiling_share_g0": 0.9667,
+        "ceiling_share_s0": 0.97,
+        "candidates": 2160
+      },
+      "lbfgs_check": {
+        "skills": [
+          "311",
+          "47",
+          "75",
+          "50",
+          "85"
+        ],
+        "tolerance": 0.01,
+        "max_relative_gap": 0.004255,
+        "passed": true,
+        "entries": [
+          {
+            "skill": "311",
+            "answers": 3805,
+            "grid": {
+              "p0": 0.6,
+              "pt": 0.05,
+              "g0": 0.3333,
+              "s0": 0.194,
+              "log_likelihood": -2196.7903
+            },
+            "lbfgs": {
+              "log_likelihood": -2193.98364,
+              "p0": 0.679525,
+              "pt": 0.038368,
+              "g0": 0.33065,
+              "s0": 0.199999
+            },
+            "relative_gap": 0.001279,
+            "within_tolerance": true,
+            "grid_edges": [
+              "pt=min",
+              "s0=max"
+            ]
+          },
+          {
+            "skill": "47",
+            "answers": 2427,
+            "grid": {
+              "p0": 0.8,
+              "pt": 0.05,
+              "g0": 0.3867,
+              "s0": 0.18,
+              "log_likelihood": -1297.7872
+            },
+            "lbfgs": {
+              "log_likelihood": -1293.245769,
+              "p0": 0.803638,
+              "pt": 0.020013,
+              "g0": 0.399999,
+              "s0": 0.175518
+            },
+            "relative_gap": 0.003512,
+            "within_tolerance": true,
+            "grid_edges": [
+              "pt=min",
+              "g0=max"
+            ]
+          },
+          {
+            "skill": "75",
+            "answers": 1732,
+            "grid": {
+              "p0": 0.8,
+              "pt": 0.1,
+              "g0": 0.3867,
+              "s0": 0.18,
+              "log_likelihood": -878.5042
+            },
+            "lbfgs": {
+              "log_likelihood": -878.356369,
+              "p0": 0.791224,
+              "pt": 0.115037,
+              "g0": 0.364059,
+              "s0": 0.181203
+            },
+            "relative_gap": 0.000168,
+            "within_tolerance": true,
+            "grid_edges": [
+              "g0=max"
+            ]
+          },
+          {
+            "skill": "50",
+            "answers": 1575,
+            "grid": {
+              "p0": 0.6,
+              "pt": 0.15,
+              "g0": 0.3867,
+              "s0": 0.06,
+              "log_likelihood": -668.8127
+            },
+            "lbfgs": {
+              "log_likelihood": -665.978977,
+              "p0": 0.640348,
+              "pt": 0.116756,
+              "g0": 0.399999,
+              "s0": 0.075578
+            },
+            "relative_gap": 0.004255,
+            "within_tolerance": true,
+            "grid_edges": [
+              "g0=max"
+            ]
+          },
+          {
+            "skill": "85",
+            "answers": 1373,
+            "grid": {
+              "p0": 0.8,
+              "pt": 0.2,
+              "g0": 0.3867,
+              "s0": 0.1,
+              "log_likelihood": -542.2384
+            },
+            "lbfgs": {
+              "log_likelihood": -541.586446,
+              "p0": 0.81057,
+              "pt": 0.167905,
+              "g0": 0.399999,
+              "s0": 0.094579
+            },
+            "relative_gap": 0.001204,
+            "within_tolerance": true,
+            "grid_edges": [
+              "g0=max"
+            ]
+          }
+        ]
+      },
+      "grid_check": {
+        "folds": 5,
+        "fits": 420,
+        "bounds": {
+          "g_max": 0.4,
+          "s_max": 0.2
+        },
+        "parameters": {
+          "p0": {
+            "admissible_values": [
+              0.05,
+              0.1,
+              0.2,
+              0.3,
+              0.4,
+              0.5,
+              0.6,
+              0.7,
+              0.8,
+              0.9
+            ],
+            "lowest": 0.05,
+            "highest": 0.9,
+            "at_lowest": 29,
+            "at_highest": 72,
+            "share_at_highest": 0.1714,
+            "share_at_lowest": 0.069,
+            "ceiling_is_chapter_two": false
+          },
+          "pt": {
+            "admissible_values": [
+              0.05,
+              0.1,
+              0.15,
+              0.2,
+              0.3,
+              0.4
+            ],
+            "lowest": 0.05,
+            "highest": 0.4,
+            "at_lowest": 95,
+            "at_highest": 151,
+            "share_at_highest": 0.3595,
+            "share_at_lowest": 0.2262,
+            "ceiling_is_chapter_two": false
+          },
+          "g0": {
+            "admissible_values": [
+              0.0667,
+              0.1333,
+              0.2,
+              0.2667,
+              0.3333,
+              0.3867
+            ],
+            "lowest": 0.0667,
+            "highest": 0.3867,
+            "at_lowest": 52,
+            "at_highest": 212,
+            "share_at_highest": 0.5048,
+            "share_at_lowest": 0.1238,
+            "ceiling_is_chapter_two": true
+          },
+          "s0": {
+            "admissible_values": [
+              0.02,
+              0.06,
+              0.1,
+              0.14,
+              0.18,
+              0.194
+            ],
+            "lowest": 0.02,
+            "highest": 0.194,
+            "at_lowest": 15,
+            "at_highest": 207,
+            "share_at_highest": 0.4929,
+            "share_at_lowest": 0.0357,
+            "ceiling_is_chapter_two": true
+          }
+        }
+      },
+      "fit_log_likelihood": -112900.5684,
+      "models": {
+        "BKT": {
+          "scores": {
+            "auc": 0.705836,
+            "rmse": 0.426191,
+            "accuracy": 0.741165,
+            "n": 53652,
+            "positives": 38128
+          },
+          "auc_interval": {
+            "estimate": 0.705836,
+            "ci_low": 0.693285,
+            "ci_high": 0.71999,
+            "replicates": 200,
+            "clustered_by_learner": true
+          },
+          "log_likelihood": -29259.5848
+        },
+        "BKT+IRT (λ=0)": {
+          "scores": {
+            "auc": 0.719339,
+            "rmse": 0.423952,
+            "accuracy": 0.742899,
+            "n": 53652,
+            "positives": 38128
+          },
+          "auc_interval": {
+            "estimate": 0.719339,
+            "ci_low": 0.706533,
+            "ci_high": 0.732979,
+            "replicates": 200,
+            "clustered_by_learner": true
+          },
+          "log_likelihood": -29147.9274
+        }
+      },
+      "difference": {
+        "a": "BKT+IRT (λ=0)",
+        "b": "BKT",
+        "delong": {
+          "a": "BKT+IRT (λ=0)",
+          "b": "BKT",
+          "auc_a": 0.719339,
+          "auc_b": 0.705836,
+          "difference": 0.013503,
+          "z": 19.765061,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        "bootstrap": {
+          "estimate": 0.013503,
+          "ci_low": 0.011695,
+          "ci_high": 0.015329,
+          "replicates": 200,
+          "clustered_by_learner": true
+        }
+      },
+      "dkt_difference": {
+        "a": "BKT+IRT (λ=0)",
+        "b": "DKT",
+        "d56_margin": -0.01,
+        "status": "ok",
+        "estimate": 0.073675,
+        "ci_low": 0.065535,
+        "ci_high": 0.083591,
+        "replicates": 200,
+        "clustered_by_learner": true
+      },
+      "elo_difference": {
+        "a": "BKT+IRT (λ=0)",
+        "b": "Elo/Rasch",
+        "elo_auc_h2": 0.696066,
+        "difference": 0.023273
+      },
+      "folds": [
+        {
+          "index": 0,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 10918
+          },
+          "seconds": 219.0,
+          "auc": {
+            "BKT": 0.7321212927320515,
+            "BKT+IRT (λ=0)": 0.7458995291736203
+          },
+          "skills_fitted": 81,
+          "skills_kept_defaults": 27
+        },
+        {
+          "index": 1,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 8064
+          },
+          "seconds": 235.3,
+          "auc": {
+            "BKT": 0.7265441952750119,
+            "BKT+IRT (λ=0)": 0.7374151852009784
+          },
+          "skills_fitted": 87,
+          "skills_kept_defaults": 28
+        },
+        {
+          "index": 2,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 10654
+          },
+          "seconds": 223.0,
+          "auc": {
+            "BKT": 0.6798401212195104,
+            "BKT+IRT (λ=0)": 0.6935139156746691
+          },
+          "skills_fitted": 83,
+          "skills_kept_defaults": 32
+        },
+        {
+          "index": 3,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 11371
+          },
+          "seconds": 212.8,
+          "auc": {
+            "BKT": 0.6944316157651048,
+            "BKT+IRT (λ=0)": 0.7101314163253867
+          },
+          "skills_fitted": 85,
+          "skills_kept_defaults": 30
+        },
+        {
+          "index": 4,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 12645
+          },
+          "seconds": 206.7,
+          "auc": {
+            "BKT": 0.6966294036968743,
+            "BKT+IRT (λ=0)": 0.7090665917258673
+          },
+          "skills_fitted": 84,
+          "skills_kept_defaults": 27
+        }
+      ]
+    },
+    {
+      "name": "eng keng",
+      "g_max": 0.49,
+      "s_max": 0.3,
+      "main": false,
+      "grid": {
+        "p0": [
+          0.05,
+          0.1,
+          0.2,
+          0.3,
+          0.4,
+          0.5,
+          0.6,
+          0.7,
+          0.8,
+          0.9
+        ],
+        "pt": [
+          0.05,
+          0.1,
+          0.15,
+          0.2,
+          0.3,
+          0.4
+        ],
+        "g0": [
+          0.0817,
+          0.1633,
+          0.245,
+          0.3267,
+          0.4083,
+          0.4737
+        ],
+        "s0": [
+          0.03,
+          0.09,
+          0.15,
+          0.21,
+          0.27,
+          0.291
+        ],
+        "ceiling_share_g0": 0.9667,
+        "ceiling_share_s0": 0.97,
+        "candidates": 2160
+      },
+      "lbfgs_check": {
+        "skills": [
+          "311",
+          "47",
+          "75",
+          "50",
+          "85"
+        ],
+        "tolerance": 0.01,
+        "max_relative_gap": 0.00435,
+        "passed": true,
+        "entries": [
+          {
+            "skill": "311",
+            "answers": 3805,
+            "grid": {
+              "p0": 0.7,
+              "pt": 0.05,
+              "g0": 0.3267,
+              "s0": 0.21,
+              "log_likelihood": -2193.5427
+            },
+            "lbfgs": {
+              "log_likelihood": -2191.863692,
+              "p0": 0.717364,
+              "pt": 0.035938,
+              "g0": 0.316721,
+              "s0": 0.219176
+            },
+            "relative_gap": 0.000766,
+            "within_tolerance": true,
+            "grid_edges": [
+              "pt=min"
+            ]
+          },
+          {
+            "skill": "47",
+            "answers": 2427,
+            "grid": {
+              "p0": 0.7,
+              "pt": 0.05,
+              "g0": 0.4737,
+              "s0": 0.15,
+              "log_likelihood": -1295.0211
+            },
+            "lbfgs": {
+              "log_likelihood": -1291.082411,
+              "p0": 0.763223,
+              "pt": 0.020512,
+              "g0": 0.46042,
+              "s0": 0.169957
+            },
+            "relative_gap": 0.003051,
+            "within_tolerance": true,
+            "grid_edges": [
+              "pt=min",
+              "g0=max"
+            ]
+          },
+          {
+            "skill": "75",
+            "answers": 1732,
+            "grid": {
+              "p0": 0.8,
+              "pt": 0.1,
+              "g0": 0.3267,
+              "s0": 0.21,
+              "log_likelihood": -882.1771
+            },
+            "lbfgs": {
+              "log_likelihood": -878.356369,
+              "p0": 0.791222,
+              "pt": 0.115037,
+              "g0": 0.364059,
+              "s0": 0.181204
+            },
+            "relative_gap": 0.00435,
+            "within_tolerance": true,
+            "grid_edges": []
+          },
+          {
+            "skill": "50",
+            "answers": 1575,
+            "grid": {
+              "p0": 0.7,
+              "pt": 0.1,
+              "g0": 0.4083,
+              "s0": 0.09,
+              "log_likelihood": -667.3541
+            },
+            "lbfgs": {
+              "log_likelihood": -665.706137,
+              "p0": 0.630552,
+              "pt": 0.11387,
+              "g0": 0.428251,
+              "s0": 0.073918
+            },
+            "relative_gap": 0.002475,
+            "within_tolerance": true,
+            "grid_edges": []
+          },
+          {
+            "skill": "85",
+            "answers": 1373,
+            "grid": {
+              "p0": 0.8,
+              "pt": 0.15,
+              "g0": 0.4737,
+              "s0": 0.09,
+              "log_likelihood": -539.3476
+            },
+            "lbfgs": {
+              "log_likelihood": -538.54091,
+              "p0": 0.754895,
+              "pt": 0.136347,
+              "g0": 0.489999,
+              "s0": 0.081416
+            },
+            "relative_gap": 0.001498,
+            "within_tolerance": true,
+            "grid_edges": [
+              "g0=max"
+            ]
+          }
+        ]
+      },
+      "grid_check": {
+        "folds": 5,
+        "fits": 420,
+        "bounds": {
+          "g_max": 0.49,
+          "s_max": 0.3
+        },
+        "parameters": {
+          "p0": {
+            "admissible_values": [
+              0.05,
+              0.1,
+              0.2,
+              0.3,
+              0.4,
+              0.5,
+              0.6,
+              0.7,
+              0.8,
+              0.9
+            ],
+            "lowest": 0.05,
+            "highest": 0.9,
+            "at_lowest": 25,
+            "at_highest": 61,
+            "share_at_highest": 0.1452,
+            "share_at_lowest": 0.0595,
+            "ceiling_is_chapter_two": false
+          },
+          "pt": {
+            "admissible_values": [
+              0.05,
+              0.1,
+              0.15,
+              0.2,
+              0.3,
+              0.4
+            ],
+            "lowest": 0.05,
+            "highest": 0.4,
+            "at_lowest": 93,
+            "at_highest": 151,
+            "share_at_highest": 0.3595,
+            "share_at_lowest": 0.2214,
+            "ceiling_is_chapter_two": false
+          },
+          "g0": {
+            "admissible_values": [
+              0.0817,
+              0.1633,
+              0.245,
+              0.3267,
+              0.4083,
+              0.4737
+            ],
+            "lowest": 0.0817,
+            "highest": 0.4737,
+            "at_lowest": 101,
+            "at_highest": 140,
+            "share_at_highest": 0.3333,
+            "share_at_lowest": 0.2405,
+            "ceiling_is_chapter_two": true
+          },
+          "s0": {
+            "admissible_values": [
+              0.03,
+              0.09,
+              0.15,
+              0.21,
+              0.27,
+              0.291
+            ],
+            "lowest": 0.03,
+            "highest": 0.291,
+            "at_lowest": 34,
+            "at_highest": 88,
+            "share_at_highest": 0.2095,
+            "share_at_lowest": 0.081,
+            "ceiling_is_chapter_two": true
+          }
+        }
+      },
+      "fit_log_likelihood": -112383.3278,
+      "models": {
+        "BKT": {
+          "scores": {
+            "auc": 0.704938,
+            "rmse": 0.425861,
+            "accuracy": 0.74001,
+            "n": 53652,
+            "positives": 38128
+          },
+          "auc_interval": {
+            "estimate": 0.704938,
+            "ci_low": 0.692898,
+            "ci_high": 0.720031,
+            "replicates": 200,
+            "clustered_by_learner": true
+          },
+          "log_likelihood": -29218.7531
+        },
+        "BKT+IRT (λ=0)": {
+          "scores": {
+            "auc": 0.722463,
+            "rmse": 0.423764,
+            "accuracy": 0.744278,
+            "n": 53652,
+            "positives": 38128
+          },
+          "auc_interval": {
+            "estimate": 0.722463,
+            "ci_low": 0.710607,
+            "ci_high": 0.736664,
+            "replicates": 200,
+            "clustered_by_learner": true
+          },
+          "log_likelihood": -29358.6475
+        }
+      },
+      "difference": {
+        "a": "BKT+IRT (λ=0)",
+        "b": "BKT",
+        "delong": {
+          "a": "BKT+IRT (λ=0)",
+          "b": "BKT",
+          "auc_a": 0.722463,
+          "auc_b": 0.704938,
+          "difference": 0.017525,
+          "z": 17.860502,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        "bootstrap": {
+          "estimate": 0.017525,
+          "ci_low": 0.015221,
+          "ci_high": 0.019915,
+          "replicates": 200,
+          "clustered_by_learner": true
+        }
+      },
+      "dkt_difference": {
+        "a": "BKT+IRT (λ=0)",
+        "b": "DKT",
+        "d56_margin": -0.01,
+        "status": "ok",
+        "estimate": 0.076799,
+        "ci_low": 0.067785,
+        "ci_high": 0.086639,
+        "replicates": 200,
+        "clustered_by_learner": true
+      },
+      "elo_difference": {
+        "a": "BKT+IRT (λ=0)",
+        "b": "Elo/Rasch",
+        "elo_auc_h2": 0.696066,
+        "difference": 0.026397
+      },
+      "folds": [
+        {
+          "index": 0,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 10918
+          },
+          "seconds": 213.0,
+          "auc": {
+            "BKT": 0.7294762853939308,
+            "BKT+IRT (λ=0)": 0.7509237587959107
+          },
+          "skills_fitted": 81,
+          "skills_kept_defaults": 27
+        },
+        {
+          "index": 1,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 8064
+          },
+          "seconds": 221.2,
+          "auc": {
+            "BKT": 0.725821432526928,
+            "BKT+IRT (λ=0)": 0.7394533303608147
+          },
+          "skills_fitted": 87,
+          "skills_kept_defaults": 28
+        },
+        {
+          "index": 2,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 10654
+          },
+          "seconds": 214.8,
+          "auc": {
+            "BKT": 0.6788360701011579,
+            "BKT+IRT (λ=0)": 0.6963702496804179
+          },
+          "skills_fitted": 83,
+          "skills_kept_defaults": 32
+        },
+        {
+          "index": 3,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 11371
+          },
+          "seconds": 211.7,
+          "auc": {
+            "BKT": 0.695657948179046,
+            "BKT+IRT (λ=0)": 0.713230790701308
+          },
+          "skills_fitted": 85,
+          "skills_kept_defaults": 30
+        },
+        {
+          "index": 4,
+          "counts": {
+            "train": 320,
+            "validation": 80,
+            "test": 100,
+            "test_answers": 12645
+          },
+          "seconds": 201.0,
+          "auc": {
+            "BKT": 0.695822157476941,
+            "BKT+IRT (λ=0)": 0.7108503587954966
+          },
+          "skills_fitted": 84,
+          "skills_kept_defaults": 27
+        }
+      ]
+    }
+  ]
+}
