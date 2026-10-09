@@ -1332,6 +1332,24 @@ Qo‘shimcha, faqat nuqtaviy: BKT+IRT(λ=0) va Elo/Rasch orasidagi AUC farqi (El
 
 ---
 
+## D59 — P0/PT grid kengaytmasi va AKT-R (2026-10-09, kod o‘zgarishidan oldin)
+
+**Sabab.** D55 to‘liq run'i (`neurolearn-h2-bounds-full-20261009-152102`, `8e933ad`) L-BFGS-B tekshiruvida 2 sozlamada to‘xtadi (exit 3): kengroq 0,011495, eng keng 0,011346 (chegara 0,01), asosiy 0,009816. Ikkalasida ham skill 277: grid'ning eng yaxshisi PT = 0,05 da (eng past qiymat), L-BFGS-B optimumi PT ≈ 0,0076. H2 (`20261009-055443`) grid_check: PT — 555 moslashdan 133 tasi (24 %) pastki, 84 tasi (15 %) yuqori chetda; P0 — 48 (9 %) pastki, 61 (11 %) yuqori. Nuqson P0/PT grid'ida, G/S da emas.
+
+**Yangi `calibrate.DEFAULT_GRID`** (ilova ham shu grid bilan ishlaydi):
+
+- P0 = mavjud + 0,01 va 0,95: (0,01; 0,05; 0,10; 0,20; …; 0,90; 0,95);
+- PT = mavjud + 0,005; 0,01; 0,02; 0,03; 0,5: (0,005; 0,01; 0,02; 0,03; 0,05; 0,10; 0,15; 0,20; 0,30; 0,40; 0,50);
+- P(G) va P(S) grid'lari o‘zgarmaydi; G_MAX/S_MAX va II bob konstantalari o‘zgarmaydi.
+
+**AKT-R** — AKT, `n_pid > 0` bilan (pyKT'dagi Rasch item qismi, `problem_id`), qo‘shimcha model. Sabab: BKT+IRT va Elo/Rasch `problem_id` ni ko‘radi, DKT/AKT ko‘rmaydi. D57 maskasi o‘sha. O‘qitishda bo‘lmagan `problem_id` — bitta “noma’lum” indeks. D56 (BKT+IRT − DKT) o‘zgarmaydi; BKT+IRT − AKT-R faqat qo‘shimcha kontrast (CI bilan).
+
+**Natijalar.** Eski H2 (`experiments/results/assist09/20261009-055443`) tarixiy yozuv bo‘lib qoladi; yangi grid bilan olingan H2 asosiy natija bo‘ladi. D55 darvozalari qattiq yozilgan sonlarni emas, `--reference` bilan berilgan H2 papkasining `metrics.json` ini (provenance tekshirilib) o‘qiydi.
+
+**L-BFGS-B chegarasi 1 % qoladi.** Yangi grid bilan ham o‘tmasa, run to‘xtaydi va grid bu qadamda qayta kengaytirilmaydi. Grid chetlaridagi ulushlar natijadan qat’i nazar yoziladi.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -1384,6 +1402,7 @@ Qo‘shimcha, faqat nuqtaviy: BKT+IRT(λ=0) va Elo/Rasch orasidagi AUC farqi (El
 | D56 | H2 dagi “DKT bilan taqqoslanadigan” iborasining ta’rifi | D56. “DKT bilan taqqoslanadigan” = BKT+IRT(λ=0) − DKT AUC farqi 95% CI pastki chegarasi ≥ −0,01. 0,01 — metodik tanlov, manbadan emas. 2026-10-08 da, to‘liq H2 natijasi mavjud bo‘lmagan paytda yozildi. |
 | D57 | Ko‘p-skill'li masalada keyingi qator shu masalaning javobini ko‘radi (sizish) | D57: bashorat faqat talabaning qat’iy oldingi `order_id`'laridan; order qatorlari bir xil holatdan bashorat qilinadi, yangilanish order'dan keyin. Batafsil — “D57” bo‘limi. 2026-10-08, yangi natijadan oldin |
 | D58 | D55 D57 protokolida qanday ishga tushiriladi va qanday o‘qiladi | D55 tavsifiy, asosiy natija (0,30; 0,10); uchta savol va Elo nuqtaviy farqi; takrorlanish darvozalari (6 xona) va DKT darvozasi (5e-4, metodik tanlov). Batafsil — “D58” bo‘limi. 2026-10-09, natijadan oldin |
+| D59 | D55 ning L-BFGS-B tekshiruvi P0/PT grid'i torligi sababli o‘tmadi; DKT/AKT `problem_id` ni ko‘rmaydi | DEFAULT_GRID: P0 + 0,01; 0,95; PT + 0,005; 0,01; 0,02; 0,03; 0,5 (G/S o‘zgarmaydi); AKT-R (n_pid > 0) qo‘shimcha model; yangi H2 asosiy natija, eski tarixiy; L-BFGS-B 1 % qoladi. Batafsil — “D59” bo‘limi. 2026-10-09, koddan oldin |
 
 ---
 
