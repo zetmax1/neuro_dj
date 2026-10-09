@@ -32,7 +32,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8a — Rozilik va eksport (D42–D45) | **Bajarildi** | `dc3c35c` | `3345a52` |
 | 8b — Eksperimentlar quvuri (ochiq ma’lumotlar birinchi) | Qisman | — | — |
 | 8b-1 — Yuklovchilar (D49–D51) va graf tahlili (D52) | **Bajarildi** | `c1a683b` | — |
-| 8b-2 — H2: ASSISTments 2009 (D53) | Qisman — kod bajarildi, to‘liq natija kutilmoqda | `7ff7ae2` … `1eeca40`, D54 tuzatishi | — |
+| 8b-2 — H2: ASSISTments 2009 (D53, D56, D57) | **Bajarildi** — to‘liq natija `experiments/results/assist09/20261009-055443/` (D57); D55 D57 bilan hali ishga tushirilmagan | `7ff7ae2` … `e97621c`, natija `abb1fe4` | — |
 | 8b-3 — H1/H3 kodi, DBE yuklovchisi, nazoratlar, annotatsiya | Kutilmoqda | — | — |
 | 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
@@ -1225,6 +1225,88 @@ pykt-toolkit 0.0.38 dagi savol darajasidagi baholash (`pykt.models.evaluate_mode
 - Elo/Rasch, BKT+IRT (λ=0), DKT, AKT: order'ning 2-, 3-… qatorlarida bashorat o‘zgaradi; to‘liq ma’lumotda bu test qatorlarining ~16 % i.
 - Qo‘shimcha (sezgirlik, asosiy emas): har model uchun faqat order'ning birinchi qatorlari bo‘yicha AUC — `tables.md` §10.
 - D53 sanity oralig‘i (0,70–0,80) va Xiong qatori (0,73–0,75) o‘zgarmaydi.
+
+---
+
+## QADAM 3 — D57 bilan H2: quick, to‘liq run, tekshiruvlar (2026-10-08/09)
+
+### Ishga tushirishlar
+
+| Run | Commit | Boshlangan | Yakun qatori (`ExecStopPost`) | Holat |
+|---|---|---|---|---|
+| `--quick` | `2f7365b` | 2026-10-08 20:10:00 | `EXIT_CODE=exited EXIT_STATUS=0` | natija `assist09-quick/20261008-153338/` (`fdfde29`) |
+| to‘liq, 1-urinish | `e97621c` | 2026-10-08 21:11:14 | 23:03:49 `SERVICE_RESULT=success EXIT_CODE=killed EXIT_STATUS=TERM; Result=success ExecMainStatus=15` | **kompyuter batareyasi tugab o‘chgani uchun TERM bilan to‘xtagan**; 2-fold'gacha yetgan, natija yozilmagan, ishlatilmaydi. Oxirgi xotira namunasi 23:03:07: rss 2 420 252 kB, MemAvailable 7 999 192 kB |
+| to‘liq, 2-urinish | `e97621c` | 2026-10-09 08:38:25 | 10:54:44 `EXIT_CODE=exited EXIT_STATUS=0; Result=success ExecMainStatus=0` | natija `assist09/20261009-055443/` (`abb1fe4`); `git_start`/`git_end` `e97621c`, toza; `tables.verify` = [] |
+
+To‘liq run: 2 soat 16 daqiqa; namunalangan eng yuqori tree RSS 3 832 148 kB, python VmHWM 4 654 416 kB. 1- va 2-fold sonlari ikkala urinishda bir xil.
+
+### Quick solishtiruvi
+
+`python -m experiments.reproduce assist09-quick/20261008-143642 assist09-quick/20261008-153338 --checked BKT PFA`: 800 qiymat, mos kelmaganlari 0.
+
+| Model | Pooled AUC, D57 dan oldin | Pooled AUC, D57 | Farq | §10 AUC (masalaning birinchi qatorlari) |
+|---|---|---|---|---|
+| BKT | 0.696762 | 0.696762 | 0 | 0.694416 |
+| BKT+IRT (λ=0) | 0.714395 | 0.710037 | −0.004358 | 0.707731 |
+| Elo/Rasch | 0.729126 | 0.696066 | −0.033060 | 0.697352 |
+| PFA | 0.699776 | 0.699776 | 0 | 0.696197 |
+| DKT | 0.692844 | 0.645664 | −0.047180 | 0.645306 |
+| AKT | 0.698991 | 0.669318 | −0.029673 | 0.667016 |
+
+### 1-fold: D57 dan oldin va keyin (to‘liq ma’lumot, log sonlari)
+
+| Model | `005f30d` / `13edf82` (D57 dan oldin) | `e97621c` (D57) |
+|---|---|---|
+| BKT | 0.7116 | 0.7116 |
+| BKT+IRT (λ=0) | 0.7292 | 0.7277 |
+| Elo/Rasch | 0.7784 | 0.7645 |
+| PFA | 0.7106 | 0.7106 |
+| DKT | 0.8220 | 0.7321 |
+| AKT | — | 0.7077 |
+
+### default_coverage (`experiments/default_coverage.py`, to‘liq natija)
+
+| Fold | Standart parametrli mavzular | Test javoblari | Standart parametr bilan | Ulush | O‘sha mavzularning moslash javoblari |
+|---|---|---|---|---|---|
+| 1 | 12 | 65 597 | 36 | 0.000549 | 211 / 272 404 |
+| 2 | 11 | 63 804 | 51 | 0.000799 | 196 / 274 197 |
+| 3 | 12 | 66 442 | 60 | 0.000903 | 187 / 271 559 |
+| 4 | 12 | 74 065 | 72 | 0.000972 | 175 / 263 936 |
+| 5 | 12 | 68 093 | 28 | 0.000411 | 219 / 269 908 |
+| pooled | — | 338 001 | 247 | 0.000731 | 988 / 1 352 004 (0.000731) |
+
+### Testlar
+
+| Suite | Natija |
+|---|---|
+| `experiments/.venv`: `pytest experiments/tests` (`e97621c` gacha) | 239 passed, 1 skipped |
+| Django venv, 5433: `pytest` (`e97621c`) | **1018 passed, 14 skipped**, 13 subtests, 0 failed |
+| `manage.py check` / `makemigrations --check` | 0 issues / No changes detected |
+| `verification/tests` (2026-10-08, D57 quick commit qilingandan keyin) | 730 passed, 9 failed, 1 skipped |
+| `verification/neural` | 15 passed |
+
+Backend kutilgan soni endi **1018 passed / 14 skipped** (Django venv). Avval yozilgan 912 / 10 dan farq:
+
+| Manba | passed | skipped |
+|---|---|---|
+| Yozilgan (`f9bf7a7`, eski muhit) | 912 | 10 |
+| `test_metrics_stats.py` endi yig‘iladi: Django venv'da numpy bor (pyBKT 1.4.1 tortadi), avval modul darajasida 1 skip | +16 | −1 |
+| `test_models.py`: sklearn/scipy talab qiladigan 3 test (PFA ×2, sparse matritsa) | +3 | −3 |
+| = `f9bf7a7` yangi muhitda | 931 | 6 |
+| `944681d` (D55): `test_h2_bounds.py` 26, `test_metrics_stats.py` 4, `test_provenance.py` 1 | +31 | 0 |
+| `fe0374b`: kontrastlar (4 + 8), launcher (5) | +17 | 0 |
+| `e3bafd2`: `test_reproduce.py` | +9 | 0 |
+| = D57 dan oldin | 988 | 6 |
+| `f23d63b`…`e97621c`: `test_order_protocol.py` 23 (15 o‘tadi, 8 torch/sklearn kerak — skip), §10 jadvali 7, `analyse_pooled` 2, `reproduce --checked` 2, `default_coverage` 4 | +30 | +8 |
+| = hozir | 1018 | 14 |
+
+`verification/tests` dagi 9 FAIL: 7 ta na-signal (`test_na.py`), `test_v_e2_include_simulated_exports_what_the_simulator_wrote` (R1/R2 mezon ziddiyati, yuqorida hujjatlangan) va **`test_d48_the_checker_catches_a_hand_written_number[edit1]`**. Oxirgisi eng so‘nggi `assist09-quick` natijasidagi `| 0.697 [` ni `| 0.684 [` ga almashtiradi va 0.684 hech bir metrikaning yaxlitlanmasi emas deb hisoblaydi. D57 quick (`20261008-153338`) da esa 0.683667 (BKT+IRT, 3-fold AUC), 0.683778 va 0.684393 bor. `verification/` ga tegilmadi.
+
+### Muhit holati (2026-10-09)
+
+- `config/.env`: mtime 2026-10-05 09:26; `5433` 0 marta, `5432` 2 marta uchraydi; Django o‘ramsiz `127.0.0.1:5432` ga ulanadi. Fayl ochilmadi va o‘zgartirilmadi. Backend va verification testlari scratchpad'dagi `dj5433.sh` orqali ishga tushirildi (`DJANGO_ENV_FILE=""`, CI usuli; DSN konteyner env'idan olinadi va chop etilmaydi).
+- 2026-10-09 08:28 dagi qayta yoqilishdan keyin: docker socket ACL (`setfacl`) qayta tiklanmagan, compose konteynerlari ko‘tarilmagan (5433 tinglanmaydi). Shuning uchun backend va verification bu sanada qayta ishga tushirilmadi.
+- Linger yoqilgan (`loginctl enable-linger zokhidjon`, 2026-10-08).
 
 ---
 
