@@ -91,6 +91,8 @@ def h2_reference(dataset, args) -> dict:
 
 @pytest.fixture(scope="module")
 def reference(dataset):
+    # H2 itself is the oracle, and H2 trains DKT.
+    pytest.importorskip("torch", reason="experiments/.venv needed from 8b-2 on")
     return h2_reference(dataset, arguments())
 
 

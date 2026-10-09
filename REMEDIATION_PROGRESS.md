@@ -1348,6 +1348,14 @@ Qo‘shimcha, faqat nuqtaviy: BKT+IRT(λ=0) va Elo/Rasch orasidagi AUC farqi (El
 
 **L-BFGS-B chegarasi 1 % qoladi.** Yangi grid bilan ham o‘tmasa, run to‘xtaydi va grid bu qadamda qayta kengaytirilmaydi. Grid chetlaridagi ulushlar natijadan qat’i nazar yoziladi.
 
+### D59 bajarilishi (2026-10-09)
+
+- H2 `--quick`: `20261009-124538`, `8f35bbe`.
+- D55 `--quick`, 1-urinish (`neurolearn-h2-bounds-quick-20261009-174602`): 18:02:36 da `EXIT_CODE=killed EXIT_STATUS=TERM` — kompyuter qayta yoqildi. 15 fitdan 8 tasi checkpoint'da (`h2-bounds-a3694827cc18bd15`) qolgan, natija papkasi yozilmagan.
+- 2-urinish (`…-210255`, o‘sha `8f35bbe`, `--reference experiments/results/assist09-quick/20261009-124538`): 8 fit checkpoint'dan tiklandi, 7 tasi moslandi; exit 0. Natija `assist09-bounds-quick/20261009-162635` (`43c2424`): darvozalar 6 xonagacha teng, DKT |Δ| 0, L-BFGS-B 0,005666 / 0,004255 / 0,00435, `tables.verify` [].
+- Testlar (qayta yoqilgandan keyin, compose 5433, `dj5433.sh` qayta yozildi): backend avval 1024 passed / 19 skipped / **19 error** — `test_h2_bounds.py` dagi `reference` fixture'i (`88b9749`, D58) H2 orqali DKT o‘qitadi, Django venv'da torch yo‘q (`KeyError: 'DKT'`). Fixture'ga `importorskip("torch")` qo‘shildi → **1024 passed / 38 skipped**. `experiments/.venv` da shu fayl 48 passed.
+- `verification/tests`: 730 passed, **10 failed** (avvalgi 9 + `test_d48_h2_tables_show_each_models_own_numbers`: `assist09*/*/metrics.json` glob'i `assist09-bounds-quick` natijalarini ham oladi, ularda `pooled` yo‘q → `KeyError`; `8e933ad` dan beri). `verification/neural`: 15 passed (`experiments/.venv`). `verification/` ga tegilmadi.
+
 ---
 
 ## Savollar va qarorlar
