@@ -395,3 +395,14 @@ def test_the_unit_keeps_the_machine_awake_while_it_runs():
     assert 'systemd-inhibit --what=sleep:idle --who="$UNIT"' in script
     assert '--mode=block' in script
     assert '"${INHIBIT[@]}" bash -c "$BODY"' in script
+
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_bounds_modes_pass_the_reference_they_are_given(tmp_path):
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "bounds-quick", fake, H2_REFERENCE="experiments/results/assist09-quick/x")
+
+    quick = (tmp_path / "logs" / "h2-bounds-quick.log").read_text()
+    expected = "-m experiments.h2_bounds --quick --reference experiments/results/assist09-quick/x"
+    assert "args: -u -W ignore " + expected in quick

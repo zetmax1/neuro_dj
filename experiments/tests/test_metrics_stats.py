@@ -328,7 +328,10 @@ def test_the_contrasts_are_oriented_as_the_hypothesis_reads_them(sample):
 
     assert [(item["a"], item["b"], item["decision"]) for item in out["contrasts"]] == [
         ("BKT+IRT (λ=0)", "BKT", "D53"), ("BKT+IRT (λ=0)", "DKT", "D56"),
+        ("BKT+IRT (λ=0)", "AKT-R", "D59"),
     ]
+    # This sample has no AKT-R: the D59 contrast is listed as unavailable.
+    assert out["contrasts"][2]["status"] == "unavailable" and out["contrasts"][2]["missing"] == ["AKT-R"]
     family = by_pair[("BKT", "BKT+IRT (λ=0)")]
     assert contrasts["BKT"]["difference"] == pytest.approx(-family["difference"], abs=2e-6)
     assert contrasts["BKT"]["delong_p"] == family["p"]

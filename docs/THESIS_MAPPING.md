@@ -310,3 +310,11 @@ Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
 - **Ta’siri.** Topilgan parametrlar grid tugunlarida bo‘ladi, uzluksiz
   optimumda emas. `G0 < G_MAX` va `S0 < S_MAX` chegaralari majburiy, chunki
   γ chegarada aniqlanmagan.
+- **Grid (D59, 2026-10-09).** `DEFAULT_GRID`: P0 = 0,01; 0,05; 0,10; 0,20; …;
+  0,90; 0,95 (12), PT = 0,005; 0,01; 0,02; 0,03; 0,05; 0,10; 0,15; 0,20; 0,30;
+  0,40; 0,50 (11), P(G) va P(S) o‘zgarmagan (6 va 6) — II bob chegaralari
+  ostida 4 752 nomzod (avval 2 160). Sabab: H2 da PT 24 % moslashda pastki,
+  15 % da yuqori chetda edi, va bitta mavzuning chegaralangan optimumi
+  PT ≈ 0,0076 da yotgani uchun D55 ning L-BFGS-B tekshiruvi (1 %) o‘tmadi.
+  Ilova (`calibrate_bkt`) ham shu grid bilan ishlaydi. Grid chetidagi ulushlar
+  har H2 natijasida (§6) yoziladi.

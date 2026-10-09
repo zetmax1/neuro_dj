@@ -8,7 +8,8 @@ comes out of it recorded with the sha256 of the file it was computed from
     python -m experiments.h2 --quick
     python -m experiments.h2
 
-The models are BKT, BKT+IRT (λ=0), Elo/Rasch, PFA, DKT and AKT. BKT+IRT+Pre
+The models are BKT, BKT+IRT (λ=0), Elo/Rasch, PFA, DKT, AKT and AKT-R
+(AKT with pyKT's Rasch item term on problem_id, D59). BKT+IRT+Pre
 is **not** run: it needs a prerequisite graph and ASSISTments has none, so it
 appears in the table as "graf yo‘q" rather than being dropped. The first two
 and the unavailable third are one piece of code under three flag settings
@@ -42,6 +43,7 @@ interesting, so it is written into the metadata where it cannot be missed.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from dataclasses import asdict
@@ -69,10 +71,10 @@ FULL_EPOCHS = 10
 
 def build_models(params, *, epochs: int, seed: int) -> list:
     """
-    The six models of D53, in table order. Built per fold, because each one
+    The six models of D53 and AKT-R (D59), in table order. Built per fold, because each one
     carries fitted state.
     """
-    from experiments.models.neural import AKTModel
+    from experiments.models.neural import AKTModel, AKTRModel
 
     return [
         BKTFamily("BKT", use_irt=False, use_prereq_init=False, params=params),
@@ -82,6 +84,7 @@ def build_models(params, *, epochs: int, seed: int) -> list:
         PFA(seed=seed),
         dkt_model(epochs=epochs, seed=seed),
         AKTModel(epochs=epochs, seed=seed),
+        AKTRModel(epochs=epochs, seed=seed),
     ]
 
 
@@ -125,6 +128,21 @@ def prepare(args, *, dataset=None, log=print):
     return dataset, rows, learners, folds
 
 
+def fit_parameters(folds, rows, *, workers: int, log=print) -> dict[int, tuple[dict, dict, float]]:
+    """
+    Every fold's BKT parameters at once, through ``h2_bounds.fit_all`` with
+    chapter II's setting — whose grid is ``DEFAULT_GRID`` and whose constants
+    are chapter II's, i.e. exactly ``fit_skill_params(fitting)``. In parallel
+    processes when ``workers > 1``; the result does not depend on how many.
+    """
+    from experiments import h2_bounds   # h2_bounds imports this module
+
+    main = next(setting for setting in h2_bounds.SETTINGS if setting.main)
+    tasks = [(0, main, fold.index, splits.subset(rows, fold.fitting)) for fold in folds]
+    fits = h2_bounds.fit_all(tasks, workers=workers, log=lambda *a, **k: None)
+    return {fold_index: fit for (_, fold_index), fit in fits.items()}
+
+
 def fold_sets(fold, rows) -> dict[str, list]:
     """train, validation, test, and fitting = train + validation."""
     return {
@@ -152,7 +170,8 @@ def fit_predict(model, sets: dict[str, list]) -> tuple[dict, list[float]]:
     return info, scores
 
 
-def run_fold(fold, rows, *, epochs: int, seed: int, log=print) -> tuple[dict, dict]:
+def run_fold(fold, rows, *, epochs: int, seed: int, log=print,
+             fitted: tuple[dict, dict, float] | None = None) -> tuple[dict, dict]:
     """
     One fold. Returns (per-model fold report, per-model pooled predictions).
 
@@ -165,9 +184,14 @@ def run_fold(fold, rows, *, epochs: int, seed: int, log=print) -> tuple[dict, di
     sets = fold_sets(fold, rows)
     test, fitting = sets["test"], sets["fitting"]
 
-    started = time.perf_counter()
-    params, params_metadata = fit_skill_params(fitting)
-    log(f"    parameters fitted in {time.perf_counter() - started:.0f}s "
+    if fitted is None:
+        started = time.perf_counter()
+        params, params_metadata = fit_skill_params(fitting)
+        seconds = time.perf_counter() - started
+    else:
+        # Fitted beforehand, all folds in parallel (run(), fit_parameters).
+        params, params_metadata, seconds = fitted
+    log(f"    parameters fitted in {seconds:.0f}s "
         f"({params_metadata['skills_fitted']} skills, "
         f"{params_metadata['skills_kept_defaults']} kept defaults)")
 
@@ -217,7 +241,7 @@ def run_fold(fold, rows, *, epochs: int, seed: int, log=print) -> tuple[dict, di
 
 def _wants_validation(model) -> bool:
     """Only the neural models use a validation set (for early stopping)."""
-    return model.name in ("DKT", "AKT")
+    return model.name in ("DKT", "AKT", "AKT-R")
 
 
 def _text(value) -> str:
@@ -320,6 +344,7 @@ def analyse_pooled(
 CONTRASTS: tuple[tuple[str, str, str], ...] = (
     ("BKT+IRT (λ=0)", "BKT", "D53"),
     ("BKT+IRT (λ=0)", "DKT", "D56"),
+    ("BKT+IRT (λ=0)", "AKT-R", "D59"),
 )
 
 
@@ -402,12 +427,16 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
     git_start = GitState.capture()
     dataset, rows, learners, folds = prepare(args)
     epochs = epochs_for(args)
+    workers = max(1, min(args.workers, len(folds)))
+    print(f"  fitting the BKT parameters of {len(folds)} folds on {workers} worker(s)")
+    fitted = fit_parameters(folds, rows, workers=workers)
 
     fold_reports = []
     fold_outputs = []
     for fold in folds:
         print(f"  fold {fold.index + 1}/{len(folds)}: {fold.counts()}")
-        report, output = run_fold(fold, rows, epochs=epochs, seed=fold_seed(args, fold))
+        report, output = run_fold(fold, rows, epochs=epochs, seed=fold_seed(args, fold),
+                                  fitted=fitted[fold.index])
         fold_reports.append(report)
         fold_outputs.append(output)
 
@@ -482,6 +511,7 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
             folds, seed=args.seed, validation_fraction=args.validation_fraction,
         ),
         "epochs": epochs,
+        "parameter_fit_workers": workers,
         "folds": fold_reports,
         "pooled": analysis,
         "sanity": warning,
@@ -601,6 +631,10 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--skip-pybkt", action="store_true")
+    parser.add_argument(
+        "--workers", type=int, default=max(1, min(8, (os.cpu_count() or 2) // 2)),
+        help="Processes for the folds' BKT grid searches; the result does not depend on it.",
+    )
     parser.add_argument("--seed", type=int, default=splits.DEFAULT_SEED)
     parser.add_argument("--out", default=None)
     return parser

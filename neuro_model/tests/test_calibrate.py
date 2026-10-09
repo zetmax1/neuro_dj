@@ -140,6 +140,16 @@ def test_the_grid_reaches_close_to_the_bounds():
     assert max(c[3] for c in candidates) >= S_MAX - 0.005
 
 
+def test_the_p0_and_pt_grids_are_d59s():
+    """D59: P0 and PT widened at both ends; G0 and S0 unchanged."""
+    grid = calibrate.DEFAULT_GRID
+    assert grid.p0 == (0.01, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95)
+    assert grid.pt == (0.005, 0.01, 0.02, 0.03, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50)
+    assert grid.g0 == (0.05, 0.10, 0.15, 0.20, 0.25, 0.29)
+    assert grid.s0 == (0.01, 0.03, 0.05, 0.07, 0.09, 0.097)
+    assert len(grid.candidates(g_max=G_MAX, s_max=S_MAX)) == 12 * 11 * 6 * 6
+
+
 def test_a_high_prior_near_the_bounds_is_fitted_within_one_percent():
     """
     Data from a skill most learners already know, with guess and slip near

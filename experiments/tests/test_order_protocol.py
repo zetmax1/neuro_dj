@@ -99,7 +99,7 @@ def _neural(kind):
         pytest.importorskip("pykt", reason="experiments/.venv needed from 8b-2 on")
         from experiments.models import neural
 
-        cls = neural.DKTModel if kind == "DKT" else neural.AKTModel
+        cls = {"DKT": neural.DKTModel, "AKT": neural.AKTModel, "AKT-R": neural.AKTRModel}[kind]
         model = cls(epochs=1, batch_size=16, seed=3)
         model.fit(training_rows())
         return model
@@ -113,6 +113,7 @@ MODELS = {
     "PFA": _pfa,
     "DKT": _neural("DKT"),
     "AKT": _neural("AKT"),
+    "AKT-R": _neural("AKT-R"),
 }
 
 
@@ -318,3 +319,43 @@ def test_an_order_cut_by_the_window_edge_starts_cold_in_the_next_window(fitted):
         model.max_len = keep
     assert [window.order_starts for window in windows] == [[0, 1], [0, 1]]
     assert [window.row_indices for window in windows] == [[0, 1], [2, 3]]
+
+
+
+# ---------------------------------------------------------------------------
+# AKT-R (D59): AKT with pyKT's Rasch item term
+# ---------------------------------------------------------------------------
+
+def test_akt_r_is_pykts_forward_when_every_row_is_its_own_order(fitted):
+    torch = pytest.importorskip("torch", reason="experiments/.venv needed from 8b-2 on")
+    model = _model(fitted, "AKT-R")
+    assert model._model.n_pid == len(model._problems) > 0
+    torch.manual_seed(2)
+    concepts = torch.randint(0, 3, (4, 9))
+    responses = torch.randint(0, 2, (4, 9))
+    problems = torch.randint(0, model._model.n_pid + 1, (4, 9))
+    model._model.eval()
+    with torch.no_grad():
+        pykt, _ = model._model(concepts, responses, problems)
+        ours = model._scores(concepts, responses, torch.arange(9).repeat(4, 1), problems=problems)
+    assert torch.equal(pykt, ours)
+
+
+def test_akt_r_reads_the_problem_and_akt_does_not(fitted):
+    """The same rows with another problem_id: AKT-R's prediction moves, AKT's does not."""
+    rows = learner_rows()
+    renamed = rows[:TARGET] + [rows[TARGET]._replace(problem_id="p1")]
+    for name, moves in (("AKT-R", True), ("AKT", False)):
+        model = _model(fitted, name)
+        changed = model.predict(rows)[TARGET] != model.predict(renamed)[TARGET]
+        assert changed is moves, name
+
+
+def test_a_problem_absent_from_training_is_the_unknown_index(fitted):
+    model = _model(fitted, "AKT-R")
+    rows = learner_rows()
+    unseen = rows[:TARGET] + [rows[TARGET]._replace(problem_id="never-seen")]
+    windows = model._windows(unseen)
+    assert windows[0].problems[-1] == 0
+    assert all(index > 0 for index in windows[0].problems[:-1])
+    assert len(model.predict(unseen)) == len(unseen)

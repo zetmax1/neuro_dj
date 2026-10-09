@@ -98,9 +98,6 @@ DKT_TOLERANCE = 5e-4
 # D56: "comparable with DKT" is the lower end of BKT+IRT − DKT's interval at or
 # above this. Recorded next to the contrast; nothing here decides with it.
 D56_MARGIN = -0.01
-# The H2 results the main setting must reproduce (D58), per mode.
-REFERENCE_FULL = "experiments/results/assist09/20261009-055443"
-REFERENCE_QUICK = "experiments/results/assist09-quick/20261008-153338"
 CHECKPOINTS = "experiments/.runs/checkpoints"
 CHECK_SKILLS = 5
 LBFGS_TOLERANCE = 0.01
@@ -384,6 +381,16 @@ def load_reference(path: str | Path, *, dataset, args) -> dict:
                        ("validation_fraction", args.validation_fraction)):
         if split.get(key) != value:
             problems.append(f"split {key} {split.get(key)!r}, this run's {value!r}")
+    provenance = document.get("provenance") or {}
+    if not provenance.get("code_commit"):
+        problems.append("no commit in its provenance")
+    if provenance.get("tree_warnings"):
+        problems.append("its tree was not clean: " + "; ".join(provenance["tree_warnings"]))
+    main = next(setting for setting in SETTINGS if setting.main)
+    candidates = len(calibrate.DEFAULT_GRID.candidates(g_max=main.g_max, s_max=main.s_max))
+    recorded = {fold.get("parameters", {}).get("grid_candidates") for fold in document.get("folds", [])}
+    if recorded != {candidates}:
+        problems.append(f"fitted on another grid ({sorted(map(str, recorded))} candidates, now {candidates})")
     if problems:
         raise ReproductionFailed(f"reference {path}: " + "; ".join(problems))
     first = document["folds"][0]["models"]
@@ -554,10 +561,9 @@ def run(args, argv: list[str], *, dataset=None, settings: tuple[Setting, ...] = 
     # H2's own data, cleaning, quick cap and split (D58: one evaluation path).
     dataset, rows, learners, folds = h2.prepare(args, dataset=dataset, log=log)
     if reference is None:
-        reference = load_reference(
-            args.reference or (REFERENCE_QUICK if args.quick else REFERENCE_FULL),
-            dataset=dataset, args=args,
-        )
+        if not args.reference:
+            raise ReproductionFailed("--reference (the H2 result to reproduce) is required")
+        reference = load_reference(args.reference, dataset=dataset, args=args)
     if reference.get("learners") not in (None, len(learners)):
         raise ReproductionFailed(
             f"reference has {reference['learners']} learners, this run {len(learners)}")
@@ -809,8 +815,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--epochs", type=int, default=h2.FULL_EPOCHS,
                         help="DKT's epoch cap, as in H2 (--quick uses H2's quick cap).")
     parser.add_argument("--reference", default=None,
-                        help=f"The H2 result to reproduce (default {REFERENCE_FULL}, "
-                             f"or {REFERENCE_QUICK} with --quick).")
+                        help="The H2 result directory the main setting must reproduce (required; "
+                             "its metrics.json is read and its provenance checked).")
     parser.add_argument("--checkpoint-dir", default=CHECKPOINTS)
     parser.add_argument("--no-checkpoint", action="store_true")
     parser.add_argument("--out", default=None)

@@ -537,3 +537,65 @@ def test_an_interrupted_run_resumes_and_a_new_commit_does_not(dataset, reference
     commit["value"] = "d00d1e5"
     h2_bounds.run(args, [], dataset=dataset, log=_quiet, reference=reference)
     assert len(fits) == 12                                    # another commit: fitted again
+
+
+
+# ---------------------------------------------------------------------------
+# D59: H2's parallel fits, and the reference's provenance
+# ---------------------------------------------------------------------------
+
+def test_h2s_parallel_fits_are_fit_skill_params_whatever_the_workers(dataset):
+    from experiments.models.classical import fit_skill_params
+
+    _, rows, _, folds = h2.prepare(arguments(), dataset=dataset, log=_quiet)
+    one = h2.fit_parameters(folds, rows, workers=1)
+    many = h2.fit_parameters(folds, rows, workers=3)
+    assert {i: fit[:2] for i, fit in one.items()} == {i: fit[:2] for i, fit in many.items()}
+    for fold in folds:
+        assert one[fold.index][:2] == fit_skill_params(splits.subset(rows, fold.fitting))
+
+
+def _reference_document(dataset, **changes) -> dict:
+    main = h2_bounds.SETTINGS[0]
+    candidates = len(calibrate.DEFAULT_GRID.candidates(g_max=main.g_max, s_max=main.s_max))
+    names = ("BKT", "BKT+IRT (λ=0)", "DKT", "Elo/Rasch")
+    document = {
+        "report": "h2", "quick": False,
+        "pooled": {"evaluation_protocol": "D57",
+                   "models": {name: {"scores": {"all": {"auc": 0.7}}} for name in names}},
+        "dataset": {"sha256": dataset.sha256},
+        "split": {"seed": 20261006, "folds": 2, "validation_fraction": 0.2, "learners": 40},
+        "provenance": {"code_commit": "abc1234", "tree_warnings": []},
+        "folds": [
+            {"parameters": {"grid_candidates": candidates},
+             "models": {name: {"scores": {"all": {"auc": 0.71}}} for name in names[:2]}},
+            {"parameters": {"grid_candidates": candidates}, "models": {}},
+        ],
+    }
+    return document | changes
+
+
+def test_a_clean_reference_on_the_current_grid_is_read_from_its_metrics(tmp_path, dataset):
+    (tmp_path / "metrics.json").write_text(json.dumps(_reference_document(dataset)), encoding="utf-8")
+    args = arguments(seed=20261006, validation_fraction=0.2)
+    loaded = h2_bounds.load_reference(tmp_path, dataset=dataset, args=args)
+    assert loaded["fold_1"] == {"BKT": 0.71, "BKT+IRT (λ=0)": 0.71}
+    assert loaded["pooled"]["Elo/Rasch"] == 0.7 and loaded["commit"] == "abc1234"
+
+
+@pytest.mark.parametrize("changes, message", [
+    ({"provenance": {"code_commit": None, "tree_warnings": []}}, "no commit"),
+    ({"provenance": {"code_commit": "abc1234", "tree_warnings": ["dirty at the start"]}}, "not clean"),
+    ({"folds": [{"parameters": {"grid_candidates": 2160}, "models": {}}]}, "another grid"),
+])
+def test_a_reference_with_bad_provenance_or_an_old_grid_is_refused(tmp_path, dataset, changes, message):
+    (tmp_path / "metrics.json").write_text(json.dumps(_reference_document(dataset, **changes)),
+                                           encoding="utf-8")
+    with pytest.raises(h2_bounds.ReproductionFailed, match=message):
+        h2_bounds.load_reference(tmp_path, dataset=dataset,
+                                 args=arguments(seed=20261006, validation_fraction=0.2))
+
+
+def test_a_run_without_a_reference_refuses_to_start(dataset):
+    with pytest.raises(h2_bounds.ReproductionFailed, match="--reference"):
+        h2_bounds.run(arguments(reference=None), [], dataset=dataset, log=_quiet)

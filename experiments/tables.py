@@ -426,6 +426,7 @@ MODEL_ORDER: tuple[str, ...] = (
     "PFA",
     "DKT",
     "AKT",
+    "AKT-R",
 )
 
 

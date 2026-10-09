@@ -84,9 +84,15 @@ class Grid:
 # of log-likelihood below the bounded L-BFGS-B optimum; this grid is within
 # 0.7 % of it. γ stays moderate at the top: ln(0.29/0.01) ≈ 3.4,
 # ln(0.097/0.003) ≈ 3.5.
+#
+# D59 widens P0 and PT, not G0/S0. On the full ASSISTments 2009 data H2 put
+# PT on its floor (0.05) in 24 % of fits and on its ceiling in 15 %, P0 in 9 %
+# and 11 %; one skill's bounded optimum had PT ≈ 0.0076, 1.1 % of
+# log-likelihood above the grid's best. P0 gains 0.01 and 0.95; PT gains
+# 0.005, 0.01, 0.02, 0.03 and 0.5. 4 752 candidates under chapter II's bounds.
 DEFAULT_GRID = Grid(
-    p0=(0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90),
-    pt=(0.05, 0.10, 0.15, 0.20, 0.30, 0.40),
+    p0=(0.01, 0.05, 0.10, 0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90, 0.95),
+    pt=(0.005, 0.01, 0.02, 0.03, 0.05, 0.10, 0.15, 0.20, 0.30, 0.40, 0.50),
     g0=(0.05, 0.10, 0.15, 0.20, 0.25, 0.29),
     s0=(0.01, 0.03, 0.05, 0.07, 0.09, 0.097),
 )

@@ -59,6 +59,9 @@ class Window:
     # D57: per position, the position (in this window) of the first row of its
     # order. Equal to the position itself when every row is its own order.
     order_starts: list[int] = field(default_factory=list)
+    # AKT-R (D59): the problem index of each position (0 = unknown, and every
+    # position of a model that does not use problems).
+    problems: list[int] = field(default_factory=list)
 
 
 def _require_torch():
@@ -96,6 +99,7 @@ class _SequenceModel:
         self.seed = seed
         self.model_kwargs = model_kwargs
         self._concepts: dict[str, int] = {}
+        self._problems: dict[str, int] = {}
         self._model = None
         self._base_rate = 0.5
         self._cold_rows = 0
@@ -107,7 +111,10 @@ class _SequenceModel:
     def _build(self, num_concepts: int):  # pragma: no cover - overridden
         raise NotImplementedError
 
-    def _scores(self, concepts, responses, starts=None):
+    # D59: AKT-R reads problem_id; every other model ignores ``problems``.
+    uses_problems = False
+
+    def _scores(self, concepts, responses, starts=None, problems=None):
         """
         Per-position probabilities aligned with the input, where position *t*
         is predicted from the answers before it. Position 0 is NaN.
@@ -135,6 +142,9 @@ class _SequenceModel:
             if concept is None:
                 continue
             per_learner.setdefault(row.user_id, []).append((concept, int(row.correct), index))
+        problem_of = (
+            [self._problems.get(row.problem_id, 0) for row in rows] if self.uses_problems else None
+        )
 
         order_of = orders.order_starts(rows)
         windows: list[Window] = []
@@ -153,6 +163,7 @@ class _SequenceModel:
                         first.setdefault(order_of[index], position)
                         for position, (_, _, index) in enumerate(chunk)
                     ],
+                    problems=[0 if problem_of is None else problem_of[index] for _, _, index in chunk],
                 ))
         return windows
 
@@ -164,12 +175,14 @@ class _SequenceModel:
             concepts = torch.zeros((len(batch), width), dtype=torch.long)
             responses = torch.zeros((len(batch), width), dtype=torch.long)
             mask = torch.zeros((len(batch), width), dtype=torch.bool)
+            problems = torch.zeros((len(batch), width), dtype=torch.long)
             for position, window in enumerate(batch):
                 concepts[position, :window.length] = torch.tensor(window.concepts)
                 responses[position, :window.length] = torch.tensor(window.responses)
+                problems[position, :window.length] = torch.tensor(window.problems)
                 # Position 0 is never a target: nothing precedes it.
                 mask[position, 1:window.length] = True
-            yield batch, concepts, responses, mask
+            yield batch, concepts, responses, mask, problems
 
     # -- fit / predict ---------------------------------------------------
 
@@ -183,6 +196,11 @@ class _SequenceModel:
             raise Unavailable(self.name, "o‘qitish to‘plamida mavzu yo‘q")
         answers = [int(row.correct) for row in train]
         self._base_rate = sum(answers) / len(answers) if answers else 0.5
+        if self.uses_problems:
+            # 1..N for the training problems; 0 is the one "unknown" index,
+            # which a problem absent from training falls back to (D59).
+            problems = sorted({row.problem_id for row in train}, key=_sort_key)
+            self._problems = {problem: index + 1 for index, problem in enumerate(problems)}
 
         self._model = self._build(len(skills))
         optimiser = torch.optim.Adam(self._model.parameters(), lr=self.learning_rate)
@@ -195,15 +213,20 @@ class _SequenceModel:
         for epoch in range(1, self.epochs + 1):
             self._model.train()
             total, counted = 0.0, 0
-            for _, concepts, responses, mask in self._batches(train_windows):
+            for _, concepts, responses, mask, problems in self._batches(train_windows):
                 optimiser.zero_grad()
-                scores = self._scores(concepts, responses)
+                scores = self._scores(concepts, responses, problems=problems)
                 selected = scores[mask]
                 targets = responses[mask].float()
                 if selected.numel() == 0:
                     continue
                 selected = selected.clamp(1e-6, 1 - 1e-6)
                 loss = loss_fn(selected, targets)
+                if self.uses_problems:
+                    # pyKT adds AKT's Rasch L2 term to the *mean* BCE; the loss
+                    # here is a sum, so the term is scaled by the targets to
+                    # keep pyKT's ratio.
+                    loss = loss + selected.numel() * self._regularisation
                 loss.backward()
                 optimiser.step()
                 total += float(loss.item())
@@ -259,13 +282,13 @@ class _SequenceModel:
         cold = 0
         self._model.eval()
         with torch.no_grad():
-            for batch, concepts, responses, mask in self._batches(self._windows(rows)):
+            for batch, concepts, responses, mask, problems in self._batches(self._windows(rows)):
                 # D57: each row is predicted from the answers before its order.
                 # Padding positions point at themselves; they are never read.
                 starts = torch.arange(concepts.size(1)).repeat(len(batch), 1)
                 for position, window in enumerate(batch):
                     starts[position, :window.length] = torch.tensor(window.order_starts)
-                scores = self._scores(concepts, responses, starts)
+                scores = self._scores(concepts, responses, starts, problems=problems)
                 for position, window in enumerate(batch):
                     for offset, row_index in enumerate(window.row_indices):
                         if window.order_starts[offset] == 0:
@@ -313,7 +336,7 @@ class DKTModel(_SequenceModel):
             dropout=float(self.model_kwargs["dropout"]),
         )
 
-    def _scores(self, concepts, responses, starts=None):
+    def _scores(self, concepts, responses, starts=None, problems=None):
         torch = _require_torch()
         output = self._model(concepts, responses)          # (B, L, C)
         if starts is None:
@@ -365,7 +388,7 @@ class AKTModel(_SequenceModel):
         kwargs = self.model_kwargs
         return AKT(
             n_question=num_concepts,
-            n_pid=0,
+            n_pid=len(self._problems) if self.uses_problems else 0,
             d_model=int(kwargs["d_model"]),
             n_blocks=int(kwargs["n_blocks"]),
             dropout=float(kwargs["dropout"]),
@@ -374,11 +397,29 @@ class AKTModel(_SequenceModel):
             final_fc_dim=int(kwargs["final_fc_dim"]),
         )
 
-    def _scores(self, concepts, responses, starts=None):
+    def _scores(self, concepts, responses, starts=None, problems=None):
+        pids = problems if self.uses_problems else None
         if starts is None:
-            output = self._model(concepts, responses)
-            return output[0] if isinstance(output, tuple) else output
-        return _akt_by_order(self._model, concepts, responses, starts)
+            output = (self._model(concepts, responses, pids) if pids is not None
+                      else self._model(concepts, responses))
+            if isinstance(output, tuple):
+                self._regularisation = output[1]
+                return output[0]
+            return output
+        return _akt_by_order(self._model, concepts, responses, starts, pids)
+
+
+class AKTRModel(AKTModel):
+    """
+    AKT-R (D59): AKT with pyKT's Rasch item term on, over ``problem_id``
+    (``n_pid > 0``). BKT+IRT and Elo/Rasch see the problem; DKT and AKT do
+    not — AKT-R is the neural model that does. Training adds pyKT's L2 term on
+    the item difficulties. A problem absent from training is index 0, the one
+    "unknown" problem, whose difficulty stays at pyKT's initial 0.
+    """
+
+    name = "AKT-R"
+    uses_problems = True
 
 
 # ---------------------------------------------------------------------------
@@ -396,9 +437,18 @@ class AKTModel(_SequenceModel):
 # (tests/test_order_protocol.py).
 
 
-def _akt_by_order(model, concepts, responses, starts):
+def _akt_by_order(model, concepts, responses, starts, pids=None):
     torch = _require_torch()
-    q_embed, qa_embed = model.base_emb(concepts, responses)      # n_pid = 0, emb_type "qid"
+    q_embed, qa_embed = model.base_emb(concepts, responses)      # emb_type "qid"
+    if model.n_pid > 0:                                          # AKT-R: pyKT's Rasch term
+        q_embed_diff = model.q_embed_diff(concepts)
+        pid_embed = model.difficult_param(pids)
+        q_embed = q_embed + pid_embed * q_embed_diff
+        qa_embed_diff = model.qa_embed_diff(responses)
+        if model.separate_qa:
+            qa_embed = qa_embed + pid_embed * qa_embed_diff
+        else:
+            qa_embed = qa_embed + pid_embed * (qa_embed_diff + q_embed_diff)
     length = concepts.size(1)
     # allowed[b, 0, t, j]: position t may read position j's answer.
     allowed = (torch.arange(length)[None, None, :] < starts[:, :, None]).unsqueeze(1)
