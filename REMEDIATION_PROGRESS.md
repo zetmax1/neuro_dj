@@ -1470,11 +1470,13 @@ Fit bosqichi namunalaridan har bir worker uchun xotira:
 - `mem_available_kb` run boshida 6 797 900 → 5 worker ishga tushgandan keyingi birinchi namunada 5 483 704; kamayish 1 314 196 kB / 5 = **262 839 kB (~0,25 GiB) bir worker**;
 - shu paytdagi `tree_rss_kb` 1 444 148, parent `rss` 234 560 → (1 444 148 − 234 560) / 5 = 241 918 kB — xuddi shu tartib.
 
-Shart: fit bosqichida `MemAvailable` ≥ 2 GB. 5 worker 5 × 0,25 ≈ 1,25 GiB oladi; H2 ning o‘z fit bosqichida `MemAvailable` hech qachon 4 307 948 kB (4,1 GiB) dan pastga tushmadi — chegaradan ikki baravar yuqori. D55 ni ishga tushirish paytidagi bo‘sh xotira (`MemAvailable` 3 964 200 kB) bilan ham 3,96 − 1,25 = 2,7 GiB qoladi. Hisob 8 dan ko‘pga yo‘l beradi, lekin yuqori chegara sifatida **5 worker** olinadi (H2 da o‘lchangan va shu bilan tasdiqlangan son; 15 (sozlama, fold) juftligi 3 to‘lqinga bo‘linadi). `experiments/run_h2.sh` ga `H2_WORKERS` qo‘shildi — ilgari worker sonini faqat modulning o‘zi (`--workers` standart qiymati: `min(8, cpu/2)` = 8) tanlardi.
+Shart: fit bosqichida `MemAvailable` ≥ 2 GB. Hisob bo‘sh xotira qancha ekanidan boshlanadi: D55 ni ishga tushirish paytida `MemAvailable` 3 182 084 kB (3,04 GiB) — ertalabki H2 run'idagi 6 797 900 kB emas (orada ochilgan ish stoli ilovalari). Chegaraga qadar bo‘sh joy 3,04 − 2,0 = 1,04 GiB; 1,04 / 0,25 = **4 worker**. 5 worker 1,25 GiB olib ~1,9 GiB qoldirardi — chegaradan past. 8 ishlatilmaydi. 15 (sozlama, fold) juftligi 4 to‘lqinga bo‘linadi (4+4+4+3), fit bosqichi ~3 soat 20 daqiqa.
+
+`experiments/run_h2.sh` ga `H2_WORKERS` qo‘shildi — ilgari worker sonini faqat modulning o‘zi (`--workers` standart qiymati: `min(8, cpu/2)` = 8) tanlardi.
 
 ### D55 full ishga tushirildi
 
-Shartlar bajarildi: H2 full exit 0, `tables.verify` va pozitsion tekshiruv [], provenance ikkala uchida toza, DKT 0.727307 D53 oralig‘ida. Buyruq: `H2_REFERENCE=experiments/results/assist09/20261010-060005 H2_WORKERS=5 experiments/run_h2.sh bounds-full`, toza daraxtdan (shu QADAM 5 commit'ida), transient user unit sifatida. Unit nomi, yakun qatori va natijasi run tugagandan keyin yoziladi: run davomida commit qilinmaydi, aks holda `git_end` `git_start` dan farq qiladi va provenance “tree changed” deb belgilanadi.
+Shartlar bajarildi: H2 full exit 0, `tables.verify` va pozitsion tekshiruv [], provenance ikkala uchida toza, DKT 0.727307 D53 oralig‘ida. Buyruq: `H2_REFERENCE=experiments/results/assist09/20261010-060005 H2_WORKERS=4 experiments/run_h2.sh bounds-full`, toza daraxtdan, transient user unit sifatida. Birinchi ishga tushirish (`neurolearn-h2-bounds-full-20261010-143846`, 14:38:46) `H2_WORKERS=5` bilan boshlangan va 14:39:30 da qo‘lda to‘xtatilgan (`EXIT_CODE=killed EXIT_STATUS=TERM`, log'dagi shu qator) — o‘sha paytdagi bo‘sh xotira 5 worker uchun yetmasligi ko‘rinib qoldi; to‘xtatish L-BFGS-B tekshiruvining birinchi sozlamasida bo‘lgan, birorta fit boshlanmagan, natija yozilmagan. Unit nomi, yakun qatori va natijasi run tugagandan keyin yoziladi: run davomida commit qilinmaydi, aks holda `git_end` `git_start` dan farq qiladi va provenance “tree changed” deb belgilanadi.
 
 ---
 
