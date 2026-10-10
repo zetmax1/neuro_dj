@@ -1359,6 +1359,125 @@ Qo‘shimcha, faqat nuqtaviy: BKT+IRT(λ=0) va Elo/Rasch orasidagi AUC farqi (El
 
 ---
 
+## QADAM 5 — D59 bilan H2 to‘liq run (2026-10-10)
+
+### Ishga tushirishlar
+
+| Run | Commit | Boshlangan | Yakun qatori (`ExecStopPost`) | Holat |
+|---|---|---|---|---|
+| to‘liq, 1-urinish (`neurolearn-h2-full-20261009-213644`) | `bdbc7d8` | 2026-10-09 21:36:44 | 23:42:46 `SERVICE_RESULT=success EXIT_CODE=killed EXIT_STATUS=TERM; Result=success ExecMainStatus=15` | **kompyuter o‘chirilgani uchun TERM bilan to‘xtagan** (journal: 23:42:45 `The system will power off now!`); 5 fold tugagan, bootstrap bosqichida uzilgan, natija papkasi yozilmagan, ishlatilmaydi. Xotira bosimi yo‘q: oxirgi namuna `mem_available_kb=9534456` |
+| to‘liq, 2-urinish (`neurolearn-h2-full-20261010-083717`) | `66ff452` | 2026-10-10 08:37:17 | 11:00:06 `SERVICE_RESULT=success EXIT_CODE=exited EXIT_STATUS=0; Result=success ExecMainStatus=0` | natija `assist09/20261010-060005/` (`1c23fa9`); `git_start`/`git_end` `66ff452`, ikkala uchida toza, `tree_changed=False`; `tables.verify` = [], `tables.verify_h2_positions` = [] |
+
+To‘liq run 2 soat 22 daqiqa 49 sekund. Fold parametrlari 2936–3029 s (5 worker parallel, fit bosqichi 08:37:17–09:27 ichida), AKT 150–476 s, AKT-R 143–490 s, DKT 19–27 s. Fitlar: har foldda 111 mavzu, 11–12 tasi standart parametrda, jami 555 fit.
+
+### 7 model: pooled AUC [95 % CI] va §10 AUC
+
+1000 bootstrap replikasi, o‘quvchi bo‘yicha klasterlangan; §10 — faqat masalaning birinchi qatorlari (D57).
+
+| Model | Pooled AUC, D59 (yangi) | 95 % CI | §10 AUC | Pooled AUC, eski (`20261009-055443`) | §10 AUC, eski |
+|---|---|---|---|---|---|
+| BKT | 0.707479 | [0.701003, 0.713817] | 0.704270 | 0.707077 | 0.703867 |
+| BKT+IRT (λ=0) | 0.723898 | [0.717699, 0.730044] | 0.721564 | 0.723400 | 0.721129 |
+| Elo/Rasch | 0.762142 | [0.756818, 0.767435] | 0.763628 | 0.762142 | 0.763628 |
+| PFA | 0.704193 | [0.698334, 0.709959] | 0.700309 | 0.704193 | 0.700309 |
+| DKT | 0.727307 | [0.721100, 0.733392] | 0.736579 | 0.727307 | 0.736579 |
+| AKT | 0.708038 | [0.701088, 0.715093] | 0.711256 | 0.708038 | 0.711256 |
+| AKT-R | 0.718586 | [0.711952, 0.725309] | 0.724970 | — (modelsiz) | — |
+
+Grid kengaytmasi faqat BKT oilasiga tegadi: Elo/Rasch, PFA, DKT, AKT sonlari eski run bilan aynan bir xil. Sovuq qatorlar: DKT/AKT/AKT-R uchun 6010. BKT+IRT+Pre — “graf yo‘q” qatori (D53).
+
+### Fold AUC‘lari
+
+| Model | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|
+| BKT | 0.7119 | 0.7171 | 0.6970 | 0.7119 | 0.6984 |
+| BKT+IRT (λ=0) | 0.7282 | 0.7327 | 0.7140 | 0.7277 | 0.7157 |
+| Elo/Rasch | 0.7645 | 0.7670 | 0.7563 | 0.7632 | 0.7585 |
+| PFA | 0.7106 | 0.7127 | 0.6962 | 0.7073 | 0.6937 |
+| DKT | 0.7321 | 0.7345 | 0.7179 | 0.7319 | 0.7190 |
+| AKT | 0.7077 | 0.7283 | 0.6895 | 0.7057 | 0.7172 |
+| AKT-R | 0.7077 | 0.7533 | 0.6930 | 0.7474 | 0.6918 |
+
+Eski run'da BKT 0.7116 / 0.7175 / 0.6964 / 0.7111 / 0.6978, BKT+IRT (λ=0) 0.7277 / 0.7329 / 0.7132 / 0.7270 / 0.7151; qolgan to‘rt model fold bo‘yicha ham aynan bir xil.
+
+### Kontrastlar
+
+| Kontrast | Farq | 95 % CI | DeLong p | Holm p | Qaror | Eski run |
+|---|---|---|---|---|---|---|
+| BKT+IRT (λ=0) − BKT | +0.016420 | [0.015539, 0.017361] | 0.0 | 0.0 | D53 | +0.016323 [0.015417, 0.017315], p = 0.0 / 0.0 |
+| BKT+IRT (λ=0) − DKT | −0.003409 | [−0.005372, −0.001425] | 2.94e-06 | 8.82e-06 | D56 | −0.003907 [−0.005856, −0.001927], p = 1.1e-07 / 4.3e-07 |
+| BKT+IRT (λ=0) − AKT-R | +0.005312 | [0.002465, 0.008377] | 0.0 | 0.0 | D59 | — |
+
+D56 darvozasi (CI pastki chegarasi ≥ −0,01): −0,005372 ≥ −0,01 — bajarildi.
+
+### DKT sanity (D53)
+
+DKT pooled AUC 0.727307; D53 oralig‘i [0,70; 0,80] — ichida (`within_range=True`); adabiyot oralig‘i [0,73; 0,75] (Xiong va boshq., EDM 2016, dublikatlar olib tashlangan) — undan 0,0027 pastda. Eski run bilan bir xil (0.727307).
+
+### grid_check: grid chetlaridagi ulushlar (555 fit)
+
+| Parametr | Eng past qiymat | Ulush, D59 | Ulush, eski | Eng yuqori qiymat | Ulush, D59 | Ulush, eski |
+|---|---|---|---|---|---|---|
+| P0 | 0,01 (eski 0,05) | 0.0649 (36) | 0.0865 (48) | 0,95 (eski 0,9) | 0.0577 (32) | 0.1099 (61) |
+| PT | 0,005 (eski 0,05) | 0.0162 (9) | 0.2396 (133) | 0,5 (eski 0,4) | 0.1063 (59) | 0.1514 (84) |
+| P(G) | 0,05 | 0.0468 (26) | 0.0288 (16) | 0,29 (= II bob chegarasi) | 0.7658 (425) | 0.7820 (434) |
+| P(S) | 0,01 | 0.0432 (24) | 0.0216 (12) | 0,097 (= II bob chegarasi) | 0.8739 (485) | 0.8775 (487) |
+
+P0/PT endi chetga yopishmaydi (PT pastki cheti 24 % → 1,6 %); P(G)/P(S) hamon II bob chegarasida — bu D55 ning savoli.
+
+### default_coverage (to‘liq natija)
+
+| Fold | Standart parametrli mavzular | Test javoblari | Standart parametr bilan | Ulush | O‘sha mavzularning moslash javoblari |
+|---|---|---|---|---|---|
+| 1 | 12 | 65 597 | 36 | 0.000549 | 211 / 272 404 |
+| 2 | 11 | 63 804 | 51 | 0.000799 | 196 / 274 197 |
+| 3 | 12 | 66 442 | 60 | 0.000903 | 187 / 271 559 |
+| 4 | 12 | 74 065 | 72 | 0.000972 | 175 / 263 936 |
+| 5 | 12 | 68 093 | 28 | 0.000411 | 219 / 269 908 |
+| pooled | — | 338 001 | 247 | 0.000731 | 988 / 1 352 004 (0.000731) |
+
+QADAM 3 dagi sonlar bilan aynan bir xil (bo‘linish va standart parametrlar o‘zgarmagan).
+
+### pyBKT cross-check
+
+5 mavzu solishtirildi, 5 tasi II bob chegaralaridan tashqarida (`g_max=0,3`, `s_max=0,1`); har beshtasida ham P(G) ham P(S) chetda. 400 o‘quvchi (3330 dan), bitta fit, logL ta’rifi ikkala fitter uchun `neuro_model.calibrate.log_likelihood`.
+
+| Mavzu | grid logL | pyBKT logL | Farq (pyBKT − grid) | Javoblar |
+|---|---|---|---|---|
+| 311 | −1670.2318 | −1587.9659 | +82.2659 | 2813 |
+| 47 | −1689.8157 | −1563.9756 | +125.8401 | 2700 |
+| 75 | −865.2384 | −827.4882 | +37.7502 | 1617 |
+| 50 | −736.7751 | −724.8523 | +11.9228 | 1564 |
+| 85 | −526.2438 | −523.4162 | +2.8276 | 1309 |
+
+Eski run bilan aynan bir xil: kengaytirilgan P0/PT grid bu beshta mavzuning optimumini o‘zgartirmadi.
+
+### Xotira (log namunalari, 60 s oralig‘ida, 143 namuna)
+
+Mashina: `MemTotal` 15 615 900 kB, `SwapTotal` 4 194 300 kB.
+
+| Bosqich | Eng yuqori `tree_rss_kb` | Eng past `mem_available_kb` | Eng past `swap_free_kb` |
+|---|---|---|---|
+| Fit bosqichi (5 worker, 08:37:17–09:27, 50 namuna) | 1 444 204 | 4 307 948 | 4 142 304 |
+| Butun run | 19 413 208 (10:59:23, pyBKT cross-check) | 4 307 948 | 4 046 812 |
+
+Swap to‘lmadi: eng past `swap_free_kb` 4 046 812 — 4 194 300 dan ~144 MB kam. 19,4 GB li namuna `ps -o rss= --ppid` yig‘indisi: pyBKT ning fork qilingan jarayonlari bir xil sahifalarni sanaydi — o‘sha namunada `mem_available_kb` 6 076 912 bo‘lgan, ya’ni haqiqiy bosim ~0,4 GB. Parent jarayonning o‘zi: `rss` 2 541 612, `VmHWM` 4 883 324.
+
+### D55 full uchun worker soni
+
+Fit bosqichi namunalaridan har bir worker uchun xotira:
+
+- `mem_available_kb` run boshida 6 797 900 → 5 worker ishga tushgandan keyingi birinchi namunada 5 483 704; kamayish 1 314 196 kB / 5 = **262 839 kB (~0,25 GiB) bir worker**;
+- shu paytdagi `tree_rss_kb` 1 444 148, parent `rss` 234 560 → (1 444 148 − 234 560) / 5 = 241 918 kB — xuddi shu tartib.
+
+Shart: fit bosqichida `MemAvailable` ≥ 2 GB. 5 worker 5 × 0,25 ≈ 1,25 GiB oladi; H2 ning o‘z fit bosqichida `MemAvailable` hech qachon 4 307 948 kB (4,1 GiB) dan pastga tushmadi — chegaradan ikki baravar yuqori. D55 ni ishga tushirish paytidagi bo‘sh xotira (`MemAvailable` 3 964 200 kB) bilan ham 3,96 − 1,25 = 2,7 GiB qoladi. Hisob 8 dan ko‘pga yo‘l beradi, lekin yuqori chegara sifatida **5 worker** olinadi (H2 da o‘lchangan va shu bilan tasdiqlangan son; 15 (sozlama, fold) juftligi 3 to‘lqinga bo‘linadi). `experiments/run_h2.sh` ga `H2_WORKERS` qo‘shildi — ilgari worker sonini faqat modulning o‘zi (`--workers` standart qiymati: `min(8, cpu/2)` = 8) tanlardi.
+
+### D55 full ishga tushirildi
+
+Shartlar bajarildi: H2 full exit 0, `tables.verify` va pozitsion tekshiruv [], provenance ikkala uchida toza, DKT 0.727307 D53 oralig‘ida. Buyruq: `H2_REFERENCE=experiments/results/assist09/20261010-060005 H2_WORKERS=5 experiments/run_h2.sh bounds-full`, toza daraxtdan (shu QADAM 5 commit'ida), transient user unit sifatida. Unit nomi, yakun qatori va natijasi run tugagandan keyin yoziladi: run davomida commit qilinmaydi, aks holda `git_end` `git_start` dan farq qiladi va provenance “tree changed” deb belgilanadi.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |

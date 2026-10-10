@@ -406,3 +406,24 @@ def test_the_bounds_modes_pass_the_reference_they_are_given(tmp_path):
     quick = (tmp_path / "logs" / "h2-bounds-quick.log").read_text()
     expected = "-m experiments.h2_bounds --quick --reference experiments/results/assist09-quick/x"
     assert "args: -u -W ignore " + expected in quick
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_a_worker_count_can_be_given_to_the_run(tmp_path):
+    """
+    The fits of the full dataset take ~0.25 GiB per worker, so the count is a
+    property of the machine, not of the module: without H2_WORKERS the module
+    would take min(8, cpu/2) (D59).
+    """
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "bounds-full", fake, H2_WORKERS="5",
+            H2_REFERENCE="experiments/results/assist09/x")
+
+    full = (tmp_path / "logs" / "h2-bounds-full.log").read_text()
+    expected = "-m experiments.h2_bounds --reference experiments/results/assist09/x --workers 5"
+    assert "args: -u -W ignore " + expected in full
+
+    plain = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "full", plain, H2_WORKERS="2")
+    assert "args: -u -W ignore -m experiments.h2 --workers 2" in (
+        tmp_path / "logs" / "h2-full.log").read_text()

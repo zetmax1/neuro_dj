@@ -32,6 +32,10 @@
 #   H2_SAMPLE_SECONDS  memory sample interval  (default 60)
 #   H2_REFERENCE  the H2 result the bounds modes must reproduce (D58, D59);
 #                 passed as --reference, and the bounds run refuses to start without it
+#   H2_WORKERS    processes for the parameter fits, passed as --workers. Without
+#                 it the module picks min(8, cpu/2), which on this machine is 8;
+#                 the fits of the full dataset need ~0.25 GiB each, so the count
+#                 is chosen from the memory the run may take (D59)
 #
 # What the log shows, so the cause of the next stop can be read without the
 # journal. The full pass of 2026-10-06 stopped at 16:53 and the bounds pass at
@@ -132,13 +136,15 @@ H2=experiments.h2
 BOUNDS=experiments.h2_bounds
 REF=""
 [[ -n "${H2_REFERENCE:-}" ]] && REF="--reference $H2_REFERENCE"
+POOL=""
+[[ -n "${H2_WORKERS:-}" ]] && POOL="--workers $H2_WORKERS"
 case "$MODE" in
-    quick) CHAIN="run quick $H2 --quick" ;;
-    full)  CHAIN="run full $H2" ;;
-    both)  CHAIN="run quick $H2 --quick && run full $H2" ;;
-    bounds-quick) CHAIN="run bounds-quick $BOUNDS --quick $REF" ;;
-    bounds-full)  CHAIN="run bounds-full $BOUNDS $REF" ;;
-    bounds-both)  CHAIN="run bounds-quick $BOUNDS --quick $REF && run bounds-full $BOUNDS $REF" ;;
+    quick) CHAIN="run quick $H2 --quick $POOL" ;;
+    full)  CHAIN="run full $H2 $POOL" ;;
+    both)  CHAIN="run quick $H2 --quick $POOL && run full $H2 $POOL" ;;
+    bounds-quick) CHAIN="run bounds-quick $BOUNDS --quick $REF $POOL" ;;
+    bounds-full)  CHAIN="run bounds-full $BOUNDS $REF $POOL" ;;
+    bounds-both) CHAIN="run bounds-quick $BOUNDS --quick $REF $POOL && run bounds-full $BOUNDS $REF $POOL" ;;
     *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both}" >&2; exit 2 ;;
 esac
 
