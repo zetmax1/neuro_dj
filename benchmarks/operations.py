@@ -30,6 +30,7 @@ the tree shape is known, not by chance at run time.
 from __future__ import annotations
 
 import random
+import sys
 from dataclasses import dataclass
 from typing import Callable
 
@@ -40,6 +41,12 @@ from benchmarks.models import CTE, MODELS, MPTT
 
 READ = "read"
 WRITE = "write"
+
+# D63b: Django's CASCADE collector recurses once per tree level, so a deep
+# chain needs more than the default 1 000 frames. CPython 3.11+ does not grow
+# the C stack for Python-to-Python calls, so raising the limit is safe here;
+# the value is well above the largest tree the benchmark builds.
+DEEP_RECURSION_LIMIT = 400_000
 
 
 @dataclass(frozen=True)
@@ -145,8 +152,24 @@ def _move_branch(method: str, target: dict, using: str) -> int:
 
 
 def _delete_branch(method: str, target: dict, using: str) -> int:
+    """
+    ``delete()``, with Python's recursion limit raised for the duration.
+
+    Django's cascade collector walks a self-referencing tree one level per
+    frame, so deleting a branch of the deep chain exceeds the default limit of
+    1 000 — in **both** methods, because the collector belongs to Django and
+    not to either storage method (measured: at 1 000 nodes both raised
+    ``RecursionError``; with the limit raised, a 100 000-deep chain deletes in
+    about 51 s, inside the per-repeat budget). The limit is restored
+    afterwards and the change is recorded in the metrics (D63b).
+    """
     node = _node(method, target["node"], using=using)
-    deleted, _per_model = node.delete(using=using)
+    previous = sys.getrecursionlimit()
+    sys.setrecursionlimit(max(previous, DEEP_RECURSION_LIMIT))
+    try:
+        deleted, _per_model = node.delete(using=using)
+    finally:
+        sys.setrecursionlimit(previous)
     return deleted
 
 
@@ -227,4 +250,5 @@ def _is_descendant(candidate: int, node: int, parent_list: list[int | None]) -> 
 __all__ = [
     "Operation", "OPERATIONS", "BY_NAME", "READ", "WRITE", "Y1Violation", "check_y1",
     "READ_OPERATIONS", "WRITE_OPERATIONS", "targets", "CTE", "MPTT",
+    "DEEP_RECURSION_LIMIT",
 ]

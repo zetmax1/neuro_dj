@@ -2016,6 +2016,35 @@ tushirishining sonlari ishlatilmaydi va chegaralar siljimadi: o‘zgargani —
 nimani o‘lchash to‘g‘ri ekani.
 
 
+### D63b — chuqur zanjirda o‘chirish: Django ning kollektori (2026-10-12, to‘liq run'dan oldin)
+
+**Sabab.** `--quick` (10³ tugun) ishga tushirishida `deep_chain` shaklining
+`delete_branch` katagi **ikkala usulda ham** `RecursionError` bilan tugadi.
+Sabab saqlash usuli emas: Django ning `CASCADE` kollektori o‘ziga havola
+qiluvchi daraxtni har bir daraja uchun bitta freym bilan yuradi, standart
+chegara esa 1 000. Ya’ni bu Django ning xossasi va ikki usulga teng tegishli.
+
+**Qaror.** `delete_branch` amali o‘z davomida Python ning rekursiya
+chegarasini **400 000** ga ko‘taradi va keyin qaytaradi (`sys.setrecursionlimit`,
+ikkala usulda bir xil joyda). CPython 3.11+ da Python→Python chaqiruvlari C
+stack'ni o‘stirmaydi, shuning uchun chegarani ko‘tarish xavfsiz; qiymat
+benchmark quradigan eng katta daraxtdan ancha yuqori. Chegara `metrics.json`
+ning `settings.deep_recursion_limit` iga yoziladi.
+
+**O‘lchangan feasibility (natija emas, imkoniyat tekshiruvi).** 100 000
+tugunli chuqur zanjirda bitta `delete_branch` ≈ 51 s (CTE), ya’ni D63 ning
+bitta takror uchun 120 s chegarasidan past. Demak katak “timeout” bo‘lmaydi,
+lekin 30 takror shu yerda ~30 daqiqa oladi; `deep_chain/100000` bloki eng
+qimmat blok bo‘ladi. To‘liq run bir necha soat ketishi mumkin va u blok
+bo‘yicha checkpoint qiladi.
+
+**O‘zgarmagani.** Takrorlar soni, chegaralar, nisbat va o‘qish qoidasi
+o‘zgarmadi. Chegaradan oshgan katak avvalgidek “timeout”, xato bilan tugagan
+katak “hisoblanmadi” bo‘lib qoladi va taxmin yozilmaydi.
+
+
+---
+
 ## 9-bosqich kodi — `benchmarks` app'i va H4 (2026-10-12, natijadan oldin)
 
 D63 va D63a bo‘yicha yozildi. **Dissertatsiya natijasi yo‘q**: to‘liq run hali

@@ -162,3 +162,23 @@ def test_every_operation_is_either_a_read_or_a_write():
     assert len(operations.WRITE_OPERATIONS) == 4
     assert all(operation.mutates == (operation.kind == "write")
                for operation in operations.OPERATIONS)
+
+
+@pytest.mark.django_db(databases=["default", ALIAS])
+def test_deleting_a_deep_branch_does_not_run_out_of_frames():
+    """
+    D63b: Django's cascade collector recurses per level, so a 1 200-deep chain
+    exceeds the default limit — in both methods, because the collector is
+    Django's. The operation raises the limit and puts it back.
+    """
+    import sys
+
+    spec = generator.TreeSpec(shape=Shape.DEEP_CHAIN, size=1200, seed=20261006)
+    generator.build_all(spec, using=ALIAS)
+    before = sys.getrecursionlimit()
+
+    removed = operations.BY_NAME["delete_branch"].run(CTE, {"node": 3}, ALIAS)
+
+    assert removed == 1198
+    assert sys.getrecursionlimit() == before
+    assert operations.DEEP_RECURSION_LIMIT > 1200

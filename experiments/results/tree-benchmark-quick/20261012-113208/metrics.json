@@ -1,0 +1,4515 @@
+{
+  "report": "tree_benchmark",
+  "spec": "D63",
+  "quick": true,
+  "thesis_result": false,
+  "hypothesis": "H4",
+  "provenance": {
+    "command": "python manage.py run_tree_benchmark --quick --database benchmark --shapes course_like,deep_chain,random --warmups 5 --repeats 30 --timeout 120.0 --parallel-repeats 3 --seed 20261006",
+    "code_commit": "2a8d1dc",
+    "code_dirty": false,
+    "created_at": "2026-10-12T11:32:08.412028+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "trees": 20261006,
+      "targets": 20261006,
+      "bootstrap": 20261006
+    },
+    "sources": [],
+    "packages": {
+      "django": "6.0.5",
+      "django-mptt": "0.18.0",
+      "django-tree-queries": "0.24.0",
+      "psycopg": "3.3.6"
+    },
+    "env": {},
+    "git_start": {
+      "commit": "2a8d1dc",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-12T11:28:46.966739+00:00"
+    },
+    "git_end": {
+      "commit": "2a8d1dc",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-12T11:32:08.411998+00:00"
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  },
+  "environment": {
+    "postgres": {
+      "vendor": "postgresql",
+      "version": "16.15 (Debian 16.15-1.pgdg13+2)",
+      "shared_buffers": "128MB",
+      "fsync": "on",
+      "synchronous_commit": "on",
+      "max_connections": "100",
+      "database": "neurolearn_bench"
+    },
+    "cpu": {
+      "model": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+      "logical_cores": 16,
+      "governors": [
+        "powersave"
+      ],
+      "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43"
+    },
+    "memory": {
+      "total_kb": 15615888,
+      "available_kb": 6033144
+    },
+    "load": {
+      "load_1m": 1.97,
+      "load_5m": 1.94,
+      "load_15m": 1.77
+    },
+    "busiest_processes": [
+      {
+        "cpu_percent": 384.0,
+        "command": "python"
+      },
+      {
+        "cpu_percent": 10.4,
+        "command": "gnome-shell"
+      },
+      {
+        "cpu_percent": 9.7,
+        "command": "chrome"
+      },
+      {
+        "cpu_percent": 6.2,
+        "command": "chrome"
+      },
+      {
+        "cpu_percent": 6.2,
+        "command": "antigravity-ide"
+      }
+    ],
+    "note": "vaqt o‘lchovlari mashinaga bog‘liq; nisbat (ρ) va uning oralig‘i mashinadan kam bog‘liq, shuning uchun da’vo ular ustiga qurilgan"
+  },
+  "environment_at_end": {
+    "memory": {
+      "total_kb": 15615888,
+      "available_kb": 6344108
+    },
+    "load": {
+      "load_1m": 1.56,
+      "load_5m": 1.8,
+      "load_15m": 1.76
+    },
+    "busiest_processes": [
+      {
+        "cpu_percent": 10.3,
+        "command": "gnome-shell"
+      },
+      {
+        "cpu_percent": 9.5,
+        "command": "chrome"
+      },
+      {
+        "cpu_percent": 7.2,
+        "command": "python"
+      },
+      {
+        "cpu_percent": 6.1,
+        "command": "antigravity-ide"
+      },
+      {
+        "cpu_percent": 6.1,
+        "command": "chrome"
+      }
+    ]
+  },
+  "database": {
+    "alias": "benchmark",
+    "name": "neurolearn_bench",
+    "vendor": "postgresql"
+  },
+  "checkpoint": {
+    "enabled": true,
+    "key_digest": "29708f5e75de8e9f",
+    "resumed_items": 0
+  },
+  "cells": [
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "operation": "read_branch",
+      "kind": "read",
+      "label": "shoxni o‘qish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.001167,
+            0.001149,
+            0.001173,
+            0.001857,
+            0.001431
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.001173,
+            "p95": 0.001772,
+            "min": 0.001149,
+            "max": 0.001857,
+            "mean": 0.001355,
+            "median_ms": 1.173,
+            "p95_ms": 1.772
+          },
+          "queries_median": 2,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 10
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.003365,
+            0.003441,
+            0.003597,
+            0.004098,
+            0.00362
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.003597,
+            "p95": 0.004002,
+            "min": 0.003365,
+            "max": 0.004098,
+            "mean": 0.003624,
+            "median_ms": 3.597,
+            "p95_ms": 4.002
+          },
+          "queries_median": 2,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 10
+        }
+      },
+      "ratio": {
+        "ratio": 0.326105,
+        "ci_low": 0.326105,
+        "ci_high": 0.453148,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "MPTT tezroq"
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "operation": "read_ancestors",
+      "kind": "read",
+      "label": "ajdodlarni o‘qish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.001233,
+            0.001084,
+            0.001328,
+            0.001296,
+            0.001152
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.001233,
+            "p95": 0.001322,
+            "min": 0.001084,
+            "max": 0.001328,
+            "mean": 0.001219,
+            "median_ms": 1.233,
+            "p95_ms": 1.322
+          },
+          "queries_median": 2,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 2
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.005693,
+            0.006013,
+            0.006191,
+            0.006265,
+            0.006434
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.006191,
+            "p95": 0.0064,
+            "min": 0.005693,
+            "max": 0.006434,
+            "mean": 0.006119,
+            "median_ms": 6.191,
+            "p95_ms": 6.4
+          },
+          "queries_median": 3,
+          "queries_min": 3,
+          "queries_max": 3,
+          "rows_touched_median": 2
+        }
+      },
+      "ratio": {
+        "ratio": 0.19916,
+        "ci_low": 0.179049,
+        "ci_high": 0.216582,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "MPTT tezroq"
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "operation": "append_leaf",
+      "kind": "write",
+      "label": "oxiriga barg qo‘shish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.004141,
+            0.007882,
+            0.002618,
+            0.008515,
+            0.007725
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.007725,
+            "p95": 0.008388,
+            "min": 0.002618,
+            "max": 0.008515,
+            "mean": 0.006176,
+            "median_ms": 7.725,
+            "p95_ms": 8.388
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 536,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.000826,
+            0.000791,
+            0.000802,
+            0.000725,
+            0.001092
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.000802,
+            "p95": 0.001039,
+            "min": 0.000725,
+            "max": 0.001092,
+            "mean": 0.000847,
+            "median_ms": 0.802,
+            "p95_ms": 1.039
+          },
+          "queries_median": 4,
+          "queries_min": 4,
+          "queries_max": 4,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 1,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 9.63217,
+        "ci_low": 3.264339,
+        "ci_high": 11.744828,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "operation": "insert_leftmost",
+      "kind": "write",
+      "label": "eng chapga barg qo‘shish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.005515,
+            0.008991,
+            0.002152,
+            0.008504,
+            0.00905
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.008504,
+            "p95": 0.009039,
+            "min": 0.002152,
+            "max": 0.00905,
+            "mean": 0.006842,
+            "median_ms": 8.504,
+            "p95_ms": 9.039
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 546,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.00111,
+            0.001118,
+            0.000985,
+            0.000946,
+            0.000811
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.000985,
+            "p95": 0.001117,
+            "min": 0.000811,
+            "max": 0.001118,
+            "mean": 0.000994,
+            "median_ms": 0.985,
+            "p95_ms": 1.117
+          },
+          "queries_median": 4,
+          "queries_min": 4,
+          "queries_max": 4,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 1,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 8.633503,
+        "ci_low": 2.184772,
+        "ci_high": 11.159063,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "operation": "move_branch",
+      "kind": "write",
+      "label": "shoxni ko‘chirish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.009111,
+            0.009275,
+            0.008014,
+            0.008986,
+            0.009831
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.009111,
+            "p95": 0.00972,
+            "min": 0.008014,
+            "max": 0.009831,
+            "mean": 0.009044,
+            "median_ms": 9.111,
+            "p95_ms": 9.72
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1000,
+            "rows_changed": 456,
+            "rows_inserted": 0,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.005422,
+            0.005349,
+            0.004927,
+            0.004844,
+            0.00467
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.004927,
+            "p95": 0.005407,
+            "min": 0.00467,
+            "max": 0.005422,
+            "mean": 0.005042,
+            "median_ms": 4.927,
+            "p95_ms": 5.407
+          },
+          "queries_median": 7,
+          "queries_min": 7,
+          "queries_max": 7,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1000,
+            "rows_changed": 1,
+            "rows_inserted": 0,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 1.849198,
+        "ci_low": 1.626548,
+        "ci_high": 2.105139,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "operation": "delete_branch",
+      "kind": "write",
+      "label": "shoxni o‘chirish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.006066,
+            0.009799,
+            0.004192,
+            0.011384,
+            0.010175
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.009799,
+            "p95": 0.011142,
+            "min": 0.004192,
+            "max": 0.011384,
+            "mean": 0.008323,
+            "median_ms": 9.799,
+            "p95_ms": 11.142
+          },
+          "queries_median": 8,
+          "queries_min": 8,
+          "queries_max": 10,
+          "rows_touched_median": 11,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 989,
+            "rows_changed": 534,
+            "rows_inserted": 0,
+            "rows_deleted": 11,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.001719,
+            0.001858,
+            0.00187,
+            0.004578,
+            0.001746
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.001858,
+            "p95": 0.004037,
+            "min": 0.001719,
+            "max": 0.004578,
+            "mean": 0.002354,
+            "median_ms": 1.858,
+            "p95_ms": 4.037
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 8,
+          "rows_touched_median": 11,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 989,
+            "rows_changed": 0,
+            "rows_inserted": 0,
+            "rows_deleted": 11,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 5.27395,
+        "ci_low": 2.241711,
+        "ci_high": 5.827606,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "operation": "read_branch",
+      "kind": "read",
+      "label": "shoxni o‘qish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.004442,
+            0.005906,
+            0.002749,
+            0.002728,
+            0.004457
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.004442,
+            "p95": 0.005617,
+            "min": 0.002728,
+            "max": 0.005906,
+            "mean": 0.004056,
+            "median_ms": 4.442,
+            "p95_ms": 5.617
+          },
+          "queries_median": 2,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 612
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.193383,
+            0.202011,
+            0.121303,
+            0.130588,
+            0.195371
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.193383,
+            "p95": 0.200683,
+            "min": 0.121303,
+            "max": 0.202011,
+            "mean": 0.168531,
+            "median_ms": 193.383,
+            "p95_ms": 200.683
+          },
+          "queries_median": 2,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 612
+        }
+      },
+      "ratio": {
+        "ratio": 0.02297,
+        "ci_low": 0.02089,
+        "ci_high": 0.029236,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "MPTT tezroq"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "operation": "read_ancestors",
+      "kind": "read",
+      "label": "ajdodlarni o‘qish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.003386,
+            0.002052,
+            0.004996,
+            0.004853,
+            0.002792
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.003386,
+            "p95": 0.004967,
+            "min": 0.002052,
+            "max": 0.004996,
+            "mean": 0.003616,
+            "median_ms": 3.386,
+            "p95_ms": 4.967
+          },
+          "queries_median": 2,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 387
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.16946,
+            0.160344,
+            0.229559,
+            0.221873,
+            0.164696
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.16946,
+            "p95": 0.228022,
+            "min": 0.160344,
+            "max": 0.229559,
+            "mean": 0.189186,
+            "median_ms": 169.46,
+            "p95_ms": 228.022
+          },
+          "queries_median": 3,
+          "queries_min": 3,
+          "queries_max": 3,
+          "rows_touched_median": 387
+        }
+      },
+      "ratio": {
+        "ratio": 0.019981,
+        "ci_low": 0.012797,
+        "ci_high": 0.021873,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "MPTT tezroq"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "operation": "append_leaf",
+      "kind": "write",
+      "label": "oxiriga barg qo‘shish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.00475,
+            0.002686,
+            0.007305,
+            0.007275,
+            0.004593
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.00475,
+            "p95": 0.007299,
+            "min": 0.002686,
+            "max": 0.007305,
+            "mean": 0.005321,
+            "median_ms": 4.75,
+            "p95_ms": 7.299
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 411,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.000907,
+            0.000823,
+            0.00074,
+            0.000704,
+            0.000688
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.00074,
+            "p95": 0.00089,
+            "min": 0.000688,
+            "max": 0.000907,
+            "mean": 0.000772,
+            "median_ms": 0.74,
+            "p95_ms": 0.89
+          },
+          "queries_median": 4,
+          "queries_min": 4,
+          "queries_max": 4,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 1,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 6.418919,
+        "ci_low": 3.26367,
+        "ci_high": 10.333807,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "operation": "insert_leftmost",
+      "kind": "write",
+      "label": "eng chapga barg qo‘shish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.00938,
+            0.010505,
+            0.009326,
+            0.009259,
+            0.008871
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.009326,
+            "p95": 0.01028,
+            "min": 0.008871,
+            "max": 0.010505,
+            "mean": 0.009468,
+            "median_ms": 9.326,
+            "p95_ms": 10.28
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 1001,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.000818,
+            0.001035,
+            0.0008,
+            0.000708,
+            0.000667
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.0008,
+            "p95": 0.000992,
+            "min": 0.000667,
+            "max": 0.001035,
+            "mean": 0.000806,
+            "median_ms": 0.8,
+            "p95_ms": 0.992
+          },
+          "queries_median": 4,
+          "queries_min": 4,
+          "queries_max": 4,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 1,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 11.6575,
+        "ci_low": 10.149758,
+        "ci_high": 13.29985,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "operation": "move_branch",
+      "kind": "write",
+      "label": "shoxni ko‘chirish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.008989,
+            0.008975,
+            0.008679,
+            0.008863,
+            0.009028
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.008975,
+            "p95": 0.00902,
+            "min": 0.008679,
+            "max": 0.009028,
+            "mean": 0.008907,
+            "median_ms": 8.975,
+            "p95_ms": 9.02
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1000,
+            "rows_changed": 878,
+            "rows_inserted": 0,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.078455,
+            0.077575,
+            0.078596,
+            0.08047,
+            0.080022
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.078596,
+            "p95": 0.08038,
+            "min": 0.077575,
+            "max": 0.08047,
+            "mean": 0.079023,
+            "median_ms": 78.596,
+            "p95_ms": 80.38
+          },
+          "queries_median": 7,
+          "queries_min": 7,
+          "queries_max": 7,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1000,
+            "rows_changed": 1,
+            "rows_inserted": 0,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 0.114192,
+        "ci_low": 0.11014,
+        "ci_high": 0.115694,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "MPTT tezroq"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "operation": "delete_branch",
+      "kind": "write",
+      "label": "shoxni o‘chirish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "error",
+          "error": "RecursionError: maximum recursion depth exceeded",
+          "completed_repeats": 0
+        },
+        "cte": {
+          "status": "error",
+          "error": "RecursionError: maximum recursion depth exceeded",
+          "completed_repeats": 0
+        }
+      },
+      "ratio": {
+        "ratio": null,
+        "ci_low": null,
+        "ci_high": null,
+        "replicates": 0,
+        "reason": "mptt: error, cte: error"
+      },
+      "verdict": "hisoblanmadi"
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "operation": "read_branch",
+      "kind": "read",
+      "label": "shoxni o‘qish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.001178,
+            0.000991,
+            0.001025,
+            0.00091,
+            0.000999
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.000999,
+            "p95": 0.001148,
+            "min": 0.00091,
+            "max": 0.001178,
+            "mean": 0.001021,
+            "median_ms": 0.999,
+            "p95_ms": 1.148
+          },
+          "queries_median": 2,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 2
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.003856,
+            0.003786,
+            0.003841,
+            0.003655,
+            0.003884
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.003841,
+            "p95": 0.003879,
+            "min": 0.003655,
+            "max": 0.003884,
+            "mean": 0.003804,
+            "median_ms": 3.841,
+            "p95_ms": 3.879
+          },
+          "queries_median": 2,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 2
+        }
+      },
+      "ratio": {
+        "ratio": 0.260089,
+        "ci_low": 0.248974,
+        "ci_high": 0.305498,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "MPTT tezroq"
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "operation": "read_ancestors",
+      "kind": "read",
+      "label": "ajdodlarni o‘qish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.001502,
+            0.001228,
+            0.00122,
+            0.001296,
+            0.001113
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.001228,
+            "p95": 0.001461,
+            "min": 0.001113,
+            "max": 0.001502,
+            "mean": 0.001272,
+            "median_ms": 1.228,
+            "p95_ms": 1.461
+          },
+          "queries_median": 2,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 5
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.007276,
+            0.007309,
+            0.007363,
+            0.007307,
+            0.007335
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.007309,
+            "p95": 0.007357,
+            "min": 0.007276,
+            "max": 0.007363,
+            "mean": 0.007318,
+            "median_ms": 7.309,
+            "p95_ms": 7.357
+          },
+          "queries_median": 3,
+          "queries_min": 3,
+          "queries_max": 3,
+          "rows_touched_median": 5
+        }
+      },
+      "ratio": {
+        "ratio": 0.168012,
+        "ci_low": 0.151738,
+        "ci_high": 0.206432,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "MPTT tezroq"
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "operation": "append_leaf",
+      "kind": "write",
+      "label": "oxiriga barg qo‘shish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.002123,
+            0.007432,
+            0.008315,
+            0.001774,
+            0.007513
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.007432,
+            "p95": 0.008155,
+            "min": 0.001774,
+            "max": 0.008315,
+            "mean": 0.005431,
+            "median_ms": 7.432,
+            "p95_ms": 8.155
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 60,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.00073,
+            0.000682,
+            0.000742,
+            0.000694,
+            0.000755
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.00073,
+            "p95": 0.000753,
+            "min": 0.000682,
+            "max": 0.000755,
+            "mean": 0.000721,
+            "median_ms": 0.73,
+            "p95_ms": 0.753
+          },
+          "queries_median": 4,
+          "queries_min": 4,
+          "queries_max": 4,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 1,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 10.180822,
+        "ci_low": 2.556196,
+        "ci_high": 11.206199,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "operation": "insert_leftmost",
+      "kind": "write",
+      "label": "eng chapga barg qo‘shish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.001851,
+            0.007206,
+            0.010695,
+            0.001981,
+            0.007579
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.007206,
+            "p95": 0.010072,
+            "min": 0.001851,
+            "max": 0.010695,
+            "mean": 0.005862,
+            "median_ms": 7.206,
+            "p95_ms": 10.072
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 62,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.00098,
+            0.000968,
+            0.000757,
+            0.000859,
+            0.00075
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.000859,
+            "p95": 0.000977,
+            "min": 0.00075,
+            "max": 0.00098,
+            "mean": 0.000863,
+            "median_ms": 0.859,
+            "p95_ms": 0.977
+          },
+          "queries_median": 4,
+          "queries_min": 4,
+          "queries_max": 4,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1001,
+            "rows_changed": 1,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 8.388824,
+        "ci_low": 1.888776,
+        "ci_high": 14.128137,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "operation": "move_branch",
+      "kind": "write",
+      "label": "shoxni ko‘chirish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.00989,
+            0.009943,
+            0.008613,
+            0.008784,
+            0.008902
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.008902,
+            "p95": 0.009932,
+            "min": 0.008613,
+            "max": 0.009943,
+            "mean": 0.009226,
+            "median_ms": 8.902,
+            "p95_ms": 9.932
+          },
+          "queries_median": 6,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1000,
+            "rows_changed": 869,
+            "rows_inserted": 0,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.005592,
+            0.005554,
+            0.005325,
+            0.005537,
+            0.005648
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.005554,
+            "p95": 0.005637,
+            "min": 0.005325,
+            "max": 0.005648,
+            "mean": 0.005531,
+            "median_ms": 5.554,
+            "p95_ms": 5.637
+          },
+          "queries_median": 7,
+          "queries_min": 7,
+          "queries_max": 7,
+          "rows_touched_median": 1,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 1000,
+            "rows_changed": 1,
+            "rows_inserted": 0,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 1.602809,
+        "ci_low": 1.576133,
+        "ci_high": 1.790241,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "operation": "delete_branch",
+      "kind": "write",
+      "label": "shoxni o‘chirish",
+      "targets": 7,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.003175,
+            0.010648,
+            0.010345,
+            0.003083,
+            0.011937
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.010345,
+            "p95": 0.011679,
+            "min": 0.003083,
+            "max": 0.011937,
+            "mean": 0.007838,
+            "median_ms": 10.345,
+            "p95_ms": 11.679
+          },
+          "queries_median": 9,
+          "queries_min": 8,
+          "queries_max": 9,
+          "rows_touched_median": 3,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 997,
+            "rows_changed": 58,
+            "rows_inserted": 0,
+            "rows_deleted": 3,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.001722,
+            0.002147,
+            0.00229,
+            0.002156,
+            0.001559
+          ],
+          "seconds": {
+            "repeats": 5,
+            "median": 0.002147,
+            "p95": 0.002263,
+            "min": 0.001559,
+            "max": 0.00229,
+            "mean": 0.001975,
+            "median_ms": 2.147,
+            "p95_ms": 2.263
+          },
+          "queries_median": 7,
+          "queries_min": 6,
+          "queries_max": 7,
+          "rows_touched_median": 3,
+          "changed": {
+            "rows_before": 1000,
+            "rows_after": 997,
+            "rows_changed": 0,
+            "rows_inserted": 0,
+            "rows_deleted": 3,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 4.818351,
+        "ci_low": 1.429963,
+        "ci_high": 7.656831,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    }
+  ],
+  "trees": [
+    {
+      "method": "mptt",
+      "shape": "course_like",
+      "size": 1000,
+      "seed": 20261006,
+      "nodes": 1000,
+      "sha256": "dee517a825dbd850c0d7fc67d3f425c1218a804f04309bae934cd5e0a1f73048",
+      "max_depth": 3,
+      "build_seconds": 0.05
+    },
+    {
+      "method": "cte",
+      "shape": "course_like",
+      "size": 1000,
+      "seed": 20261006,
+      "nodes": 1000,
+      "sha256": "dee517a825dbd850c0d7fc67d3f425c1218a804f04309bae934cd5e0a1f73048",
+      "max_depth": 3,
+      "build_seconds": 0.021
+    },
+    {
+      "method": "mptt",
+      "shape": "deep_chain",
+      "size": 1000,
+      "seed": 20261006,
+      "nodes": 1000,
+      "sha256": "2c7d91e72f6ab57194e174571fbcd286dad32f47fff08dfa44cbaf003776755b",
+      "max_depth": 999,
+      "build_seconds": 0.035
+    },
+    {
+      "method": "cte",
+      "shape": "deep_chain",
+      "size": 1000,
+      "seed": 20261006,
+      "nodes": 1000,
+      "sha256": "2c7d91e72f6ab57194e174571fbcd286dad32f47fff08dfa44cbaf003776755b",
+      "max_depth": 999,
+      "build_seconds": 0.021
+    },
+    {
+      "method": "mptt",
+      "shape": "random",
+      "size": 1000,
+      "seed": 20261006,
+      "nodes": 1000,
+      "sha256": "f92083ccb676c63d70c6678c09e7dcc1c617f7519cf93e88be01fb0ee44e19fb",
+      "max_depth": 12,
+      "build_seconds": 0.04
+    },
+    {
+      "method": "cte",
+      "shape": "random",
+      "size": 1000,
+      "seed": 20261006,
+      "nodes": 1000,
+      "sha256": "f92083ccb676c63d70c6678c09e7dcc1c617f7519cf93e88be01fb0ee44e19fb",
+      "max_depth": 12,
+      "build_seconds": 0.061
+    }
+  ],
+  "parallel": [
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 2,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 151.75,
+      "throughput_min": 130.495,
+      "throughput_max": 173.006,
+      "latency_median": 0.010813,
+      "latency_p95": 0.020538,
+      "errors": {
+        "InvalidMove": 25,
+        "IntegrityError": 28,
+        "OperationalError": 1,
+        "Skipped": 2
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1434,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1434,
+              "lft_not_less_than_rght": 250,
+              "outside_parent_interval": 856,
+              "duplicate_boundaries": 1281,
+              "wrong_level": 1364,
+              "differs_from_rebuild": 1434,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  2,
+                  3,
+                  6,
+                  8,
+                  11,
+                  13,
+                  16,
+                  18,
+                  19,
+                  21
+                ],
+                "outside": [
+                  212,
+                  197,
+                  1197,
+                  391,
+                  1052,
+                  1156,
+                  70,
+                  464,
+                  550,
+                  180
+                ],
+                "wrong_level": [
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11
+                ],
+                "differing": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1327,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 127,
+              "cycle_nodes": [
+                3,
+                25,
+                62,
+                249,
+                619
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1327,
+              "lft_not_less_than_rght": 158,
+              "outside_parent_interval": 725,
+              "duplicate_boundaries": 1068,
+              "wrong_level": 1068,
+              "differs_from_rebuild": 1199,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  3,
+                  5,
+                  7,
+                  8,
+                  9,
+                  10,
+                  15,
+                  17,
+                  21,
+                  22
+                ],
+                "outside": [
+                  779,
+                  208,
+                  209,
+                  1326,
+                  79,
+                  1155,
+                  1052,
+                  526,
+                  1166,
+                  1056
+                ],
+                "wrong_level": [
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  14,
+                  15
+                ],
+                "differing": [
+                  1,
+                  2,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.011,
+          "operations": 867,
+          "appended": 434,
+          "moved": 433,
+          "throughput": 173.006,
+          "latency_median": 0.010546,
+          "latency_p95": 0.018899,
+          "errors": {
+            "InvalidMove": 17,
+            "IntegrityError": 22
+          },
+          "error_count": 39,
+          "per_worker_operations": [
+            434,
+            433
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.012,
+          "operations": 654,
+          "appended": 327,
+          "moved": 327,
+          "throughput": 130.495,
+          "latency_median": 0.01108,
+          "latency_p95": 0.020538,
+          "errors": {
+            "InvalidMove": 8,
+            "IntegrityError": 6,
+            "OperationalError": 1,
+            "Skipped": 2
+          },
+          "error_count": 17,
+          "per_worker_operations": [
+            328,
+            326
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "method": "cte",
+      "workers": 2,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 367.851,
+      "throughput_min": 364.683,
+      "throughput_max": 371.019,
+      "latency_median": 0.005539499999999999,
+      "latency_p95": 0.015202,
+      "errors": {
+        "Y1Violation": 12,
+        "Skipped": 4
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1916,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1929,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.024,
+          "operations": 1832,
+          "appended": 916,
+          "moved": 916,
+          "throughput": 364.683,
+          "latency_median": 0.005194,
+          "latency_p95": 0.015202,
+          "errors": {
+            "Y1Violation": 6,
+            "Skipped": 1
+          },
+          "error_count": 7,
+          "per_worker_operations": [
+            914,
+            918
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.005,
+          "operations": 1857,
+          "appended": 929,
+          "moved": 928,
+          "throughput": 371.019,
+          "latency_median": 0.005885,
+          "latency_p95": 0.013675,
+          "errors": {
+            "Y1Violation": 6,
+            "Skipped": 3
+          },
+          "error_count": 9,
+          "per_worker_operations": [
+            920,
+            937
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 4,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 2.982,
+      "throughput_min": 2.892,
+      "throughput_max": 3.073,
+      "latency_median": 0.5221685,
+      "latency_p95": 3.67183,
+      "errors": {
+        "OperationalError": 10
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1008,
+              "lft_not_less_than_rght": 1,
+              "outside_parent_interval": 31,
+              "duplicate_boundaries": 13,
+              "wrong_level": 12,
+              "differs_from_rebuild": 173,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  80
+                ],
+                "outside": [
+                  523,
+                  81,
+                  450,
+                  288,
+                  691,
+                  1002,
+                  144,
+                  451,
+                  1001,
+                  524
+                ],
+                "wrong_level": [
+                  81,
+                  450,
+                  451,
+                  523,
+                  524,
+                  579,
+                  580,
+                  624,
+                  625,
+                  691
+                ],
+                "differing": [
+                  69,
+                  70,
+                  72,
+                  73,
+                  74,
+                  75,
+                  76,
+                  77,
+                  78,
+                  79
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1008,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 14,
+              "duplicate_boundaries": 5,
+              "wrong_level": 10,
+              "differs_from_rebuild": 60,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [
+                  800,
+                  449,
+                  1002,
+                  1004,
+                  845,
+                  451,
+                  625,
+                  624,
+                  679,
+                  1003
+                ],
+                "wrong_level": [
+                  449,
+                  451,
+                  624,
+                  625,
+                  677,
+                  679,
+                  800,
+                  802,
+                  845,
+                  848
+                ],
+                "differing": [
+                  80,
+                  81,
+                  300,
+                  359,
+                  362,
+                  363,
+                  364,
+                  442,
+                  443,
+                  444
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.206,
+          "operations": 16,
+          "appended": 8,
+          "moved": 8,
+          "throughput": 3.073,
+          "latency_median": 1.011724,
+          "latency_p95": 3.077109,
+          "errors": {
+            "OperationalError": 5
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.187,
+          "operations": 15,
+          "appended": 8,
+          "moved": 7,
+          "throughput": 2.892,
+          "latency_median": 0.032613,
+          "latency_p95": 3.67183,
+          "errors": {
+            "OperationalError": 5
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            6,
+            4,
+            3,
+            2
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "method": "cte",
+      "workers": 4,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 502.237,
+      "throughput_min": 493.467,
+      "throughput_max": 511.007,
+      "latency_median": 0.0055765,
+      "latency_p95": 0.021992,
+      "errors": {
+        "Y1Violation": 24,
+        "Skipped": 4,
+        "DoesNotExist": 40
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2238,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2283,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.018,
+          "operations": 2476,
+          "appended": 1238,
+          "moved": 1238,
+          "throughput": 493.467,
+          "latency_median": 0.005462,
+          "latency_p95": 0.021992,
+          "errors": {
+            "Y1Violation": 14,
+            "Skipped": 2
+          },
+          "error_count": 16,
+          "per_worker_operations": [
+            634,
+            628,
+            612,
+            602
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.021,
+          "operations": 2566,
+          "appended": 1283,
+          "moved": 1283,
+          "throughput": 511.007,
+          "latency_median": 0.005691,
+          "latency_p95": 0.021063,
+          "errors": {
+            "Y1Violation": 10,
+            "DoesNotExist": 40,
+            "Skipped": 2
+          },
+          "error_count": 52,
+          "per_worker_operations": [
+            640,
+            642,
+            638,
+            646
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 4,
+      "variant": "locked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 209.595,
+      "throughput_min": 208.217,
+      "throughput_max": 210.973,
+      "latency_median": 0.017383,
+      "latency_p95": 0.032321,
+      "errors": {
+        "InvalidMove": 5,
+        "Skipped": 4
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1524,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1524,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1530,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1530,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.019,
+          "operations": 1045,
+          "appended": 524,
+          "moved": 521,
+          "throughput": 208.217,
+          "latency_median": 0.017477,
+          "latency_p95": 0.032155,
+          "errors": {
+            "InvalidMove": 3,
+            "Skipped": 2
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            263,
+            261,
+            259,
+            262
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.02,
+          "operations": 1059,
+          "appended": 530,
+          "moved": 529,
+          "throughput": 210.973,
+          "latency_median": 0.017289,
+          "latency_p95": 0.032321,
+          "errors": {
+            "InvalidMove": 2,
+            "Skipped": 2
+          },
+          "error_count": 4,
+          "per_worker_operations": [
+            265,
+            264,
+            264,
+            266
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "method": "cte",
+      "workers": 4,
+      "variant": "locked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 227.415,
+      "throughput_min": 227.268,
+      "throughput_max": 227.561,
+      "latency_median": 0.017361,
+      "latency_p95": 0.032399,
+      "errors": {
+        "Y1Violation": 9,
+        "Skipped": 2
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1573,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1573,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.043,
+          "operations": 1146,
+          "appended": 573,
+          "moved": 573,
+          "throughput": 227.268,
+          "latency_median": 0.017004,
+          "latency_p95": 0.030957,
+          "errors": {
+            "Y1Violation": 5,
+            "Skipped": 1
+          },
+          "error_count": 6,
+          "per_worker_operations": [
+            288,
+            286,
+            286,
+            286
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.032,
+          "operations": 1145,
+          "appended": 573,
+          "moved": 572,
+          "throughput": 227.561,
+          "latency_median": 0.017718,
+          "latency_p95": 0.032399,
+          "errors": {
+            "Y1Violation": 4,
+            "Skipped": 1
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            286,
+            286,
+            287,
+            286
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 2,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 74.371,
+      "throughput_min": 2.696,
+      "throughput_max": 146.046,
+      "latency_median": 0.013793,
+      "latency_p95": 1.387235,
+      "errors": {
+        "IntegrityError": 103,
+        "InvalidMove": 101,
+        "OperationalError": 6
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1367,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 1366,
+              "cycle_nodes": [
+                16,
+                67,
+                69,
+                70,
+                217,
+                219,
+                220,
+                221,
+                282,
+                283
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1367,
+              "lft_not_less_than_rght": 539,
+              "outside_parent_interval": 812,
+              "duplicate_boundaries": 1633,
+              "wrong_level": 0,
+              "differs_from_rebuild": 1,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  3,
+                  10,
+                  11,
+                  12,
+                  13,
+                  15,
+                  16,
+                  17,
+                  19,
+                  26
+                ],
+                "outside": [
+                  1196,
+                  464,
+                  466,
+                  441,
+                  619,
+                  1034,
+                  620,
+                  414,
+                  1020,
+                  419
+                ],
+                "wrong_level": [],
+                "differing": [
+                  1
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1008,
+              "lft_not_less_than_rght": 210,
+              "outside_parent_interval": 9,
+              "duplicate_boundaries": 8,
+              "wrong_level": 350,
+              "differs_from_rebuild": 979,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  480,
+                  481,
+                  532,
+                  533,
+                  534,
+                  535,
+                  536,
+                  537,
+                  538,
+                  539
+                ],
+                "outside": [
+                  365,
+                  887,
+                  654,
+                  1007,
+                  755,
+                  1006,
+                  1005,
+                  934,
+                  482
+                ],
+                "wrong_level": [
+                  654,
+                  655,
+                  656,
+                  657,
+                  658,
+                  659,
+                  660,
+                  661,
+                  662,
+                  663
+                ],
+                "differing": [
+                  30,
+                  31,
+                  32,
+                  33,
+                  34,
+                  35,
+                  36,
+                  37,
+                  38,
+                  39
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.012,
+          "operations": 732,
+          "appended": 367,
+          "moved": 365,
+          "throughput": 146.046,
+          "latency_median": 0.009464,
+          "latency_p95": 0.018094,
+          "errors": {
+            "IntegrityError": 102,
+            "InvalidMove": 93,
+            "OperationalError": 1
+          },
+          "error_count": 196,
+          "per_worker_operations": [
+            363,
+            369
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.194,
+          "operations": 14,
+          "appended": 8,
+          "moved": 6,
+          "throughput": 2.696,
+          "latency_median": 0.018122,
+          "latency_p95": 1.387235,
+          "errors": {
+            "InvalidMove": 8,
+            "OperationalError": 5,
+            "IntegrityError": 1
+          },
+          "error_count": 14,
+          "per_worker_operations": [
+            7,
+            7
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "cte",
+      "workers": 2,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 87.036,
+      "throughput_min": 63.597,
+      "throughput_max": 110.475,
+      "latency_median": 0.0116755,
+      "latency_p95": 0.064422,
+      "errors": {
+        "Y1Violation": 77
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1160,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1278,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.032,
+          "operations": 320,
+          "appended": 160,
+          "moved": 160,
+          "throughput": 63.597,
+          "latency_median": 0.014559,
+          "latency_p95": 0.064422,
+          "errors": {
+            "Y1Violation": 37
+          },
+          "error_count": 37,
+          "per_worker_operations": [
+            150,
+            170
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.024,
+          "operations": 555,
+          "appended": 278,
+          "moved": 277,
+          "throughput": 110.475,
+          "latency_median": 0.008792,
+          "latency_p95": 0.043701,
+          "errors": {
+            "Y1Violation": 40
+          },
+          "error_count": 40,
+          "per_worker_operations": [
+            270,
+            285
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 4,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 2.258,
+      "throughput_min": 2.102,
+      "throughput_max": 2.415,
+      "latency_median": 0.526242,
+      "latency_p95": 2.468611,
+      "errors": {
+        "OperationalError": 13,
+        "InvalidMove": 22,
+        "IntegrityError": 1
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1008,
+              "lft_not_less_than_rght": 124,
+              "outside_parent_interval": 9,
+              "duplicate_boundaries": 10,
+              "wrong_level": 137,
+              "differs_from_rebuild": 648,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  680,
+                  681,
+                  682,
+                  683,
+                  684,
+                  685,
+                  686,
+                  687,
+                  688,
+                  689
+                ],
+                "outside": [
+                  939,
+                  941,
+                  990,
+                  596,
+                  642,
+                  804,
+                  1006,
+                  1003,
+                  1004
+                ],
+                "wrong_level": [
+                  680,
+                  681,
+                  682,
+                  683,
+                  684,
+                  685,
+                  686,
+                  687,
+                  688,
+                  689
+                ],
+                "differing": [
+                  206,
+                  207,
+                  208,
+                  209,
+                  210,
+                  211,
+                  212,
+                  213,
+                  214,
+                  215
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1009,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1009,
+              "lft_not_less_than_rght": 2,
+              "outside_parent_interval": 8,
+              "duplicate_boundaries": 14,
+              "wrong_level": 203,
+              "differs_from_rebuild": 787,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  887,
+                  888
+                ],
+                "outside": [
+                  376,
+                  452,
+                  848,
+                  889,
+                  1009,
+                  1004,
+                  1002,
+                  1003
+                ],
+                "wrong_level": [
+                  802,
+                  803,
+                  804,
+                  805,
+                  806,
+                  807,
+                  808,
+                  809,
+                  810,
+                  811
+                ],
+                "differing": [
+                  206,
+                  207,
+                  208,
+                  209,
+                  210,
+                  211,
+                  212,
+                  213,
+                  214,
+                  215
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 6.184,
+          "operations": 13,
+          "appended": 8,
+          "moved": 5,
+          "throughput": 2.102,
+          "latency_median": 1.023961,
+          "latency_p95": 2.468611,
+          "errors": {
+            "OperationalError": 7,
+            "InvalidMove": 8
+          },
+          "error_count": 15,
+          "per_worker_operations": [
+            4,
+            1,
+            5,
+            3
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 6.21,
+          "operations": 15,
+          "appended": 9,
+          "moved": 6,
+          "throughput": 2.415,
+          "latency_median": 0.028523,
+          "latency_p95": 2.052669,
+          "errors": {
+            "InvalidMove": 14,
+            "OperationalError": 6,
+            "IntegrityError": 1
+          },
+          "error_count": 21,
+          "per_worker_operations": [
+            5,
+            1,
+            5,
+            4
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "cte",
+      "workers": 4,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 220.424,
+      "throughput_min": 198.679,
+      "throughput_max": 242.17,
+      "latency_median": 0.0098575,
+      "latency_p95": 0.041925,
+      "errors": {
+        "Y1Violation": 100,
+        "DoesNotExist": 17
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1608,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1500,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.017,
+          "operations": 1215,
+          "appended": 608,
+          "moved": 607,
+          "throughput": 242.17,
+          "latency_median": 0.009816,
+          "latency_p95": 0.035088,
+          "errors": {
+            "Y1Violation": 49,
+            "DoesNotExist": 8
+          },
+          "error_count": 57,
+          "per_worker_operations": [
+            300,
+            286,
+            306,
+            323
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.028,
+          "operations": 999,
+          "appended": 500,
+          "moved": 499,
+          "throughput": 198.679,
+          "latency_median": 0.009899,
+          "latency_p95": 0.041925,
+          "errors": {
+            "Y1Violation": 51,
+            "DoesNotExist": 9
+          },
+          "error_count": 60,
+          "per_worker_operations": [
+            240,
+            262,
+            254,
+            243
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 4,
+      "variant": "locked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 207.389,
+      "throughput_min": 200.822,
+      "throughput_max": 213.957,
+      "latency_median": 0.016980500000000003,
+      "latency_p95": 0.031561,
+      "errors": {
+        "InvalidMove": 89,
+        "Skipped": 3
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1538,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1538,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1505,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1505,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.02,
+          "operations": 1074,
+          "appended": 538,
+          "moved": 536,
+          "throughput": 213.957,
+          "latency_median": 0.016566,
+          "latency_p95": 0.028062,
+          "errors": {
+            "InvalidMove": 47,
+            "Skipped": 1
+          },
+          "error_count": 48,
+          "per_worker_operations": [
+            268,
+            273,
+            267,
+            266
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.014,
+          "operations": 1007,
+          "appended": 505,
+          "moved": 502,
+          "throughput": 200.822,
+          "latency_median": 0.017395,
+          "latency_p95": 0.031561,
+          "errors": {
+            "InvalidMove": 42,
+            "Skipped": 2
+          },
+          "error_count": 44,
+          "per_worker_operations": [
+            255,
+            248,
+            253,
+            251
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "cte",
+      "workers": 4,
+      "variant": "locked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 36.244,
+      "throughput_min": 28.913,
+      "throughput_max": 43.575,
+      "latency_median": 0.08033699999999999,
+      "latency_p95": 0.262895,
+      "errors": {
+        "Y1Violation": 48
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1112,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1074,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.118,
+          "operations": 223,
+          "appended": 112,
+          "moved": 111,
+          "throughput": 43.575,
+          "latency_median": 0.067967,
+          "latency_p95": 0.166828,
+          "errors": {
+            "Y1Violation": 26
+          },
+          "error_count": 26,
+          "per_worker_operations": [
+            50,
+            55,
+            58,
+            60
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.015,
+          "operations": 145,
+          "appended": 74,
+          "moved": 71,
+          "throughput": 28.913,
+          "latency_median": 0.092707,
+          "latency_p95": 0.262895,
+          "errors": {
+            "Y1Violation": 22
+          },
+          "error_count": 22,
+          "per_worker_operations": [
+            36,
+            33,
+            39,
+            37
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 2,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 6.345,
+      "throughput_min": 3.791,
+      "throughput_max": 8.899,
+      "latency_median": 0.019466,
+      "latency_p95": 1.033204,
+      "errors": {
+        "OperationalError": 10
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1010,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1010,
+              "lft_not_less_than_rght": 3,
+              "outside_parent_interval": 8,
+              "duplicate_boundaries": 8,
+              "wrong_level": 3,
+              "differs_from_rebuild": 21,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  193,
+                  771,
+                  926
+                ],
+                "outside": [
+                  569,
+                  1005,
+                  1009,
+                  1007,
+                  289,
+                  596,
+                  1006,
+                  887
+                ],
+                "wrong_level": [
+                  569,
+                  771,
+                  926
+                ],
+                "differing": [
+                  193,
+                  289,
+                  545,
+                  569,
+                  575,
+                  596,
+                  649,
+                  771,
+                  802,
+                  805
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1025,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1025,
+              "lft_not_less_than_rght": 12,
+              "outside_parent_interval": 46,
+              "duplicate_boundaries": 30,
+              "wrong_level": 12,
+              "differs_from_rebuild": 509,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  19,
+                  104,
+                  105,
+                  178,
+                  184,
+                  287,
+                  410,
+                  457,
+                  497,
+                  524
+                ],
+                "outside": [
+                  1009,
+                  97,
+                  264,
+                  46,
+                  150,
+                  285,
+                  404,
+                  741,
+                  21,
+                  93
+                ],
+                "wrong_level": [
+                  104,
+                  223,
+                  261,
+                  264,
+                  295,
+                  305,
+                  333,
+                  362,
+                  646,
+                  741
+                ],
+                "differing": [
+                  3,
+                  4,
+                  5,
+                  6,
+                  13,
+                  15,
+                  16,
+                  17,
+                  18,
+                  19
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.275,
+          "operations": 20,
+          "appended": 10,
+          "moved": 10,
+          "throughput": 3.791,
+          "latency_median": 0.021322,
+          "latency_p95": 1.033204,
+          "errors": {
+            "OperationalError": 5
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            10,
+            10
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.506,
+          "operations": 49,
+          "appended": 25,
+          "moved": 24,
+          "throughput": 8.899,
+          "latency_median": 0.01761,
+          "latency_p95": 1.030511,
+          "errors": {
+            "OperationalError": 5
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            25,
+            24
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "method": "cte",
+      "workers": 2,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 324.765,
+      "throughput_min": 323.039,
+      "throughput_max": 326.491,
+      "latency_median": 0.006284,
+      "latency_p95": 0.015067,
+      "errors": {
+        "Y1Violation": 23,
+        "Skipped": 3,
+        "DoesNotExist": 10
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1810,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1818,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.015,
+          "operations": 1620,
+          "appended": 810,
+          "moved": 810,
+          "throughput": 323.039,
+          "latency_median": 0.006009,
+          "latency_p95": 0.015067,
+          "errors": {
+            "Y1Violation": 15,
+            "Skipped": 2
+          },
+          "error_count": 17,
+          "per_worker_operations": [
+            810,
+            810
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.011,
+          "operations": 1636,
+          "appended": 818,
+          "moved": 818,
+          "throughput": 326.491,
+          "latency_median": 0.006559,
+          "latency_p95": 0.014351,
+          "errors": {
+            "Y1Violation": 8,
+            "DoesNotExist": 10,
+            "Skipped": 1
+          },
+          "error_count": 19,
+          "per_worker_operations": [
+            830,
+            806
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 4,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 2.03,
+      "throughput_min": 1.937,
+      "throughput_max": 2.124,
+      "latency_median": 1.0286175000000002,
+      "latency_p95": 3.067175,
+      "errors": {
+        "OperationalError": 10
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1007,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1007,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 5,
+              "duplicate_boundaries": 6,
+              "wrong_level": 1,
+              "differs_from_rebuild": 15,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [
+                  1002,
+                  247,
+                  288,
+                  1005,
+                  1003
+                ],
+                "wrong_level": [
+                  288
+                ],
+                "differing": [
+                  134,
+                  210,
+                  211,
+                  247,
+                  282,
+                  288,
+                  300,
+                  367,
+                  684,
+                  802
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1005,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1005,
+              "lft_not_less_than_rght": 11,
+              "outside_parent_interval": 22,
+              "duplicate_boundaries": 4,
+              "wrong_level": 13,
+              "differs_from_rebuild": 296,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  32,
+                  43,
+                  71,
+                  80,
+                  193,
+                  230,
+                  289,
+                  570,
+                  622,
+                  793
+                ],
+                "outside": [
+                  27,
+                  771,
+                  798,
+                  1005,
+                  280,
+                  457,
+                  526,
+                  267,
+                  50,
+                  62
+                ],
+                "wrong_level": [
+                  32,
+                  43,
+                  71,
+                  193,
+                  289,
+                  679,
+                  771,
+                  798,
+                  802,
+                  920
+                ],
+                "differing": [
+                  3,
+                  6,
+                  13,
+                  15,
+                  18,
+                  20,
+                  26,
+                  27,
+                  32,
+                  40
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.178,
+          "operations": 11,
+          "appended": 7,
+          "moved": 4,
+          "throughput": 2.124,
+          "latency_median": 1.021662,
+          "latency_p95": 3.059646,
+          "errors": {
+            "OperationalError": 5
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            1,
+            3,
+            4,
+            3
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.162,
+          "operations": 10,
+          "appended": 5,
+          "moved": 5,
+          "throughput": 1.937,
+          "latency_median": 1.035573,
+          "latency_p95": 3.067175,
+          "errors": {
+            "OperationalError": 5
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            2,
+            2,
+            2,
+            4
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "method": "cte",
+      "workers": 4,
+      "variant": "unlocked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 432.131,
+      "throughput_min": 426.044,
+      "throughput_max": 438.219,
+      "latency_median": 0.006925499999999999,
+      "latency_p95": 0.026791,
+      "errors": {
+        "Y1Violation": 48,
+        "Skipped": 3
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2071,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2099,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.025,
+          "operations": 2141,
+          "appended": 1071,
+          "moved": 1070,
+          "throughput": 426.044,
+          "latency_median": 0.00654,
+          "latency_p95": 0.026791,
+          "errors": {
+            "Y1Violation": 32,
+            "Skipped": 1
+          },
+          "error_count": 33,
+          "per_worker_operations": [
+            536,
+            544,
+            544,
+            517
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.016,
+          "operations": 2198,
+          "appended": 1099,
+          "moved": 1099,
+          "throughput": 438.219,
+          "latency_median": 0.007311,
+          "latency_p95": 0.023036,
+          "errors": {
+            "Y1Violation": 16,
+            "Skipped": 2
+          },
+          "error_count": 18,
+          "per_worker_operations": [
+            550,
+            550,
+            556,
+            542
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 4,
+      "variant": "locked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 223.063,
+      "throughput_min": 218.866,
+      "throughput_max": 227.26,
+      "latency_median": 0.016870000000000003,
+      "latency_p95": 0.02925,
+      "errors": {
+        "InvalidMove": 10,
+        "Skipped": 4
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1571,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1571,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1550,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1550,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.021,
+          "operations": 1141,
+          "appended": 571,
+          "moved": 570,
+          "throughput": 227.26,
+          "latency_median": 0.016653,
+          "latency_p95": 0.025089,
+          "errors": {
+            "InvalidMove": 7,
+            "Skipped": 2
+          },
+          "error_count": 9,
+          "per_worker_operations": [
+            286,
+            284,
+            285,
+            286
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.021,
+          "operations": 1099,
+          "appended": 550,
+          "moved": 549,
+          "throughput": 218.866,
+          "latency_median": 0.017087,
+          "latency_p95": 0.02925,
+          "errors": {
+            "InvalidMove": 3,
+            "Skipped": 2
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            274,
+            274,
+            276,
+            275
+          ],
+          "repeat": 1
+        }
+      ]
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "method": "cte",
+      "workers": 4,
+      "variant": "locked",
+      "seconds": 5.0,
+      "repeats": 2,
+      "throughput_median": 192.91,
+      "throughput_min": 190.738,
+      "throughput_max": 195.082,
+      "latency_median": 0.020444499999999997,
+      "latency_p95": 0.037353,
+      "errors": {
+        "Y1Violation": 17,
+        "Skipped": 2
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1491,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1482,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.018,
+          "operations": 979,
+          "appended": 491,
+          "moved": 488,
+          "throughput": 195.082,
+          "latency_median": 0.020324,
+          "latency_p95": 0.03394,
+          "errors": {
+            "Y1Violation": 9,
+            "Skipped": 1
+          },
+          "error_count": 10,
+          "per_worker_operations": [
+            243,
+            245,
+            244,
+            247
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "locked",
+          "seconds_requested": 5.0,
+          "seconds_elapsed": 5.049,
+          "operations": 963,
+          "appended": 482,
+          "moved": 481,
+          "throughput": 190.738,
+          "latency_median": 0.020565,
+          "latency_p95": 0.037353,
+          "errors": {
+            "Y1Violation": 8,
+            "Skipped": 1
+          },
+          "error_count": 9,
+          "per_worker_operations": [
+            240,
+            240,
+            243,
+            240
+          ],
+          "repeat": 1
+        }
+      ]
+    }
+  ],
+  "parallel_ratios": [
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "workers": 2,
+      "variant": "unlocked",
+      "throughput_cte": 367.851,
+      "throughput_mptt": 151.75,
+      "ratio": 2.424051,
+      "ci_low": 2.107921,
+      "ci_high": 2.843166,
+      "verdict": "CTE tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 56,
+      "errors_cte": 16
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "workers": 4,
+      "variant": "unlocked",
+      "throughput_cte": 502.237,
+      "throughput_mptt": 2.982,
+      "ratio": 168.394635,
+      "ci_low": 160.581516,
+      "ci_high": 176.69675,
+      "verdict": "CTE tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 10,
+      "errors_cte": 68
+    },
+    {
+      "shape": "course_like",
+      "size": 1000,
+      "workers": 4,
+      "variant": "locked",
+      "throughput_cte": 227.415,
+      "throughput_mptt": 209.595,
+      "ratio": 1.085019,
+      "ci_low": 1.078626,
+      "ci_high": 1.091496,
+      "verdict": "CTE tezroq",
+      "integrity_mptt": true,
+      "integrity_cte": true,
+      "errors_mptt": 9,
+      "errors_cte": 11
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "workers": 2,
+      "variant": "unlocked",
+      "throughput_cte": 87.036,
+      "throughput_mptt": 74.371,
+      "ratio": 1.170295,
+      "ci_low": 0.435459,
+      "ci_high": 40.977374,
+      "verdict": "taqqoslanadigan",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 210,
+      "errors_cte": 77
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "workers": 4,
+      "variant": "unlocked",
+      "throughput_cte": 220.424,
+      "throughput_mptt": 2.258,
+      "ratio": 97.597742,
+      "ci_low": 82.268737,
+      "ci_high": 115.209324,
+      "verdict": "CTE tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 36,
+      "errors_cte": 117
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "workers": 4,
+      "variant": "locked",
+      "throughput_cte": 36.244,
+      "throughput_mptt": 207.389,
+      "ratio": 0.174763,
+      "ci_low": 0.143973,
+      "ci_high": 0.203662,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": true,
+      "integrity_cte": true,
+      "errors_mptt": 92,
+      "errors_cte": 48
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "workers": 2,
+      "variant": "unlocked",
+      "throughput_cte": 324.765,
+      "throughput_mptt": 6.345,
+      "ratio": 51.184397,
+      "ci_low": 36.688504,
+      "ci_high": 85.212081,
+      "verdict": "CTE tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 10,
+      "errors_cte": 36
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "workers": 4,
+      "variant": "unlocked",
+      "throughput_cte": 432.131,
+      "throughput_mptt": 2.03,
+      "ratio": 212.820241,
+      "ci_low": 200.585687,
+      "ci_high": 226.235932,
+      "verdict": "CTE tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 10,
+      "errors_cte": 51
+    },
+    {
+      "shape": "random",
+      "size": 1000,
+      "workers": 4,
+      "variant": "locked",
+      "throughput_cte": 192.91,
+      "throughput_mptt": 223.063,
+      "ratio": 0.864823,
+      "ci_low": 0.858409,
+      "ci_high": 0.871483,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": true,
+      "integrity_cte": true,
+      "errors_mptt": 14,
+      "errors_cte": 19
+    }
+  ],
+  "reading": {
+    "status": "qo‘llab-quvvatlanmadi",
+    "rule": "H4 qo‘llab-quvvatlandi: to‘rtta yozish amalining har birida, har bir shakl va hajmda “CTE tezroq”; o‘qishda hech bir katakda CTE 1,5 barobardan ko‘proq sekin emas; parallel yozishdan keyin CTE da yaxlitlik buzilishi yo‘q (D63)",
+    "read_tolerance": 1.5,
+    "write_cells": 12,
+    "read_cells": 6,
+    "write_failures": [
+      "move_branch@deep_chain/1000"
+    ],
+    "read_failures": [
+      "read_branch@course_like/1000",
+      "read_ancestors@course_like/1000",
+      "read_branch@deep_chain/1000",
+      "read_ancestors@deep_chain/1000",
+      "read_branch@random/1000",
+      "read_ancestors@random/1000"
+    ],
+    "integrity_failures": [],
+    "not_computed": [
+      "delete_branch@deep_chain/1000"
+    ]
+  },
+  "settings": {
+    "shapes": [
+      "course_like",
+      "deep_chain",
+      "random"
+    ],
+    "sizes": [
+      1000
+    ],
+    "parallel_workers": [
+      2,
+      4
+    ],
+    "warmups": 2,
+    "repeats": 5,
+    "timeout": 120.0,
+    "parallel_seconds": 5.0,
+    "parallel_repeats": 2,
+    "replicates": 1000,
+    "confidence_percent": 95,
+    "seed": 20261006,
+    "read_tolerance": 1.5,
+    "quick": true,
+    "rebuild_limit": 20000
+  }
+}

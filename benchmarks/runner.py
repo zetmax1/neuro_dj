@@ -668,6 +668,7 @@ def run(
             "read_tolerance": READ_TOLERANCE,
             "quick": quick,
             "rebuild_limit": integrity.REBUILD_LIMIT,
+            "deep_recursion_limit": operations.DEEP_RECURSION_LIMIT,
         },
     }
 
