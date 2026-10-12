@@ -11,6 +11,8 @@
 #
 #   experiments/run_h2.sh bounds-quick | bounds-full | bounds-both
 #                                   # D55, experiments.h2_bounds, the same way
+#   experiments/run_h2.sh frozen-quick | frozen-full | frozen-both
+#                                   # D60, experiments.h2_frozen, the same way
 #
 # Progress: tail -f experiments/.runs/h2-<mode>.log
 #
@@ -30,8 +32,9 @@
 #   H2_LOGS      log directory          (default experiments/.runs)
 #   H2_LAUNCHER  systemd | setsid | inline   (default: systemd if available)
 #   H2_SAMPLE_SECONDS  memory sample interval  (default 60)
-#   H2_REFERENCE  the H2 result the bounds modes must reproduce (D58, D59);
-#                 passed as --reference, and the bounds run refuses to start without it
+#   H2_REFERENCE  the H2 result the bounds and frozen modes must reproduce
+#                 (D58, D59, D60); passed as --reference, and those runs refuse
+#                 to start without it
 #   H2_WORKERS    processes for the parameter fits, passed as --workers. Without
 #                 it the module picks min(8, cpu/2), which on this machine is 8;
 #                 the fits of the full dataset need ~0.25 GiB each, so the count
@@ -134,6 +137,7 @@ run() {
 
 H2=experiments.h2
 BOUNDS=experiments.h2_bounds
+FROZEN=experiments.h2_frozen
 REF=""
 [[ -n "${H2_REFERENCE:-}" ]] && REF="--reference $H2_REFERENCE"
 POOL=""
@@ -145,7 +149,10 @@ case "$MODE" in
     bounds-quick) CHAIN="run bounds-quick $BOUNDS --quick $REF $POOL" ;;
     bounds-full)  CHAIN="run bounds-full $BOUNDS $REF $POOL" ;;
     bounds-both) CHAIN="run bounds-quick $BOUNDS --quick $REF $POOL && run bounds-full $BOUNDS $REF $POOL" ;;
-    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both}" >&2; exit 2 ;;
+    frozen-quick) CHAIN="run frozen-quick $FROZEN --quick $REF $POOL" ;;
+    frozen-full)  CHAIN="run frozen-full $FROZEN $REF $POOL" ;;
+    frozen-both) CHAIN="run frozen-quick $FROZEN --quick $REF $POOL && run frozen-full $FROZEN $REF $POOL" ;;
+    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both}" >&2; exit 2 ;;
 esac
 
 LAUNCHER="${H2_LAUNCHER:-}"

@@ -427,3 +427,22 @@ def test_a_worker_count_can_be_given_to_the_run(tmp_path):
     _launch(tmp_path, "full", plain, H2_WORKERS="2")
     assert "args: -u -W ignore -m experiments.h2 --workers 2" in (
         tmp_path / "logs" / "h2-full.log").read_text()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_frozen_modes_run_the_d60_module_with_its_reference(tmp_path):
+    """
+    D60's run goes through the same launcher as H2 and D55, so it gets the
+    memory sampler, the sleep inhibitor and the "unit ended" line.
+    """
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "frozen-both", fake,
+            H2_REFERENCE="experiments/results/assist09/x", H2_WORKERS="4")
+
+    quick = (tmp_path / "logs" / "h2-frozen-quick.log").read_text()
+    full = (tmp_path / "logs" / "h2-frozen-full.log").read_text()
+    base = "-m experiments.h2_frozen"
+    reference = "--reference experiments/results/assist09/x --workers 4"
+    assert f"args: -u -W ignore {base} --quick {reference}" in quick
+    assert f"args: -u -W ignore {base} {reference}" in full
+    assert "finished frozen-full (exit 0)" in full

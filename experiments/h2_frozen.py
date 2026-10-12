@@ -537,7 +537,9 @@ def run(
     # 2. The three varied models, both variants.
     pooled, fold_reports = _predict_folds(folds, sets, test_rows, fitted, log=log)
 
-    if parameters["source"] == "checkpoint" and not _reproduces(pooled, labels, reference):
+    if parameters["source"] == "checkpoint" and _reproduces(pooled, labels, reference):
+        log(f"  checkpointed parameters reproduce H2 to {GATE_DIGITS} digits")
+    elif parameters["source"] == "checkpoint":
         log("  the checkpointed parameters do not reproduce H2 — refitting")
         parameters["rejected_checkpoint"] = parameters["checkpoint"]
         fitted, parameters = _fit_parameters(folds, rows, args, log=log)
