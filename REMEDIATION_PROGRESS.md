@@ -1546,6 +1546,35 @@ Qo‘shimcha (nuqtaviy): BKT+IRT − Elo/Rasch farqi −0.038244 → −0.026203
 
 ---
 
+## D60 — test vaqtida masala qiyinligini muzlatish (sezgirlik, 2026-10-12, kod va natijadan oldin)
+
+**Sabab.** `verification/REPORT.md` ning K-2 kuzatuvi: BKT+IRT (λ=0) va Elo/Rasch test oqimida `b_q` ni (va `n_q` ni) oqimdagi har bir javob bilan yangilaydi, ya’ni bitta test talabasining bashorati boshqa test talabalarining javoblariga bog‘liq bo‘lib qoladi. Oqim `user_id` bo‘yicha tartiblangan, shuning uchun bu “boshqa talaba” vaqt bo‘yicha keyinroq javob bergan bo‘lishi ham mumkin. II bob bo‘yicha bu model ta’rifining o‘zi (`b_q −= K(n_q)(x − p)`, `n_q` — barcha talabalarning shu masalaga javoblari soni) va D57 ni buzmaydi: D57 talabaning o‘z tarixi haqida, `b_q` esa masalaning parametri. Lekin D53/D56 da’volari shu oqim tartibiga qanchalik bog‘liqligi o‘lchanishi kerak. DKT, AKT va AKT-R da bunday savol yo‘q: ular o‘qitishdan keyin qotiriladi va bashorat paytida vazn o‘zgarmaydi.
+
+**PFA — tekshirildi, frozen variantga kirmaydi.** Regressiya koeffitsiyentlari (β_k, γ_k, ρ_k) faqat o‘qitish to‘plamida baholanadi: `experiments/models/classical.py:445–459` (`PFA.fit`, `LogisticRegression.fit` o‘qitish matritsasida), bashorat esa `predict` da o‘sha qotirilgan modelni chaqiradi (`classical.py:471–477`). Bashorat paytidagi yagona o‘zgaruvchi — hisoblagichlar, va ular `(user_id, skill_id)` kaliti bilan, ya’ni har talabaning **o‘z** oldingi order’laridan sanaladi (`classical.py:510–540`; `successes`/`failures` lug‘atlari har bir `_design` chaqiruvida nolda boshlanadi). Boshqa talabaning javobi PFA bashoratiga kirmaydi, shuning uchun PFA uchun “frozen” varianti yo‘q.
+
+**“Frozen” variantining ta’rifi.**
+
+- `b_q` va `n_q` faqat o‘qitish to‘plamida isitiladi — bu hozirgi `_warm_items` / `EloRasch.fit` qadami, o‘zgarmaydi — va **test oqimida yangilanmaydi**;
+- θ (va `n_s`) talabaning o‘z tarixi bilan yangilanishda davom etadi, chunki bu D57 ruxsat bergan yagona ma’lumot;
+- P(L) va BKT parametrlari (P0, PT, G0, S0) o‘zgarmaydi; `calibrate.DEFAULT_GRID` va II bob konstantalari (G_MAX 0,30, S_MAX 0,10, a_q, Elo α/β, τ, δ, c) **o‘zgarmaydi**;
+- faqat asosiy sozlama (G_MAX; S_MAX) = (0,30; 0,10). D55 ning kengroq sozlamalari bu yerda takrorlanmaydi.
+
+**Modellar.** BKT (nazorat: `use_irt=False`, demak `b_q` umuman ishlatilmaydi — natijasi muzlatishdan **o‘zgarmasligi kerak**), BKT+IRT (λ=0), Elo/Rasch. DKT H2 ning sozlamasi, seed’i va protokoli bilan qayta o‘qitiladi va D58 darvozasi bilan tekshiriladi: pooled AUC H2 dagi qiymatdan |Δ| ≤ 5e-4. AKT/AKT-R qayta o‘qitilmaydi (muzlatish ularga tegishli emas), PFA ham (yuqoriga qarang).
+
+**Kontrastlar.** H2 bilan bir xil: talabalar bo‘yicha juftlik bootstrap, 1000 replika, H2 ning seed’i; DeLong p va sozlamalar oilasi uchun Holm. Uchtasi: BKT+IRT (λ=0) − BKT, BKT+IRT (λ=0) − DKT (D56), Elo/Rasch − DKT. Ikkala variant uchun ham (hozirgi va frozen) bir xil usulda hisoblanadi.
+
+**Darvozalar (natijadan oldin).**
+
+1. `freeze_items=False` bilan BKT va BKT+IRT pooled AUC’i H2 (`assist09/20261010-060005`) dagi qiymatga **6 xonada teng** bo‘lishi shart. Teng bo‘lsa, D55 ning asosiy sozlamasidagi checkpoint fit’lari (`experiments/.runs/checkpoints/h2-bounds-*/fit-0-*`) BKT parametrlari sifatida ishlatiladi; teng bo‘lmasa yoki checkpoint bo‘lmasa, parametrlar qaytadan moslanadi.
+2. DKT darvozasi: |Δ| ≤ 5e-4 (D58). O‘tmasa, DKT bilan bog‘liq ikki kontrast son emas, “hisoblanmadi” deb yoziladi.
+3. `tables.verify` = [] va pozitsion tekshiruv = [] (D48).
+
+**O‘qish qoidasi (natijadan oldin yoziladi).** Dissertatsiyada H2 ning D53 (BKT+IRT > BKT) va D56 (BKT+IRT DKT bilan taqqoslanadigan) da’volari **faqat hozirgi va frozen variantlarning ikkalasida ham bajarilgan bo‘lsa** “mustahkam” deb yoziladi. Aks holda ikkala son ham, farqning sababi ham yoziladi va da’vo shartli qilib ifodalanadi. Asosiy H2 jadvali **almashtirilmaydi**: frozen natija sezgirlik tahlili bo‘lib qoladi (D55 kabi), chunki II bob modeli `b_q` ni online yangilaydi.
+
+**Natija qayerga.** `experiments/results/assist09-frozen/<timestamp>/` (`metrics.json`, `tables.md`, `env.txt`), hisobot nomi `h2_frozen`.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
