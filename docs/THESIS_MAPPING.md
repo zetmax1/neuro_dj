@@ -176,9 +176,11 @@ degan holat jadvalda **son emas**, aynan shu gap bilan chiqadi (D48).
 | H2 — test vaqtida masala qiyinligi muzlatilganda (D60 sezgirligi) | `experiments/h2_frozen.py` (ishga tushirish: `experiments/run_h2.sh frozen-full`) | `experiments/results/assist09-frozen/20261012-063439/{metrics.json, tables.md, env.txt}` | **ishga tushirilgan** — `244f046`, boshida va oxirida toza, `--reference assist09/20261010-060005`, `tables.verify` = [] va `tables.verify_h2_frozen_positions` = []. Darvozalar: muzlatilmagan ustun H2 ni 6 xonada takrorlaydi (BKT 0.707479, BKT+IRT 0.723898), DKT \|Δ\| = 0 (D58), BKT ning ikki ustundagi bashoratlari aynan bir xil. **D53 va D56 ikkala variantda bajarildi** (CI pastki chegaralari +0.015539 / +0.015279 va −0.005372 / −0.005569), demak D60 qoidasi bo‘yicha “mustahkam”. Asosiy H2 jadvali almashtirilmaydi. `--quick`: `assist09-frozen-quick/20261012-052856/` (dissertatsiya natijasi emas) |
 | H2 — G_MAX/S_MAX sezgirligi (D55, D58) | `experiments/h2_bounds.py` (ishga tushirish: `experiments/run_h2.sh bounds-full`) | `experiments/results/assist09-bounds/20261011-183756/{metrics.json, tables.md, env.txt}` | **ishga tushirilgan** — `30ad4e4`, boshida va oxirida toza, `--reference assist09/20261010-060005`, `H2_WORKERS=4`, `tables.verify` = [] va `tables.verify_h2_bounds_positions` = []. Takrorlanish darvozalari (1-fold va pooled BKT/BKT+IRT) 6 xonagacha teng, DKT \|Δ\| = 0, L-BFGS-B uch sozlamada 0.006702 / 0.002235 / 0.001676 (chegara 0.01). II bob qarori o‘zgarmaydi: asosiy natija (0,30; 0,10). Ishlatilmaydigan urinishlar: `8e933ad` (L-BFGS-B da to‘xtagan, D59 ning sababi), `30ad4e4` dagi birinchisi (kompyuter o‘chgan, 2026-10-10 16:35, 4 fit checkpoint'da qolgan va tiklangan). `--quick`: `assist09-bounds-quick/20261009-162635/` (dissertatsiya natijasi emas) |
 | H2 — BKT+IRT+Pre ASSISTments 2009 da | `experiments/models/classical.py` (`BKTFamily`, ikkala bayroq yoqilgan) | jadvalda “graf yo‘q” qatori | **ishga tushirilmaydi: graf yo‘q** (D53). Kod bor va o‘zini mavjud emas deb e’lon qiladi, tashlab ketilmaydi (D48) |
-| H1 — tayyorlik qoidalari (ehtimoliy r ≥ τ, bajarilganlik, o‘tish bali, skill builder'ning “ketma-ket 3 ta to‘g‘ri”) | `experiments/h1.py` | `experiments/results/<dataset>/<timestamp>/` | kutilmoqda (8b-3). Kod “javoblar + graf” juftligini oladi; hozir bunday juftlik yo‘q |
-| H3 — graf nazoratlari: asl, teskari, daraja saqlangan tasodifiy (20 seed), grafsiz (λ=0) | `experiments/h3.py` | o‘sha | kutilmoqda (8b-3). Graf fayli sha256 bilan oldin commit qilinadi |
-| Annotatsiya: nomzod qirralar → ikki annotator → Cohen κ → yakuniy graf | `experiments/graphs/annotate.py` | `experiments/graphs/*.csv` + sha256 | kutilmoqda (8b-3) |
+| H1 — tayyorlik qoidalari (ehtimoliy r ≥ τ, II bobning R si (M, δ), bajarilganlik, o‘tish bali, Junyi'ning `earned_proficiency`) | `experiments/h1.py` (ishga tushirish: `experiments/run_h2.sh h1-full`) | `experiments/results/junyi-h1/<timestamp>/` | **kod tayyor, natija yo‘q — Junyi log fayli yuklanmoqda** (D61). Birlik: talabaning mashqqa birinchi urinishi, Pre(w) ≠ ∅ va kamida bitta prerekvizit ishlangan (D62). Teng qamrov: τ validatsiyada qidiriladi, o‘lchov test qismida. r_s(w)/R_s(w)/M — `neuro_model.readiness` (platformaning o‘sha kodi). τ × δ sezgirligi shu yerda (H2 da emas, pastga qarang) |
+| H3 — graf nazoratlari: asl, teskari, daraja saqlangan tasodifiy (20 seed, `networkx.directed_edge_swap`), grafsiz (λ=0) | `experiments/h3.py` (ishga tushirish: `experiments/run_h2.sh h3-full`) | `experiments/results/junyi-h3/<timestamp>/` | **kod tayyor, natija yo‘q — Junyi log fayli yuklanmoqda** (D61). Graf — Junyi mashqlar jadvalidan, sha256 `13292cc2…769546`; λ validatsiyada har bir arm uchun alohida (D62); o‘lchov — mavzudagi dastlabki k ∈ {3,5} urinish AUC'i. Natija “bu graf bilan” deb o‘qiladi (D61) |
+| Annotatsiya: nomzod qirralar → ikki annotator → Cohen κ → yakuniy graf | `experiments/graphs/annotate.py` | `experiments/graphs/*.csv` + sha256 | **kechiktirildi — annotator yo‘q** (D61, D62). κ “hisoblanmadi — annotator yo‘q” bo‘lib qoladi (D13); o‘rniga Junyi ning o‘z annotatsiya fayllari bilan tavsifiy moslik (1 131 juftlik, `Prerequisite_avg` AUC 0,6824; faqat A→B yo‘nalishi uchun 0,5595) |
+| Junyi grafi va logi: B→A yo‘nalishi, Y2 (o‘z-o‘ziga qirra), Y3 (SCC birlashtirish), area→topic→mashq daraxti, logni bo‘laklab o‘qish va tozalash | `experiments/datasets/junyi.py` | H1/H3 ning `metrics.json` i | **kod tayyor** — graf sonlari haqiqiy faylda tasdiqlangan (979 noyob qirra, 2 o‘z-o‘ziga qirra, 1 SCC/3 tugun, 833 mavzu / 976 qirra, eng uzun yo‘l 65); log fayli yuklanmagan, hujjatdagi 25 925 992 / 247 606 darvoza sifatida tekshiriladi |
+| Gipotezalarni bitta buyruqdan: `--dataset ... --models ... [--quick]` (V-E3/V-E4) | `experiments/run_all.py` | o‘z natijasi yo‘q — h1/h2/h3 ning papkalari | **kod tayyor** (D62). Dispatcher: ma’lumoti ko‘tarmaydigan gipoteza gap bilan chiqadi, jim tashlanmaydi (D48) |
 | Simulyatsiya — faqat quvurni sinash (parametrlarni tiklash, Pre ning ustunligi) | `assessments/management/commands/simulate_bkt_data.py` + 8b-3 | `experiments/results/simulated/<dataset>/<timestamp>/` | kutilmoqda (8b-3). Natija papkasi alohida va “dissertatsiya natijasi emas” belgisi bilan (D13, D48) |
 
 ### Ma’lumot manbalari (D49)
@@ -189,7 +191,10 @@ degan holat jadvalda **son emas**, aynan shu gap bilan chiqadi (D48).
 | DBE-KT22 grafi | bor | `79ece343…961307` |
 | Junyi grafi | bor | `6272d524…e61d2` |
 | WDKG-Course, WDKG-KnowledgePoints graflari | bor | `a6475f00…dae01`, `469032f4…86906` |
-| DBE-KT22 to‘liq (javoblar bilan) | **yo‘q** (ADA kirish so‘rovi) | — |
+| DBE-KT22 to‘liq (javoblar bilan) | **yo‘q** (ADA kirish so‘rovi javobsiz) — o‘rniga Junyi (D61) | — |
+| Junyi mashqlar jadvali (graf va daraxt) | bor (D61) | `13292cc2…769546` |
+| Junyi annotatsiyalari (training + testing) | bor (D61) | `f9b10bc1…3e0576`, `5dee0a30…4771ea` |
+| Junyi javoblar logi (`junyi_ProblemLog_original.csv`) | **yuklanmoqda** (D61) | — |
 | ASSISTments uchun o‘qituvchilar grafi | **yo‘q** (tuzilmagan) | — |
 | Mahalliy eksport | rozilik yig‘ilgach | — |
 
@@ -221,8 +226,11 @@ lekin τ va δ faqat M belgisiga (3.4-bo‘lim, gisterezis) ta’sir qiladi. H2
 javobning to‘g‘riligini bashorat qiladi: p̂ P(L), P(G) va P(S) dan hosil
 bo‘ladi, τ unda umuman qatnashmaydi. Ya’ni H2 ning AUC'i τ ga nisbatan
 o‘zgarmas, va uni skanerlash nolga teng farqlar jadvalini chiqarardi. Sezgirlik
-tahlili H1 ga tegishli — tayyorlik qoidalari aynan τ ga bog‘liq — va u 8b-3 da,
-`h1.py` bilan birga bajariladi.
+tahlili H1 ga tegishli — tayyorlik qoidalari aynan τ ga bog‘liq — va u
+`h1.py` da bajariladi: τ ∈ {0,70; 0,80; 0,90; 0,95} × δ ∈ {0,05; 0,10; 0,15}
+jadvali, II bobning R si va r ≥ τ qoidasi yonma-yon (D61, D62). δ faqat M ga
+ta’sir qilgani uchun ehtimoliy qoidaning ustunlari har bir τ ichida
+o‘zgarmaydi, va jadval shuni ko‘rsatish uchun ikkisini birga chiqaradi.
 
 ### D48 — natija faqat haqiqiy ishga tushirishdan
 

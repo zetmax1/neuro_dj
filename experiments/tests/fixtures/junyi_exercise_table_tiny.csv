@@ -1,0 +1,10 @@
+name,live,prerequisites,h_position,v_position,creation_date,seconds_per_fast_problem,pretty_display_name,short_display_name,topic,area
+a,TRUE,,1,0,2012-01-01 00:00:00.0 UTC,10,A,A,t1,alpha
+b,TRUE,a,2,0,2012-01-02 00:00:00.0 UTC,10,B,B,t1,alpha
+c,TRUE,"b,b",3,0,2012-01-03 00:00:00.0 UTC,10,C,C,t2,alpha
+d,FALSE,a,4,0,2012-01-04 00:00:00.0 UTC,10,D,D,t2,alpha
+e,TRUE,"e,b",5,0,2012-01-05 00:00:00.0 UTC,10,E,E,t3,beta
+x,TRUE,y,6,0,2012-01-06 00:00:00.0 UTC,10,X,X,t3,beta
+y,TRUE,x,7,0,2012-01-07 00:00:00.0 UTC,10,Y,Y,t3,beta
+z,TRUE,ghost,8,0,2012-01-08 00:00:00.0 UTC,10,Z,Z,t3,beta
+a,TRUE,,1,0,2012-01-09 00:00:00.0 UTC,10,A,A,t1,alpha

@@ -152,6 +152,10 @@ def verify(markdown: str, metrics: dict) -> list[str]:
         strays += verify_h2_bounds_positions(markdown, metrics)
     elif metrics.get("report") == "h2_frozen":
         strays += verify_h2_frozen_positions(markdown, metrics)
+    elif metrics.get("report") == "h1":
+        strays += verify_h1_positions(markdown, metrics)
+    elif metrics.get("report") == "h3":
+        strays += verify_h3_positions(markdown, metrics)
     return strays
 
 
@@ -1574,3 +1578,484 @@ def verify_h2_frozen_positions(markdown: str, metrics: dict) -> list[str]:
             if got != want:
                 problems.append(f"§{number} {' / '.join(want[:2])}: {got!r} is not {want!r}")
     return problems
+
+
+# ---------------------------------------------------------------------------
+# H1 — the readiness rules (D61)
+# ---------------------------------------------------------------------------
+
+def _labels_of(metrics: dict) -> dict[str, str]:
+    """Rule key → the label the table shows, from the metrics' own list."""
+    return {
+        entry.get("rule", ""): entry.get("label", entry.get("rule", ""))
+        for entry in metrics.get("rules", [])
+    }
+
+
+def _h1_rows(metrics: dict) -> dict[str, list[list[str]]]:
+    """
+    Every table row of the H1 report, by section, built from the metrics.
+
+    Shared by the renderer and by the positional check, which reads the
+    markdown back and compares it cell by cell (D48).
+    """
+    labels = _labels_of(metrics)
+    main = str((metrics.get("constants") or {}).get("main_k", ""))
+    rows: dict[str, list[list[str]]] = {str(number): [] for number in range(1, 7)}
+
+    for entry in metrics.get("rules", []):
+        rows["1"].append([
+            entry.get("label", ""), entry.get("family", ""),
+            _cell(entry.get("events")), _cell(entry.get("flagged")),
+            _cell(entry.get("failed")), _cell(entry.get("coverage")),
+            _cell(entry.get("error_share")),
+        ])
+
+    for entry in (metrics.get("equal_coverage") or {}).get(main, []):
+        probabilistic = entry.get("probabilistic") or {}
+        compared = entry.get("compared") or {}
+        difference = entry.get("difference") or {}
+        rows["2"].append([
+            labels.get(entry.get("rule", ""), entry.get("rule", "")),
+            ", ".join(fmt(value) for value in entry.get("tau_per_fold", [])) or "—",
+            _cell(probabilistic.get("coverage")), _cell(compared.get("coverage")),
+            _cell(probabilistic.get("error_share")), _cell(compared.get("error_share")),
+            _interval_cell(difference.get("estimate"), difference),
+        ])
+
+    for item in (metrics.get("reading") or {}).get("per_rule", []):
+        rows["3"].append([
+            labels.get(item.get("rule", ""), item.get("rule", "")),
+            _cell(item.get("difference")),
+            _interval_only(item.get("ci_low"), item.get("ci_high")),
+            item.get("verdict", ""),
+        ])
+
+    for key in sorted((metrics.get("readiness_auc") or {}), key=float):
+        entry = (metrics.get("readiness_auc") or {})[key]
+        rows["4"].append([
+            fmt(entry.get("k")), _cell(entry.get("events")), _cell(entry.get("failures")),
+            _interval_cell(entry.get("auc"), entry.get("auc_interval") or {}),
+        ])
+
+    for entry in metrics.get("sensitivity", []):
+        chapter = entry.get("chapter_two") or {}
+        probabilistic = entry.get("probabilistic") or {}
+        rows["5"].append([
+            fmt(entry.get("tau")), fmt(entry.get("delta")),
+            _cell(chapter.get("coverage")), _cell(chapter.get("error_share")),
+            _cell(probabilistic.get("coverage")), _cell(probabilistic.get("error_share")),
+        ])
+
+    for fold in metrics.get("folds", []):
+        counts = fold.get("counts") or {}
+        rows["6"].append([
+            fmt(fold.get("index")), _cell(counts.get("train")), _cell(counts.get("validation")),
+            _cell(counts.get("test")), _cell(counts.get("test_answers")),
+            _cell(counts.get("test_events")), _cell(counts.get("validation_events")),
+        ])
+    return rows
+
+
+def _interval_only(low, high) -> str:
+    """``[low, high]``, or a dash when the interval could not be computed."""
+    if low is None or high is None:
+        return "—"
+    return f"[{fmt(low)}, {fmt(high)}]"
+
+
+def _junyi_section(metrics: dict, number: int) -> list[str]:
+    """
+    What the run read: the graph's shape, the log's sample and the licence.
+
+    The licence sentence is the dataset's own and is carried here because a
+    reader of the table is the person it binds.
+    """
+    graph = metrics.get("graph") or {}
+    log = metrics.get("log") or {}
+    dataset = metrics.get("dataset") or {}
+    inventory = metrics.get("inventory") or {}
+    counts = graph.get("counts") or {}
+    lines = [
+        "",
+        f"## {number}. Ma'lumot",
+        "",
+        f"- to‘plam: {dataset.get('label', '—')}",
+        f"- litsenziya: {dataset.get('licence', '—')}",
+        f"- iqtibos: {dataset.get('citation', '—')}",
+        "",
+        "| Ko‘rsatkich | Qiymat |",
+        "|---|---|",
+    ]
+    for label, value in (
+        ("mashqlar jadvalidagi qator", counts.get("rows")),
+        ("noyob mashq", counts.get("exercises")),
+        ("area", counts.get("areas")),
+        ("topic", counts.get("topics")),
+        ("o‘qilgan prerekvizit yozuvi", counts.get("raw_edges")),
+        ("noyob qirra", counts.get("edges")),
+        ("o‘z-o‘ziga qirra (Y2, tashlangan)", counts.get("self_loops")),
+        ("takroriy qirra", counts.get("duplicate_edges")),
+        ("nomi topilmagan prerekvizit", counts.get("unknown_prerequisites")),
+        ("birlashtirilgan SCC", counts.get("scc_nontrivial")),
+        ("birlashtirilgan tugun", counts.get("scc_merged_nodes")),
+        ("mavzu (birlashtirilgandan keyin)", counts.get("skills")),
+        ("qirra (birlashtirilgandan keyin)", counts.get("skill_edges")),
+        ("eng uzun yo‘l", counts.get("longest_path")),
+        ("prerekvizitsiz mavzu", counts.get("without_prerequisites")),
+        ("logdagi qator (butun fayl)", inventory.get("rows")),
+        ("logdagi talaba (butun fayl)", inventory.get("learners")),
+        ("tanlangan talaba", dataset.get("learners_used")),
+        ("ishlatilgan javob", dataset.get("answers_used")),
+        ("ishlatilgan mavzu", dataset.get("skills_used")),
+    ):
+        lines.append(f"| {label} | {_cell(value)} |")
+    lines.append("")
+    rules = log.get("cleaning_rules") or []
+    if rules:
+        lines += ["Tozalash qoidalari (D61):", ""]
+        lines += [f"- {rule}" for rule in rules]
+        lines.append("")
+    return lines
+
+
+def render_h1_report(metrics: dict) -> str:
+    """``tables.md`` for ``h1.py``, generated from the metrics alone (D48)."""
+    require_sources(metrics)
+    provenance = metrics.get("provenance", {})
+    constants = metrics.get("constants") or {}
+    events = metrics.get("events") or {}
+    reading = metrics.get("reading") or {}
+    rows = _h1_rows(metrics)
+    label = (metrics.get("dataset") or {}).get("label", "")
+
+    lines: list[str] = [
+        f"# H1 — {label}: tayyorlik qoidalari",
+        "",
+        "Bu fayl `metrics.json` dan avtomatik yasaladi (D48). Qo‘lda yozilgan son yo‘q.",
+    ]
+    lines += _tree_warning(provenance)
+    lines += [
+        "",
+        "Birlik — javob emas, **qaror**: talabaning mashqqa birinchi urinishi,",
+        "prerekvizitlari bor va kamida bittasi oldin ishlangan (D61). Shu paytda",
+        "qoidalar “bu talaba tayyormi?” degan savolga javob beradi; keyin",
+        "talabaning o‘sha mashqdagi dastlabki javoblari qoidani tekshiradi.",
+        "",
+        "P(L) — BKT+IRT (λ=0) oqimidan; r_s(w), R_s(w) va M — `neuro_model.readiness`,",
+        "ya’ni platformaning o‘zi chaqiradigan funksiyalar. Javob berilmagan",
+        "prerekvizit platformadagidek P(L) = 0 va M = yo‘q bilan kiradi.",
+    ]
+    if metrics.get("quick"):
+        lines += [
+            "",
+            "> **`--quick` ishga tushirish — dissertatsiya natijasi emas.** Bu quvurni",
+            "> sinash uchun: talabalarning kichik qismi. To‘liq natija uchun",
+            "> `python -m experiments.h1` bayroqsiz ishga tushiriladi.",
+        ]
+    lines += [
+        "",
+        "## 1. Qoidalar (II bobning τ va δ si bilan)",
+        "",
+        f"τ = {_cell(constants.get('tau'))}, δ = {_cell(constants.get('delta'))}, "
+        f"`pass_mark` = {_cell(constants.get('pass_mark'))}; muvaffaqiyatsizlik — "
+        f"mashqdagi dastlabki k = {_cell(constants.get('main_k'))} javobda to‘g‘rilar "
+        f"ulushi {_cell(constants.get('failure_share'))} dan kam.",
+        "",
+        f"Voqea: {_cell(events.get('total'))}, talaba: {_cell(events.get('learners'))}, "
+        f"mavzu: {_cell(events.get('skills'))}; o‘rtacha prerekvizit soni "
+        f"{_cell(events.get('mean_prerequisites'))}.",
+        "",
+        "| Qoida | Oila | Voqea | Belgilangan | Xato | Qamrov | Xato ulushi |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["1"]]
+    lines += [
+        "",
+        "## 2. Teng qamrov",
+        "",
+        "Qamrov va xato ulushi birga harakat qiladi, shuning uchun taqqoslash teng",
+        "qamrovda qilinadi: τ validatsiya qismida taqqoslanadigan qoidaning",
+        "qamroviga moslanadi, o‘lchov esa test qismida (D62). τ ustuni — har bir",
+        "fold uchun tanlangan qiymat.",
+        "",
+        f"Farqning ishonch oralig‘i — talabalar bo‘yicha klasterlangan bootstrap, "
+        f"{_cell(metrics.get('replicates'))} replika, "
+        f"{_cell(metrics.get('confidence_percent'))} %.",
+        "",
+        "| Qoida | τ (fold'lar bo‘yicha) | Ehtimoliy qamrov | Qoida qamrovi | "
+        "Ehtimoliy xato ulushi | Qoida xato ulushi | Farq [CI] |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["2"]]
+    lines += [
+        "",
+        "## 3. O‘qish qoidasi (natijadan oldin yozilgan)",
+        "",
+        f"{reading.get('rule', '—')}",
+        "",
+        f"**Xulosa: {reading.get('status', '—')}.**",
+        "",
+        "| Taqqoslash | Farq | CI | Xulosa |",
+        "|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["3"]]
+    lines += [
+        "",
+        "## 4. r_s(w) bo‘yicha AUC",
+        "",
+        "Qoidaning emas, qoida ortidagi **bahoning** ajrata olishi: r_s(w) ning",
+        "“talaba bu mashqda muvaffaqiyatsiz bo‘lmaydi” ni bashorat qilishi.",
+        "",
+        "| k | Voqea | Muvaffaqiyatsiz | AUC [CI] |",
+        "|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["4"]]
+    lines += [
+        "",
+        "## 5. τ × δ sezgirligi",
+        "",
+        "δ faqat M ga (gisterezisga) ta’sir qiladi, shuning uchun ehtimoliy",
+        "qoidaning ustunlari har bir τ ichida o‘zgarmaydi — jadval aynan shuni",
+        "ko‘rsatish uchun ikkisini yonma-yon qo‘yadi.",
+        "",
+        "| τ | δ | II bob qamrovi | II bob xato ulushi | Ehtimoliy qamrov | "
+        "Ehtimoliy xato ulushi |",
+        "|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["5"]]
+    lines += [
+        "",
+        "## 6. Qismlar",
+        "",
+        "Bo‘lish talabalar bo‘yicha: bitta talabaning javoblari hech qachon",
+        "o‘qitish va test to‘plamlariga bo‘linmaydi.",
+        "",
+        "| Fold (indeks) | Train | Validatsiya | Test | Test javob | Test voqea | "
+        "Validatsiya voqea |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["6"]]
+    lines += _junyi_section(metrics, number=7)
+    lines += _sources_section(metrics, provenance, number=8)
+    return "\n".join(lines) + "\n"
+
+
+def verify_h1_positions(markdown: str, metrics: dict) -> list[str]:
+    """Every cell of the H1 tables against its own (rule, metric) key."""
+    return _positions(markdown, _h1_rows(metrics))
+
+
+def _positions(markdown: str, expected_rows: dict[str, list[list[str]]]) -> list[str]:
+    """
+    Compare the rendered tables with the rows the metrics produce, section by
+    section: a cell moved, edited or dropped after rendering is caught.
+    """
+    problems: list[str] = []
+    sections = _sections(markdown)
+    for number, expected in expected_rows.items():
+        if not expected:
+            continue
+        if number not in sections:
+            problems.append(f"§{number}: section missing")
+            continue
+        _, body = _table(sections[number])
+        if len(body) != len(expected):
+            problems.append(f"§{number} rows: {len(body)} is not {len(expected)}")
+        for got, want in zip(body, expected):
+            if got != want:
+                problems.append(f"§{number} {' / '.join(want[:2])}: {got!r} is not {want!r}")
+    return problems
+
+
+# ---------------------------------------------------------------------------
+# H3 — the graph controls (D61)
+# ---------------------------------------------------------------------------
+
+def _h3_rows(metrics: dict) -> dict[str, list[list[str]]]:
+    """Every table row of the H3 report, by section, built from the metrics."""
+    main = metrics.get("main_k") or ""
+    pooled = (metrics.get("pooled") or {}).get(main) or {}
+    arms = pooled.get("arms") or {}
+    folds = metrics.get("folds") or []
+    first_fold = (folds[0].get("arms") if folds else {}) or {}
+    rows: dict[str, list[list[str]]] = {str(number): [] for number in range(1, 7)}
+
+    for arm in metrics.get("arms", []):
+        name = arm.get("name", "")
+        entry = arms.get(name) or {}
+        scores = entry.get("scores") or {}
+        rows["1"].append([
+            name, arm.get("family", ""), _cell(arm.get("edges")),
+            _cell((first_fold.get(name) or {}).get("lambda")),
+            _interval_cell(scores.get("auc"), entry.get("auc_interval") or {}),
+            _cell((entry.get("scores_all") or {}).get("auc")),
+            _cell(scores.get("n")),
+        ])
+
+    for family, entry in (pooled.get("families") or {}).items():
+        rows["2"].append([
+            family, _cell(entry.get("arms")), _cell(entry.get("auc_min")),
+            _cell(entry.get("auc_median")), _cell(entry.get("auc_max")),
+            _cell(entry.get("auc_mean")),
+        ])
+
+    for entry in pooled.get("contrasts", []):
+        if entry.get("status") != "ok":
+            rows["3"].append([
+                f"{entry.get('a', '')} − {entry.get('b', '')}",
+                f"{NOT_APPLICABLE}: {entry.get('reason', '')}", "—", "—", "—", "—",
+            ])
+            continue
+        rows["3"].append([
+            f"{entry.get('a', '')} − {entry.get('b', '')}",
+            _cell(entry.get("difference")),
+            _interval_only(entry.get("ci_low"), entry.get("ci_high")),
+            entry.get("delong_against", "—"),
+            _p(entry.get("delong_p")), _p(entry.get("p_holm")),
+        ])
+
+    for item in (pooled.get("reading") or {}).get("per_contrast", []):
+        rows["4"].append([
+            item.get("b", ""), _cell(item.get("difference")),
+            _interval_only(item.get("ci_low"), item.get("ci_high")),
+            item.get("verdict", ""),
+        ])
+
+    for key in sorted((metrics.get("pooled") or {}), key=float):
+        entry = (metrics.get("pooled") or {})[key]
+        for arm in metrics.get("arms", []):
+            name = arm.get("name", "")
+            scores = ((entry.get("arms") or {}).get(name) or {}).get("scores") or {}
+            if arm.get("family") == "tasodifiy" and not name.endswith("-1"):
+                continue
+            rows["5"].append([
+                fmt(entry.get("k")), name, _cell(scores.get("auc")),
+                _cell(scores.get("rmse")), _cell(scores.get("accuracy")), _cell(scores.get("n")),
+            ])
+
+    for fold in folds:
+        counts = fold.get("counts") or {}
+        rows["6"].append([
+            fmt(fold.get("index")), _cell(counts.get("train")), _cell(counts.get("validation")),
+            _cell(counts.get("test")), _cell(counts.get("test_answers")),
+        ])
+    return rows
+
+
+def render_h3_report(metrics: dict) -> str:
+    """``tables.md`` for ``h3.py``, generated from the metrics alone (D48)."""
+    require_sources(metrics)
+    provenance = metrics.get("provenance", {})
+    constants = metrics.get("constants") or {}
+    main = metrics.get("main_k") or ""
+    pooled = (metrics.get("pooled") or {}).get(main) or {}
+    reading = pooled.get("reading") or {}
+    rows = _h3_rows(metrics)
+    label = (metrics.get("dataset") or {}).get("label", "")
+
+    lines: list[str] = [
+        f"# H3 — {label}: graf nazoratlari",
+        "",
+        "Bu fayl `metrics.json` dan avtomatik yasaladi (D48). Qo‘lda yozilgan son yo‘q.",
+    ]
+    lines += _tree_warning(provenance)
+    lines += [
+        "",
+        "Bitta model (BKT+IRT+Pre), to‘rt graf: asl, teskari, daraja saqlangan",
+        "tasodifiy va grafsiz (λ = 0). Teskari va tasodifiy graflar — null",
+        "modellar: ularning zichligi va daraja taqsimoti asl grafnikidek, demak",
+        "ulardan ustun kelgan natija grafning **munosabatlaridan** keladi,",
+        "shunchaki prior silliqligidan emas.",
+        "",
+        f"λ validatsiyada tanlanadi (grid: "
+        f"{', '.join(fmt(value) for value in constants.get('lambda_grid', []))}; "
+        f"II bobning qiymati {_cell(constants.get('lambda_chapter_two'))}), har bir arm "
+        "uchun alohida. Tasodifiy graflar birinchisining λ sini qayta ishlatadi.",
+        "",
+        f"O‘lchov — mavzudagi dastlabki k = {_cell(constants.get('main_k'))} urinish "
+        "bo‘yicha AUC; butun to‘plam AUC'i yonida ustun sifatida turadi.",
+    ]
+    if metrics.get("quick"):
+        lines += [
+            "",
+            "> **`--quick` ishga tushirish — dissertatsiya natijasi emas.** Bu quvurni",
+            "> sinash uchun: talabalarning kichik qismi va kam tasodifiy graf. To‘liq",
+            "> natija uchun `python -m experiments.h3` bayroqsiz ishga tushiriladi.",
+        ]
+    lines += [
+        "",
+        "## 1. Arm'lar",
+        "",
+        f"AUC uchun {_cell(pooled.get('confidence_percent'))} % ishonch oralig‘i — "
+        f"talabalar bo‘yicha bootstrap, {_cell(pooled.get('replicates'))} replika. "
+        "Tasodifiy graflarning faqat birinchisi uchun oraliq hisoblanadi (D61);",
+        "qolganlarining taqsimoti keyingi bo‘limda.",
+        "",
+        "| Arm | Oila | Qirra | λ (1-fold) | AUC [CI] | Butun to‘plam AUC | Javob |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["1"]]
+    lines += [
+        "",
+        "## 2. Oilalar",
+        "",
+        "| Oila | Arm | AUC min | AUC mediana | AUC max | AUC o‘rtacha |",
+        "|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["2"]]
+    lines += [
+        "",
+        "## 3. Kontrastlar",
+        "",
+        "Farq — asl grafning AUC'i minus taqqoslanadigan armning AUC'i; tasodifiy",
+        "oila uchun bu uning arm'lari bo‘yicha **o‘rtacha**. Ishonch oralig‘i —",
+        "talabalar bo‘yicha klasterlangan bootstrap. DeLong o‘rtachani ifodalay",
+        "olmaydi, shuning uchun u oilaning medianasi bo‘lgan armga qarshi",
+        "hisoblanadi va ustunda shu arm nomi turadi.",
+        "",
+        "| Taqqoslash | Farq | CI | DeLong qarshi | DeLong p | Holm p |",
+        "|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["3"]]
+    lines += [
+        "",
+        "## 4. O‘qish qoidasi (natijadan oldin yozilgan)",
+        "",
+        f"{reading.get('rule', '—')}",
+        "",
+        f"{reading.get('scope', '—')}",
+        "",
+        f"**Xulosa: {reading.get('status', '—')}.**",
+        "",
+        "| Taqqoslash | Farq | CI | Xulosa |",
+        "|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["4"]]
+    lines += [
+        "",
+        "## 5. Dastlabki k bo‘yicha",
+        "",
+        "Har bir k uchun mavzudagi dastlabki k urinish. Tasodifiy oiladan faqat",
+        "birinchi graf ko‘rsatiladi; oilaning taqsimoti ikkinchi bo‘limda.",
+        "",
+        "| k | Arm | AUC | RMSE | Aniqlik | Javob |",
+        "|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["5"]]
+    lines += [
+        "",
+        "## 6. Qismlar",
+        "",
+        "| Fold (indeks) | Train | Validatsiya | Test | Test javob |",
+        "|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["6"]]
+    lines += _junyi_section(metrics, number=7)
+    lines += _sources_section(metrics, provenance, number=8)
+    return "\n".join(lines) + "\n"
+
+
+def verify_h3_positions(markdown: str, metrics: dict) -> list[str]:
+    """Every cell of the H3 tables against its own (arm, metric) key."""
+    return _positions(markdown, _h3_rows(metrics))

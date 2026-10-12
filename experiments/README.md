@@ -36,6 +36,7 @@ isbotlamaydi.
 | `tables.py` | `metrics.json` → `tables.md`, va `verify` | D48 |
 | `components.py` | kuchsiz/kuchli bog'langan komponentlar, kondensatsiya | D52 |
 | `datasets/assist09.py` | ASSISTments 2009 tozalash qoidalari va kutilgan sonlar | D50 |
+| `datasets/junyi.py` | Junyi Academy (2015): mashqlar jadvalidan graf va daraxt, SCC birlashtirish, logni bo'laklab o'qish va tozalash, inventarizatsiya, talaba tanlash | D61 |
 | `datasets/graphs.py` | GraphML / CSV graf yuklovchisi, yo'nalish argument sifatida | D51 |
 | `graph_report.py` | graf tahlili: o'lcham, Y3, ortiqcha qirralar, `lev`, tayyorlik benchmarki | D52 |
 | `splits.py` | 5 qism **talabalar bo'yicha**, har birida validatsiya ulushi | 8-bosqich |
@@ -45,6 +46,9 @@ isbotlamaydi.
 | `models/neural.py` | DKT, AKT — pyKT ning arxitekturalari | D53 |
 | `models/pybkt_check.py` | 5 mavzu bo'yicha pyBKT EM bilan o'zaro tekshiruv | D53 |
 | `h2.py` | H2 ishga tushirish: `--quick` va to'liq | D53 |
+| `h1.py` | H1: tayyorlik qoidalari, teng qamrov uchun τ qidirish, τ×δ sezgirligi | D61 |
+| `h3.py` | H3: BKT+IRT+Pre to'rt graf arm'i bilan (asl, teskari, tasodifiy, grafsiz) | D61 |
+| `run_all.py` | `--dataset ... --models ... [--quick]` — gipotezalarni bitta buyruqdan | 8-bosqich |
 | `h2_bounds.py` | H2 ning G_MAX/S_MAX ga sezgirligi: BKT va BKT+IRT (λ=0), uch sozlama | D55 |
 | `reproduce.py` | ikki H2 natijasini solishtiradi: BKT, BKT+IRT, Elo/Rasch, PFA 1e-9 gacha teng bo'lishi kerak, DKT/AKT faqat ko'rsatiladi | muhit tiklanishi |
 | `orders.py` | qator qaysi masalaga (`order_id`) tegishli; D57 bo'yicha bashorat faqat oldingi masalalardan | D57 |
@@ -178,6 +182,49 @@ ko'p javobli mavzuda L-BFGS-B bilan solishtiriladi: nisbiy farq 1 % dan oshsa,
 ishga tushirish hech narsa yozmasdan to'xtaydi (chiqish kodi 3). Grid search'lar
 (sozlama × fold) parallel jarayonlarda (`--workers`); natija bunga bog'liq emas.
 
+### H1 va H3 — Junyi Academy (2015) (D61)
+
+```sh
+# Graf — mashqlar jadvalidan; javoblar — 2,6 GB log, bo'laklab o'qiladi.
+# Ikkalasi ham --data bilan papka oladi (D49: hech narsa yuklab olinmaydi).
+experiments/.venv/bin/python -m experiments.h1 --quick
+experiments/.venv/bin/python -m experiments.h3 --quick
+
+# Uzoq run — systemd user unit'da, h1 keyin h3
+experiments/run_h2.sh junyi-full
+```
+
+H1 ning birligi javob emas, **qaror**: talabaning mashqqa birinchi urinishi,
+prerekvizitlari bor va kamida bittasi oldin ishlangan (D62). To'rtta qoida —
+ehtimoliy (r ≥ τ), II bobning R si (M, δ bilan), bajarilganlik, o'tish bali —
+va platformaning o'zining `earned_proficiency` qoidasi teng qamrovda
+solishtiriladi: τ **validatsiyada** taqqoslanadigan qoidaning qamroviga
+moslanadi, o'lchov test qismida. r_s(w), R_s(w) va M `neuro_model.readiness`
+dan, ya'ni platformaning o'zi chaqiradigan funksiyalardan (D62).
+
+H3 — bitta model, to'rt graf: asl, teskari, daraja saqlangan tasodifiy (20
+seed, `networkx.directed_edge_swap`) va grafsiz (λ = 0, ya'ni BKT+IRT (λ=0)).
+λ validatsiyada, har bir arm uchun alohida. O'lchov — mavzudagi dastlabki
+k ∈ {3, 5} urinish bo'yicha AUC. Natija **shu graf uchun** o'qiladi (D61).
+
+Ikkala modul ham D61 ning sonlarini darvoza sifatida ishlatadi: mashqlar
+jadvali 979 noyob qirra / 2 o'z-o'ziga qirra / 1 SCC / 833 mavzu / eng uzun
+yo'l 65 bermasa, va log fayli hujjatdagi 25 925 992 qator va 247 606 talabani
+bermasa, quvur to'xtaydi — yarim yuklangan fayl ham shu darvozada qoladi.
+
+### Hammasi bitta buyruqdan (8-bosqich)
+
+```sh
+experiments/.venv/bin/python -m experiments.run_all --list
+experiments/.venv/bin/python -m experiments.run_all --dataset junyi --quick
+experiments/.venv/bin/python -m experiments.run_all --dataset assist09 --models bkt,dkt
+```
+
+`run_all.py` faqat dispatcher: o'z natijasi, o'z metrikasi yo'q. Qaysi
+gipoteza qaysi to'plamda ishga tushishi ma'lumotning xossasi — ASSISTments'da
+graf yo'q (H1/H3 ishga tushmaydi), Junyi'da H2 takrorlanmaydi — va ishga
+tushmagani chiqishda gap bilan ko'rinadi, jim tashlanmaydi (D48).
+
 ## Testlar
 
 ```sh
@@ -200,13 +247,16 @@ hammasini.
 |---|---|---|
 | Yuklovchilar (D49–D51), graf tahlili (D52) | 8b-1 | bajarildi |
 | H2: ASSISTments 2009 da BKT, BKT+IRT, Elo/Rasch, PFA, DKT, AKT (D53) | 8b-2 | bajarildi |
-| H1/H3 kodi, DBE yuklovchisi, graf nazoratlari, annotatsiya vositasi | 8b-3 | kutilmoqda |
+| H1/H3 kodi, Junyi yuklovchisi, graf nazoratlari, `run_all.py` | 8b-3 | kod bajarildi; natija Junyi log'i yuklanishini kutadi (D61) |
+| DBE-KT22 yuklovchisi (javoblar bilan) | 8b-3 | **kechiktirildi — ma'lumot manbasi ochilmadi** (D61); o'rniga Junyi |
+| Annotatsiya vositasi (`annotate.py`), Cohen κ | 8b-3 | **kechiktirildi — annotator yo'q** (D61); o'rniga Junyi annotatsiyalari bilan tavsifiy moslik |
 
 ## Testlar qaysi muhitda
 
 | Fayl | Django venv | `experiments/.venv` |
 |---|---|---|
-| `test_tables.py`, `test_graphs.py`, `test_graph_report.py`, `test_assist09.py`, `test_splits.py` | ishlaydi | ishlaydi |
+| `test_tables.py`, `test_graphs.py`, `test_graph_report.py`, `test_assist09.py`, `test_splits.py`, `test_junyi.py`, `test_run_all.py` | ishlaydi | ishlaydi |
+| `test_h1.py`, `test_h3.py` | ishlaydi (τ/δ ni `settings.THESIS_MODEL` bilan solishtiruvchi test faqat Django muhitida) | ishlaydi (o'sha test skip) |
 | `test_metrics_stats.py` | numpy yo'qligi uchun skip | ishlaydi |
 | `test_models.py` | sklearn/torch yo'qligi uchun qisman skip | ishlaydi |
 

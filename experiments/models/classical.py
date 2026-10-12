@@ -5,8 +5,9 @@ Four of them, and three are the same code:
 
 - **BKT** — ``observe`` with ``use_irt=False, use_prereq_init=False``;
 - **BKT+IRT (λ=0)** — ``use_irt=True, use_prereq_init=False``;
-- **BKT+IRT+Pre** — both on; unavailable here, because ASSISTments has no
-  prerequisite graph (D53), and it says so rather than being left out;
+- **BKT+IRT+Pre** — both on; it needs Pre(w), so it runs where there is a
+  prerequisite graph (Junyi, D61) and reports itself unavailable where there
+  is none (ASSISTments, D53) rather than being left out;
 - **Elo/Rasch** — ``p = σ(θ − b)`` with ``K(n) = α/(1 + βn)``, no BKT at all.
 
 PFA is in this module too but is not one of the ablation flags: it is the
@@ -32,6 +33,7 @@ from dataclasses import dataclass
 
 from neuro_model import bkt, calibrate, elo
 from neuro_model import student as engine
+from neuro_model.init import Prerequisite
 
 from experiments import orders
 from experiments.models import Unavailable
@@ -222,6 +224,11 @@ class BKTFamily:
     """
     One engine, three flag settings (D53). ``neuro_model.student.observe`` is
     called per answer, so this is the platform's own update rule.
+
+    ``graph`` is Pre(w) with ω, which the third variant needs: with it,
+    BKT+IRT+Pre runs (H3 on Junyi, D61); without it, it reports itself
+    unavailable, which is ASSISTments (D53). Nothing else in the class depends
+    on it, so the three variants stay one piece of code.
     """
 
     def __init__(
@@ -233,6 +240,7 @@ class BKTFamily:
         params: dict[str, engine.TopicParams] | None = None,
         constants: engine.Constants = CONSTANTS,
         freeze_items: bool = False,
+        graph: dict[str, tuple[tuple[str, float], ...]] | None = None,
     ) -> None:
         self.name = name
         self.flags = engine.Flags(use_irt=use_irt, use_prereq_init=use_prereq_init)
@@ -245,12 +253,17 @@ class BKTFamily:
         # answers. θ keeps following the learner's own history. Chapter II's
         # model is the unfrozen one; this is a sensitivity variant.
         self.freeze_items = freeze_items
+        # D61/D62: Pre(w) with ω per skill, for use_prereq_init. None is "this
+        # dataset has no prerequisite graph", which is ASSISTments (D53) and
+        # which the variant reports as unavailable rather than running without
+        # the half of the model that defines it.
+        self.graph = dict(graph or {}) if graph is not None else None
         self._params = dict(params or {})
         self._fit_metadata: dict = {}
         self._items: tuple[dict[str, float], dict[str, int]] = ({}, {})
 
     def fit(self, train, validation=None) -> dict:
-        if self.flags.use_prereq_init:
+        if self.flags.use_prereq_init and not self.graph:
             raise Unavailable(
                 self.name,
                 "prerekvizit grafi yo‘q — ASSISTments 2009 uchun E_P mavjud emas (D53)",
@@ -274,6 +287,11 @@ class BKTFamily:
             "parameters": self._fit_metadata,
             "items_warmed": len(self._items[0]),
             "freeze_items": self.freeze_items,
+            "graph": None if self.graph is None else {
+                "skills": len(self.graph),
+                "edges": sum(len(pre) for pre in self.graph.values()),
+                "lambda": self.constants.lam if self.flags.use_prereq_init else 0.0,
+            },
         }
 
     def _warm_items(self, rows) -> tuple[dict[str, float], dict[str, int]]:
@@ -284,15 +302,7 @@ class BKTFamily:
         state = _State.empty()
         for row in rows:
             key = (row.user_id, row.skill_id)
-            observation = engine.Observation(
-                is_correct=bool(row.correct),
-                p_l=state.mastery.get(key),
-                theta=state.theta.get(row.user_id, 0.0),
-                b_q=state.difficulty.get(row.problem_id, 0.0),
-                n_student=state.theta_n.get(row.user_id, 0),
-                n_question=state.difficulty_n.get(row.problem_id, 0),
-                prerequisites=(),
-            )
+            observation = self._observation(state, row)
             result = engine.observe(
                 params=self._params.get(row.skill_id, DEFAULTS),
                 constants=self.constants,
@@ -305,6 +315,34 @@ class BKTFamily:
             state.difficulty[row.problem_id] = result.b_after
             state.difficulty_n[row.problem_id] = observation.n_question + 1
         return state.difficulty, state.difficulty_n
+
+    def item_state(self) -> tuple[dict[str, float], dict[str, int]]:
+        """The item difficulties the training fold warmed, and their counts."""
+        return dict(self._items[0]), dict(self._items[1])
+
+    def stream(self, rows, *, warm: bool = True):
+        """
+        Walk ``rows`` in order, yielding ``(row, state, observation, result)``
+        with the state as it stood **before** the row.
+
+        What ``predict`` does per order, for a caller that needs the state
+        itself: H1 reads P(L) of w's prerequisites before the learner's first
+        attempt at w (D61). The trajectory is the same one ``predict`` walks —
+        on Junyi a row is an order of its own (D61), so there is nothing to
+        group. The state is the live object and is updated after the yield, so
+        a consumer reads what it needs before asking for the next row.
+        """
+        state = _State.with_items(*self._items) if warm else _State.empty()
+        for row in rows:
+            observation = self._observation(state, row)
+            result = self._observe(row, observation)
+            yield row, state, observation, result
+            state.mastery[(row.user_id, row.skill_id)] = result.p_after
+            state.theta[row.user_id] = result.theta_after
+            state.theta_n[row.user_id] = observation.n_student + 1
+            if not self.freeze_items:
+                state.difficulty[row.problem_id] = result.b_after
+                state.difficulty_n[row.problem_id] = observation.n_question + 1
 
     def predict(self, rows) -> list[float]:
         """
@@ -334,8 +372,7 @@ class BKTFamily:
                     state.difficulty_n[row.problem_id] = observation.n_question + 1
         return out
 
-    @staticmethod
-    def _observation(state: _State, row) -> engine.Observation:
+    def _observation(self, state: _State, row) -> engine.Observation:
         return engine.Observation(
             is_correct=bool(row.correct),
             p_l=state.mastery.get((row.user_id, row.skill_id)),
@@ -343,7 +380,28 @@ class BKTFamily:
             b_q=state.difficulty.get(row.problem_id, 0.0),
             n_student=state.theta_n.get(row.user_id, 0),
             n_question=state.difficulty_n.get(row.problem_id, 0),
-            prerequisites=(),
+            prerequisites=self.prerequisites_of(state, row),
+        )
+
+    def prerequisites_of(self, state: _State, row) -> tuple[Prerequisite, ...]:
+        """
+        Pre(w) for P(L0), as the platform assembles it
+        (``assessments.services.student_model.prerequisites_of``): ω from the
+        edge, the learner's own P(L) for the prerequisite, and that
+        prerequisite's P0 where the learner has never answered it (3.3).
+
+        Empty without the flag or without a graph, which is what makes λ = 0
+        reduce the prior to P0(w).
+        """
+        if not self.flags.use_prereq_init or not self.graph:
+            return ()
+        return tuple(
+            Prerequisite(
+                weight=weight,
+                p_l=state.mastery.get((row.user_id, prerequisite)),
+                p0=self._params.get(prerequisite, DEFAULTS).p0,
+            )
+            for prerequisite, weight in self.graph.get(row.skill_id, ())
         )
 
     def _observe(self, row, observation: engine.Observation):

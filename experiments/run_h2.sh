@@ -13,6 +13,16 @@
 #                                   # D55, experiments.h2_bounds, the same way
 #   experiments/run_h2.sh frozen-quick | frozen-full | frozen-both
 #                                   # D60, experiments.h2_frozen, the same way
+#   experiments/run_h2.sh h1-quick | h1-full | h1-both
+#   experiments/run_h2.sh h3-quick | h3-full | h3-both
+#                                   # D61, Junyi: experiments.h1 / experiments.h3
+#   experiments/run_h2.sh junyi-quick | junyi-full | junyi-both
+#                                   # both hypotheses of D61, h1 then h3
+#
+# The Junyi modes read a 2.6 GB log, so the inventory pass alone takes a while
+# and the log lines of each pass show its progress (D61). They take no
+# --reference: H1 and H3 reproduce nothing of H2, they are different
+# hypotheses on a different dataset.
 #
 # Progress: tail -f experiments/.runs/h2-<mode>.log
 #
@@ -138,6 +148,8 @@ run() {
 H2=experiments.h2
 BOUNDS=experiments.h2_bounds
 FROZEN=experiments.h2_frozen
+H1=experiments.h1
+H3=experiments.h3
 REF=""
 [[ -n "${H2_REFERENCE:-}" ]] && REF="--reference $H2_REFERENCE"
 POOL=""
@@ -152,7 +164,17 @@ case "$MODE" in
     frozen-quick) CHAIN="run frozen-quick $FROZEN --quick $REF $POOL" ;;
     frozen-full)  CHAIN="run frozen-full $FROZEN $REF $POOL" ;;
     frozen-both) CHAIN="run frozen-quick $FROZEN --quick $REF $POOL && run frozen-full $FROZEN $REF $POOL" ;;
-    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both}" >&2; exit 2 ;;
+    h1-quick) CHAIN="run h1-quick $H1 --quick $POOL" ;;
+    h1-full)  CHAIN="run h1-full $H1 $POOL" ;;
+    h1-both)  CHAIN="run h1-quick $H1 --quick $POOL && run h1-full $H1 $POOL" ;;
+    h3-quick) CHAIN="run h3-quick $H3 --quick $POOL" ;;
+    h3-full)  CHAIN="run h3-full $H3 $POOL" ;;
+    h3-both)  CHAIN="run h3-quick $H3 --quick $POOL && run h3-full $H3 $POOL" ;;
+    junyi-quick) CHAIN="run h1-quick $H1 --quick $POOL && run h3-quick $H3 --quick $POOL" ;;
+    junyi-full)  CHAIN="run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
+    junyi-both)  CHAIN="run h1-quick $H1 --quick $POOL && run h3-quick $H3 --quick $POOL \
+                        && run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
+    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both}" >&2; exit 2 ;;
 esac
 
 LAUNCHER="${H2_LAUNCHER:-}"

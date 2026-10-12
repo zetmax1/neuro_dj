@@ -332,6 +332,48 @@ def bootstrap_auc_difference(
     return Interval(point, float(low), float(high), len(draws), True)
 
 
+def bootstrap_statistic(
+    statistic,
+    learners: Sequence[str],
+    *,
+    replicates: int = DEFAULT_REPLICATES,
+    seed: int = DEFAULT_SEED,
+    confidence: float = CONFIDENCE,
+) -> Interval:
+    """
+    A clustered percentile interval for any statistic of the rows.
+
+    ``statistic(indices)`` receives the row indices of one replicate and
+    returns a number, or None when that replicate cannot be scored — the same
+    rule ``bootstrap_auc`` applies to a replicate with one class, and the
+    usable count is reported rather than the gap being filled in.
+
+    H1 needs it: its quantity is a difference of error **shares** over
+    decision events, not an AUC, and the unit of resampling is still the
+    learner — one learner contributes several events and they are not
+    independent.
+    """
+    rows = len(learners)
+    if rows == 0:
+        return Interval(None, None, None, 0, True)
+
+    point = statistic(np.arange(rows))
+    rng = np.random.default_rng(seed)
+    groups = _group_indices(learners)
+    count = len(groups)
+    draws: list[float] = []
+    for _ in range(replicates):
+        chosen = rng.integers(0, count, size=count)
+        value = statistic(np.concatenate([groups[index] for index in chosen]))
+        if value is not None:
+            draws.append(float(value))
+    if not draws:
+        return Interval(point, None, None, 0, True)
+    alpha = (1.0 - confidence) / 2.0
+    low, high = np.quantile(draws, [alpha, 1.0 - alpha])
+    return Interval(point, float(low), float(high), len(draws), True)
+
+
 def _bootstrap_flat(
     labels: np.ndarray,
     scores: np.ndarray,

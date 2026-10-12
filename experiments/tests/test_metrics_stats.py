@@ -402,3 +402,40 @@ def test_without_first_rows_no_first_row_score_is_reported(sample):
     assert all("first_in_order" not in entry for entry in out["models"].values())
     with pytest.raises(ValueError, match="parallel"):
         h2.analyse_pooled(pooled, labels, learners, replicates=20, seed=5, first_in_order=[True])
+
+
+def test_the_clustered_bootstrap_of_a_statistic_resamples_learners():
+    """
+    H1's quantity is a difference of error shares, not an AUC, so it needs a
+    bootstrap over any statistic — with the learner still the unit.
+    """
+    import numpy as np
+
+    from experiments import stats
+
+    learners = [str(index // 4) for index in range(40)]
+    values = np.array([index % 2 for index in range(40)], dtype=float)
+
+    interval = stats.bootstrap_statistic(
+        lambda rows: float(values[rows].mean()), learners, replicates=200, seed=3,
+    )
+
+    assert interval.estimate == pytest.approx(0.5)
+    assert interval.replicates == 200
+    assert interval.by_learner is True
+    assert interval.low <= interval.estimate <= interval.high
+
+    again = stats.bootstrap_statistic(
+        lambda rows: float(values[rows].mean()), learners, replicates=200, seed=3,
+    )
+    assert again.payload() == interval.payload()
+
+
+def test_a_statistic_that_cannot_be_scored_leaves_no_interval():
+    from experiments import stats
+
+    interval = stats.bootstrap_statistic(lambda rows: None, ["1", "2"], replicates=10)
+
+    assert interval.payload()["ci_low"] is None
+    assert interval.replicates == 0
+    assert stats.bootstrap_statistic(lambda rows: 1.0, [], replicates=10).estimate is None

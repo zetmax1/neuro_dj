@@ -306,6 +306,30 @@ def test_the_bounds_modes_run_the_d55_module_with_their_own_logs(tmp_path):
     assert not (tmp_path / "logs" / "h2-quick.log").exists()
 
 
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_junyi_modes_run_h1_then_h3_with_their_own_logs(tmp_path):
+    """D61's two hypotheses, each in its own log, h1 before h3."""
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "junyi-full", fake)
+
+    logs = tmp_path / "logs"
+    assert "args: -u -W ignore -m experiments.h1\n" in (logs / "h2-h1-full.log").read_text()
+    assert "args: -u -W ignore -m experiments.h3\n" in (logs / "h2-h3-full.log").read_text()
+    assert "finished h1-full (exit 0)" in (logs / "h2-h1-full.log").read_text()
+    assert not (logs / "h2-full.log").exists()
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_a_junyi_mode_passes_no_reference(tmp_path):
+    """H1 and H3 reproduce nothing of H2, so --reference has no place there."""
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "h3-quick", fake, H2_REFERENCE="assist09/20261010-060005")
+
+    log = (tmp_path / "logs" / "h2-h3-quick.log").read_text()
+    assert "args: -u -W ignore -m experiments.h3 --quick" in log
+    assert "--reference" not in log
+
+
 def test_the_detached_launch_leaves_the_launchers_cgroup_and_survives_an_oom_kill():
     """
     setsid alone kept the run in the launching browser's cgroup, and systemd

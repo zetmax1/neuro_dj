@@ -69,14 +69,19 @@ QUICK_EPOCHS = 3
 FULL_EPOCHS = 10
 
 
-def build_models(params, *, epochs: int, seed: int) -> list:
+def build_models(params, *, epochs: int, seed: int, only: tuple[str, ...] | None = None) -> list:
     """
     The six models of D53 and AKT-R (D59), in table order. Built per fold, because each one
     carries fitted state.
+
+    ``only`` keeps the named models and drops the rest, which is what
+    ``run_all --models`` passes through. None is all of them, i.e. H2 as D53
+    states it; a subset is a pipeline run, and the request is recorded in the
+    metrics so the table cannot be read as the full comparison.
     """
     from experiments.models.neural import AKTModel, AKTRModel
 
-    return [
+    built = [
         BKTFamily("BKT", use_irt=False, use_prereq_init=False, params=params),
         BKTFamily("BKT+IRT (λ=0)", use_irt=True, use_prereq_init=False, params=params),
         BKTFamily("BKT+IRT+Pre", use_irt=True, use_prereq_init=True, params=params),
@@ -86,6 +91,10 @@ def build_models(params, *, epochs: int, seed: int) -> list:
         AKTModel(epochs=epochs, seed=seed),
         AKTRModel(epochs=epochs, seed=seed),
     ]
+    if only is None:
+        return built
+    wanted = set(only)
+    return [model for model in built if model.name in wanted]
 
 
 # ---------------------------------------------------------------------------
@@ -171,7 +180,8 @@ def fit_predict(model, sets: dict[str, list]) -> tuple[dict, list[float]]:
 
 
 def run_fold(fold, rows, *, epochs: int, seed: int, log=print,
-             fitted: tuple[dict, dict, float] | None = None) -> tuple[dict, dict]:
+             fitted: tuple[dict, dict, float] | None = None,
+             only: tuple[str, ...] | None = None) -> tuple[dict, dict]:
     """
     One fold. Returns (per-model fold report, per-model pooled predictions).
 
@@ -205,7 +215,7 @@ def run_fold(fold, rows, *, epochs: int, seed: int, log=print,
     }
     predictions: dict[str, list[float]] = {}
 
-    for model in build_models(params, epochs=epochs, seed=seed):
+    for model in build_models(params, epochs=epochs, seed=seed, only=only):
         started = time.perf_counter()
         try:
             info, scores = fit_predict(model, sets)
@@ -425,6 +435,7 @@ def sanity(pooled_models: dict) -> dict:
 def run(args, argv: list[str]) -> tuple[dict, Provenance]:
     # D54: taken before anything is loaded, so a tree edited mid-run shows.
     git_start = GitState.capture()
+    requested = models_requested(args)
     dataset, rows, learners, folds = prepare(args)
     epochs = epochs_for(args)
     workers = max(1, min(args.workers, len(folds)))
@@ -436,7 +447,7 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
     for fold in folds:
         print(f"  fold {fold.index + 1}/{len(folds)}: {fold.counts()}")
         report, output = run_fold(fold, rows, epochs=epochs, seed=fold_seed(args, fold),
-                                  fitted=fitted[fold.index])
+                                  fitted=fitted[fold.index], only=requested)
         fold_reports.append(report)
         fold_outputs.append(output)
 
@@ -511,6 +522,7 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
             folds, seed=args.seed, validation_fraction=args.validation_fraction,
         ),
         "epochs": epochs,
+        "models_requested": None if requested is None else list(requested),
         "parameter_fit_workers": workers,
         "folds": fold_reports,
         "pooled": analysis,
@@ -636,8 +648,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Processes for the folds' BKT grid searches; the result does not depend on it.",
     )
     parser.add_argument("--seed", type=int, default=splits.DEFAULT_SEED)
+    parser.add_argument(
+        "--models", default="all",
+        help=(
+            "Models to run, by the names of experiments.run_all, or 'all' "
+            "(D53's full comparison). A subset is a pipeline run."
+        ),
+    )
     parser.add_argument("--out", default=None)
     return parser
+
+
+def models_requested(args) -> tuple[str, ...] | None:
+    """``--models`` as model names, or None for all of them."""
+    from experiments.run_all import parse_models
+
+    text = getattr(args, "models", "all") or "all"
+    if text.strip().lower() == "all":
+        return None
+    return parse_models(text)
 
 
 def main(argv: list[str] | None = None) -> int:

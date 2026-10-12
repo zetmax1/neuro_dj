@@ -33,7 +33,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8b — Eksperimentlar quvuri (ochiq ma’lumotlar birinchi) | Qisman | — | — |
 | 8b-1 — Yuklovchilar (D49–D51) va graf tahlili (D52) | **Bajarildi** | `c1a683b` | — |
 | 8b-2 — H2: ASSISTments 2009 (D53, D56, D57) | **Bajarildi** — to‘liq natija `experiments/results/assist09/20261009-055443/` (D57); D55 D57 bilan hali ishga tushirilmagan | `7ff7ae2` … `e97621c`, natija `abb1fe4` | — |
-| 8b-3 — H1/H3 kodi, DBE yuklovchisi, nazoratlar, annotatsiya | Kutilmoqda | — | — |
+| 8b-3 — H1/H3 kodi, Junyi yuklovchisi, graf nazoratlari, `run_all.py` | **Kod bajarildi** — natijalar log yuklanishini kutadi (D61); DBE-KT22 yuklovchisi va annotatsiya vositasi kechiktirildi (D62) | `056f17d` … | — |
 | 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
 
@@ -1750,6 +1750,75 @@ kod yozilmaydi (D48: yo‘q narsa son chiqarmaydi).
 
 ---
 
+## 8b-3 kodi — Junyi yuklovchisi, H1, H3, `run_all.py` (2026-10-12, natijadan oldin)
+
+D61 va D62 ga ko‘ra yozildi; **natija yo‘q**: Junyi log fayli hali yuklanmagan
+(pastda). Shu bo‘lim kodning nimadan iboratligini va o‘lchangan graf sonlarini
+qayd etadi.
+
+### Yangi modullar
+
+| Fayl | Nima qiladi |
+|---|---|
+| `experiments/datasets/junyi.py` | Mashqlar jadvalidan graf (B→A), Y2 (o‘z-o‘ziga qirra) va Y3 (SCC birlashtirish, Tarjan), area→topic→mashq daraxti; logni bo‘laklab o‘qish, D61 tozalashi, inventarizatsiya, seed bilan N talaba tanlash |
+| `experiments/h1.py` | To‘rtta tayyorlik qoidasi + II bobning R si, teng qamrov uchun τ qidirish (validatsiyada), xato ulushi / qamrov / r_s(w) AUC, τ×δ sezgirligi, D61 ning o‘qish qoidasi |
+| `experiments/h3.py` | BKT+IRT+Pre to‘rt graf arm'i bilan (asl, teskari, daraja saqlangan tasodifiy ×20 seed, grafsiz λ=0), λ validatsiyada, dastlabki k ∈ {3,5} AUC, uch kontrast (bootstrap + DeLong + Holm) |
+| `experiments/run_all.py` | `--dataset ... --models ... [--quick]` dispatcher (8-bosqich; V-E3/V-E4) |
+
+O‘zgargan: `models/classical.py` (`BKTFamily(graph=…)`, `item_state`, `stream`),
+`stats.py` (`bootstrap_statistic` — klasterlangan bootstrap ixtiyoriy
+statistika uchun), `tables.py` (`render_h1_report`, `render_h3_report` va
+ularning pozitsion tekshiruvlari), `h2.py` (`--models`), `run_h2.sh`
+(`h1-*`, `h3-*`, `junyi-*` rejimlari).
+
+**H2 ga ta’siri yo‘q.** `BKTFamily` ning uchinchi varianti graf berilmaganda
+avvalgidek `Unavailable` deb e’lon qiladi, `--models` ning standart qiymati —
+hammasi, va `experiments/.venv` ga yangi paket qo‘shilmadi (networkx lock
+faylida bor edi).
+
+### D61 dagi ikki sonning tuzatilishi (kod bilan o‘lchangan)
+
+D61 ba’zi sonlarni 837 **qator**, ba’zilarini 835 **noyob mashq** darajasida
+hisoblagan. Kod ikkisini ajratadi va ikkala qiymatni ham yozadi:
+
+| Ko‘rsatkich | D61 da | O‘lchangan | Sabab |
+|---|---|---|---|
+| o‘qilgan prerekvizit yozuvi | 986 | **984** | takrorlangan ikki qator o‘qilmaydi (birinchi nusxa qoladi); 984 = 979 noyob + 3 takroriy + 2 o‘z-o‘ziga |
+| `live=FALSE` | 61 | **59** mashq / **61** qator | ikkala takroriy qator ham `live=FALSE` |
+| `algebra` / `N/A` mashqlari | 258 / 20 | **257 / 19** | o‘sha ikki qator (`matrix_app_fruit_oil` — algebra, `matrix_mul_two` — N/A) |
+
+Boshqa hammasi D61 dagidek chiqdi va yuklovchining `verify=True` darvozasiga
+yozildi: 979 noyob qirra, 2 o‘z-o‘ziga qirra, 3 takroriy, 0 nomi topilmagan
+prerekvizit, 1 SCC (3 tugun), birlashtirilgandan keyin 833 mavzu / 976 qirra,
+eng uzun yo‘l 65, prerekvizitsiz 95 mashq (mavzu darajasida 97), qirrasiz 59.
+Mashqlar jadvalining sha256'i `13292cc2…769546`.
+
+### Testlar
+
+`experiments/.venv` da butun paket: **391 passed, 2 skipped** (7 daq 37 s).
+Yangi testlar 81 ta: `test_junyi.py` (27), `test_h1.py` (19), `test_h3.py`
+(18), `test_run_all.py` (13), `test_metrics_stats.py` ga 2 (`bootstrap_statistic`),
+`test_provenance.py` ga 2 (launcher'ning `junyi-*` va `h3-*` rejimlari).
+Skip ikkitasi: Django sozlanmagan muhitda τ/δ ni `settings.THESIS_MODEL` bilan
+solishtirish, va oldindan bor pyBKT skip'i.
+
+Graf testlari **haqiqiy** `junyi_Exercise_table.csv` da ishlaydi (yuqoridagi
+sonlar), log testlari sintetik fixture'da: `junyi_problem_log_tiny.csv` (har
+bir tozalash qoidasi uchun bitta qator) va `conftest.write_junyi_log` —
+prerekvizit ta’siri qo‘shilgan generativ log, 12 mashqli fixture graf bilan.
+H1 va H3 ning quvuri shu log'da uchidan-uchiga ishga tushadi va `tables.md`
+katak-katak tekshiriladi (D48). **Bu sonlar dissertatsiya natijasi emas.**
+
+### Tekshiruvga ta’siri
+
+`verification/tests/test_na.py::test_na_group_e_pipeline_run_all_is_not_implemented`
+aynan `experiments/run_all.py` paydo bo‘lganda yiqilishi uchun yozilgan edi
+(“This fails when it lands”), shuning uchun u endi yiqiladi. `verification/`
+ga tegilmadi (D54): V-E3/V-E4 ni qayta baholash va `REPORT.md` ni yangilash
+tekshiruvchining ishi.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -1986,13 +2055,15 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | `seed_data` so‘ramasdan hammasini o‘chiradi | P2-7 | Bajarildi | `curriculum/management/commands/seed_data.py:20-45`; testlar `test_seed_safety.py` |
 | `simulate --clear` real akkauntlarni hard-delete qiladi | P2-7, P2-8 | Bajarildi | `assessments/management/commands/simulate_bkt_data.py:52-57` |
 | Anonim eksport yo‘q | EX1 (B8) | Kutilmoqda (B8) | — |
-| pyKT/pyBKT/DBE-KT22/ASSISTments yo‘q | EX2 (B8) | Kutilmoqda (B8) | — |
+| pyKT/pyBKT/DBE-KT22/ASSISTments yo‘q | EX2 (B8) | Qisman | ASSISTments 2009 (`datasets/assist09.py`, D50), pyKT DKT/AKT/AKT-R va pyBKT cross-check (D53, D59), Junyi (`datasets/junyi.py`, D61). DBE-KT22 — pastdagi qator |
+| DBE-KT22 yuklovchisi (javoblar bilan) | 8b-3 | **Kechiktirildi — ma’lumot manbasi ochilmadi (D61)** | ADA kirish so‘rovi javobsiz qoldi; o‘rniga Junyi Academy (2015) ishlatiladi (D61, foydalanuvchi ruxsati bilan). DBE-KT22 **grafi** bor va ishlatilgan (`datasets/graphs.py`, D51; `graph_report` ikkala yo‘nalishda). Kod yozilmadi: ma’lumoti yo‘q yuklovchi son chiqarmaydi (D48) |
+| Annotatsiya vositasi (`experiments/graphs/annotate.py`), Cohen κ | 8b-3 | **Kechiktirildi — annotator yo‘q (D61)** | Ikki mustaqil annotator yo‘q, shuning uchun κ “hisoblanmadi — annotator yo‘q” bo‘lib qoladi (D13). O‘rniga Junyi ning o‘z annotatsiya fayllari bilan **tavsifiy** moslik yozildi (D61: 1 131 juftlik, AUC 0,6824 / 0,5595) |
 | AUC/RMSE/statistika yo‘q | EX3, EX4 (B8) | Kutilmoqda (B8) | — |
 | Benchmark zaif | EX5 (B9) | Kutilmoqda (B9) | — |
 | Simulyator generativ emas | B8 | Kutilmoqda (B8) | — |
-| H1 tayyorligi | B1, B4, B8 | Kutilmoqda | B1 qismi bajarildi: `readiness_score`, `was_ready` maydonlari (`888a96f`); to‘ldirish — B4 |
-| H2 tayyorligi | B3, B8 | Kutilmoqda | — |
-| H3 tayyorligi | B3, B8 | Kutilmoqda | — |
+| H1 tayyorligi | B1, B4, B8 | Qisman | B1: `readiness_score`, `was_ready` maydonlari (`888a96f`). 8b-3: `experiments/h1.py` — to‘rtta qoida, teng qamrov uchun τ qidirish, τ×δ sezgirligi, r_s(w) AUC; r_s(w)/R/M `neuro_model.readiness` dan (D61, D62). Natija Junyi log'i yuklanishini kutadi |
+| H2 tayyorligi | B3, B8 | Bajarildi | `experiments/h2.py`, to‘liq natija `experiments/results/assist09/20261010-060005/` (D53, D57, D59); sezgirliklar D55 va D60 |
+| H3 tayyorligi | B3, B8 | Qisman | `experiments/h3.py` — BKT+IRT+Pre to‘rt graf arm'i bilan (asl, teskari, daraja saqlangan tasodifiy ×20, grafsiz), λ validatsiyada; `BKTFamily(graph=…)` (D61, D62). Natija Junyi log'i yuklanishini kutadi |
 | H4 tayyorligi | B2, B9 | Kutilmoqda | B2 qismi bajarildi: CTE (django-tree-queries) asosiy model, `79b907c`; benchmark — B9 |
 
 ### 7-bo‘lim (testlar va sifat)
