@@ -1821,6 +1821,153 @@ tekshiruvchining ishi.
 
 ---
 
+## D63 — H4: saqlash usullari benchmarki (9-bosqich, 2026-10-12, kod va natijadan oldin)
+
+**H4 ning ifodasi.** Dissertatsiyada daraxt qo‘shni ro‘yxat (`parent_id`) va
+rekursiv CTE bilan saqlanadi (D3, `django-tree-queries`); muqobil — MPTT ning
+oraliq kodlashi (`lft`/`rght`). H4 shu tanlov haqida:
+
+> Bilimlar bazasining daraxti uchun qo‘shni ro‘yxat + rekursiv CTE (CTE usuli)
+> **yozish** amallarida (barg qo‘shish, shoxni ko‘chirish, shoxni o‘chirish va
+> parallel yozish) MPTT dan tez va parallel yozishda yaxlitligini saqlaydi;
+> **o‘qish** amallarida (shoxni o‘qish, ajdodlarni o‘qish) MPTT bilan
+> taqqoslanadigan bo‘lib qoladi.
+
+Ya’ni H4 bitta tezlik da’vosi emas, ikkita: yozishda ustunlik va o‘qishda
+“yomonlashmaslik”. Audit (`NEUROLEARN_AUDIT.md`, EX5/P1-5) eski
+`benchmark_tree.py` ning faqat o‘qishni, faqat o‘rtacha vaqtni va SQLite'ni
+o‘lchaganini topgan edi; shu sababli u olib tashlandi (`5e5cb09`) va o‘rniga
+`benchmarks` app'i yoziladi.
+
+**O‘qish qoidasi (natijadan oldin).** Har bir (shakl, hajm, amal) katagi
+uchun nisbat **ρ = mediana(MPTT) / mediana(CTE)** hisoblanadi; ρ > 1 — CTE
+tezroq. Takrorlar **juftlashtirilgan** (pastga qarang), shuning uchun ρ ning
+95 % ishonch oralig‘i juftlikni saqlagan bootstrap bilan (1 000 replika,
+seed `20261006`) olinadi.
+
+- **“CTE tezroq”**: ρ > 1 va CI ning pastki chegarasi > 1.
+- **“MPTT tezroq”**: ρ < 1 va CI ning yuqori chegarasi < 1.
+- **“taqqoslanadigan”**: CI 1 ni kesib o‘tadi.
+
+H4 **qo‘llab-quvvatlandi** deb yoziladi, agar: (1) to‘rtta yozish amalining
+har birida, **har bir** shakl va hajmda natija “CTE tezroq” bo‘lsa; (2) ikkita
+o‘qish amalida hech bir katakda “MPTT tezroq” **va** ρ < 1/1,5 bo‘lmasa
+(ya’ni CTE o‘qishda 1,5 barobardan ko‘proq yomonlashmasa — bu “taqqoslanadigan”
+so‘zining shu yerdagi ta’rifi va u natijadan oldin tanlandi); (3) parallel
+yozishdan keyin CTE da yaxlitlik buzilishi topilmasa. Shartlarning biri
+bajarilmasa — **“qo‘llab-quvvatlanmadi”**, va qaysi katakda nima bo‘lgani
+yoziladi; biror katakda son chiqmasa (timeout) — o‘sha katak uchun
+**“hisoblanmadi — timeout”**, taxmin yozilmaydi. p95 ham har katak uchun
+beriladi va u da’voga kirmaydi: u dumni ko‘rsatadi, chunki UI uchun eng yomon
+holat ham muhim.
+
+**Daraxtlar (seed bilan, `20261006`).** Uchta shakl:
+
+- **kursga o‘xshash** — 4 daraja (kurs → bo‘lim → ichki bo‘lim → mavzu),
+  keng: har bir tugunning shoxlanishi hajmdan hisoblanadi (3–5 daraja
+  talabining ichida);
+- **chuqur zanjir** — har bir tugunning bitta farzandi, ya’ni chuqurlik = n;
+- **tasodifiy** — ota tugun mavjud tugunlar orasidan tasodifiy tanlanadi.
+
+Hajmlar: **10³, 10⁴, 10⁵** tugun. Daraxt ikkala jadvalga **bir xil**
+`parent_id` ketma-ketligi bilan quriladi (`bulk_create`, keyin MPTT uchun bir
+marta `rebuild()`), shuning uchun ikki usul bir xil daraxtni o‘lchaydi.
+Qurish vaqti o‘lchovga **kirmaydi** — u amal emas; lekin metrics'ga yoziladi.
+Daraxtning o‘zi `parent_id` ketma-ketligining sha256'si bilan qayd etiladi:
+benchmark'ning kirishi fayl emas, generator, va uning izi shu (D48 ruhida).
+
+**Amallar (har biri bitta tugundan boshlanadi).**
+
+| Amal | Tur | CTE | MPTT |
+|---|---|---|---|
+| shoxni o‘qish | o‘qish | `descendants()` | `get_descendants()` |
+| ajdodlarni o‘qish | o‘qish | `ancestors()` | `get_ancestors()` |
+| oxiriga barg qo‘shish | yozish | `parent=…` bilan `create` | `create` (`order_insertion_by` yo‘q) |
+| eng chapga barg qo‘shish | yozish | `position` bilan `create` | `insert_at(..., 'first-child')` |
+| shoxni ko‘chirish | yozish | `parent` ni o‘zgartirib `save` | `move_to(target, 'last-child')` |
+| shoxni o‘chirish | yozish | `delete()` (CASCADE) | `delete()` |
+| parallel yozish | yozish | 2 / 4 / 8 jarayon | 2 / 4 / 8 jarayon |
+
+Nishon tugunlar har takror uchun seed bilan oldindan tanlanadi va **ikkala
+usulda bir xil** bo‘ladi (juftlashtirish shundan keladi). O‘chirish va
+ko‘chirish uchun nishon “o‘rtacha” shox bo‘lishi uchun daraxtning ichki
+tugunlari orasidan tanlanadi.
+
+**O‘zgartiruvchi amallar tranzaksiyada o‘lchanadi va orqaga qaytariladi**
+(`transaction.atomic` + `set_rollback`), shuning uchun har bir takror aynan
+bir xil daraxtdan boshlanadi va ikki usul bir xil holatni ko‘radi. Buning
+narxi: commit'ning fsync'i o‘lchovga kirmaydi — bu **ikkala usulga teng**
+ta’sir qiladi va shu yerda yozib qo‘yiladi. Parallel yozish esa, aksincha,
+haqiqiy **commit** qiladi (maqsadi shu), shundan keyin daraxt qayta quriladi.
+
+**O‘lchash tartibi.** Har bir (shakl, hajm, usul, amal) uchun **5 qizdirish +
+30 takror**. Yoziladi: mediana, p95, min, max, SQL so‘rovlar soni
+(`CaptureQueriesContext`, har takrorda) va o‘zgargan qatorlar soni (amaldan
+oldin/keyin `COUNT(*)` va MPTT uchun o‘zgargan `lft`/`rght` lar soni).
+Yagona takror `--timeout` (standart 120 s) dan oshsa, katak **“timeout”**
+bo‘ladi, qolgan takrorlari bajarilmaydi va son yozilmaydi.
+
+**Parallel yozish.** 2, 4 va 8 jarayon, har biri o‘z ulanishi bilan
+(`connections.close_all()` fork'dan keyin), belgilangan vaqt davomida
+(standart 20 s) aralash **qo‘shish + ko‘chirish** bajaradi. Takror 3 marta
+(har biri 20 s). Yoziladi: o‘tgan amallar soni (throughput, op/s) ning
+medianasi, min va max'i, har amalning kechikish medianasi va p95'i, xatolar
+soni turlari bo‘yicha (deadlock, `InvalidMove`, boshqa). Throughput uchun
+nisbat va CI — yuqoridagidek, 3 takror juftlashtirilgan holda.
+
+**Yaxlitlik (har parallel yozishdan keyin, ikkala usulda).**
+
+- **Y1**: ota zanjirida sikl yo‘q (har tugundan ildizgacha yurish cheklangan),
+  har bir daraxtda bitta ildiz, `parent_id` yo‘q tugun aynan bitta;
+- **MPTT uchun qo‘shimcha**: har tugunda `lft < rght`, bir daraxt ichida
+  oraliqlar to‘qnashmaydi (faqat to‘liq ichma-ich joylashadi), `level` ota
+  zanjiri uzunligiga teng, va `rebuild()` dan **keyin**gi `lft`/`rght`
+  qiymatlari oldingisi bilan solishtiriladi — farq bo‘lsa, oraliqlar
+  parallel yozishda buzilgan.
+- Buzilish topilsa, u **natija** sifatida yoziladi (nechta tugun, qaysi
+  tekshiruv), ishga tushirish to‘xtamaydi va buzilish yashirilmaydi.
+
+**Muhit.** Natijaga yoziladi: Postgres versiyasi (`SHOW server_version`),
+`shared_buffers`, `fsync`, CPU modeli va mantiqiy yadrolar soni, RAM,
+CPU governor (`/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor`),
+yuklama (`/proc/loadavg`) ishga tushirishning boshida va oxirida, hamda
+fonda og‘ir jarayon yo‘qligi haqidagi tekshiruv (ishga tushirish paytidagi
+eng ko‘p CPU yegan 5 jarayon). Vaqt o‘lchovlari mashinaga bog‘liq va buni
+jadval o‘zi aytadi.
+
+**Baza.** Benchmark **alohida bazada** ishlaydi: `DATABASES["benchmark"]` —
+`BENCHMARK_DATABASE_URL` bo‘lsa shundan, aks holda `default` ning
+sozlamalaridan `NAME` ga `_bench` qo‘shib olinadi (5433 dagi o‘sha Postgres).
+Router (`benchmarks.routers.BenchmarkRouter`) `benchmarks` app'ini faqat shu
+alias'ga, qolgan hamma narsani esa faqat `default` ga yo‘naltiradi. Buyruq
+ishga tushishidan oldin alias'ning `NAME` i `default` ning `NAME` i bilan bir
+xil emasligini tekshiradi va bir xil bo‘lsa **to‘xtaydi**: dev bazasidagi
+jadvallarga tegilmaydi, o‘chirilmaydi, tozalanmaydi. Benchmark o‘z ikki
+jadvalini (`benchmarks_mpttnode`, `benchmarks_ctenode`) har katakdan oldin
+`TRUNCATE` qiladi — faqat o‘zining jadvallarini.
+
+**Natija qayerga.** `experiments/results/tree-benchmark/<timestamp>/`:
+`metrics.json`, `measurements.csv` (har takrorning xom vaqti), `tables.md`
+(`experiments.tables` orqali, D48 verify va pozitsion tekshiruv bilan),
+`env.txt`. Hisobot nomi `tree_benchmark`. Har bir (shakl, hajm, usul) uchun
+checkpoint `experiments/.runs/checkpoints/tree-bench-<digest>/` ga yoziladi
+(kalit: commit, seed, hajmlar, takrorlar, timeout), shuning uchun uzilgan run
+o‘sha joydan davom etadi. `--quick`: 10³ hajm, 5 takror, parallel 5 s —
+natija `tree-benchmark-quick/` ga va “dissertatsiya natijasi emas” belgisi
+bilan.
+
+**Ishga tushirish.** Uzoq run `experiments/run_h2.sh bench-full` bilan (shu
+launcher'ning `systemd-run` + `systemd-inhibit` + xotira namunalari yo‘li;
+`manage.py` uchun unga skript rejimi qo‘shiladi va Django venv'i ishlatiladi).
+
+**Nima o‘zgarmaydi.** II bob konstantalari, `DEFAULT_GRID`, lock fayllar
+(mptt 0.18.0 va tree-queries 0.24.0 allaqachon `requirements.lock` da),
+`curriculum` modellari va migratsiyalari, `verification/`. `INSTALLED_APPS`
+ga `mptt` va `benchmarks` qo‘shiladi — D3 aynan shuni nazarda tutgan: mptt
+faqat benchmark app'ida qoladi.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
