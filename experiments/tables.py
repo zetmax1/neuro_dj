@@ -150,6 +150,8 @@ def verify(markdown: str, metrics: dict) -> list[str]:
         strays += verify_h2_positions(markdown, metrics)
     elif metrics.get("report") == "h2_bounds":
         strays += verify_h2_bounds_positions(markdown, metrics)
+    elif metrics.get("report") == "h2_frozen":
+        strays += verify_h2_frozen_positions(markdown, metrics)
     return strays
 
 
@@ -1314,6 +1316,253 @@ def verify_h2_bounds_positions(markdown: str, metrics: dict) -> list[str]:
     for number in ("4", "5"):
         if number not in expected_rows and number in sections:
             problems.append(f"§{number}: in the table but not in the metrics")
+    for number, expected in expected_rows.items():
+        if number not in sections:
+            problems.append(f"§{number}: section missing")
+            continue
+        _, body = _table(sections[number])
+        if len(body) != len(expected):
+            problems.append(f"§{number} rows: {len(body)} is not {len(expected)}")
+        for got, want in zip(body, expected):
+            if got != want:
+                problems.append(f"§{number} {' / '.join(want[:2])}: {got!r} is not {want!r}")
+    return problems
+
+
+# ---------------------------------------------------------------------------
+# D60 — the two variants of the test-time rule
+# ---------------------------------------------------------------------------
+
+def _frozen_rows(metrics: dict) -> dict[str, list[list[str]]]:
+    """
+    Every table row of the D60 report, by section, built from the metrics.
+
+    Shared by the renderer and by the positional check, which reads the
+    markdown back and compares it against these rows.
+    """
+    variants = metrics.get("variants") or {}
+    order = metrics.get("variants_compared") or list(variants)
+    models = metrics.get("models") or []
+    gates = metrics.get("gates") or {}
+    claims = metrics.get("claims") or {}
+    rows: dict[str, list[list[str]]] = {"1": [], "2": [], "3": [], "4": [], "5": []}
+
+    # §1 — one row per (model, variant)
+    for model in models:
+        for variant in order:
+            entry = ((variants.get(variant) or {}).get("models") or {}).get(model)
+            if entry is None:
+                continue
+            scores = entry.get("scores", {}).get("all", {})
+            rows["1"].append([
+                model, variant,
+                _interval_cell(scores.get("auc"), entry.get("auc_interval", {})),
+                _cell(scores.get("rmse")), _cell(scores.get("accuracy")),
+                _cell((entry.get("first_in_order") or {}).get("auc")),
+                _cell(scores.get("n")),
+            ])
+
+    # §2 — the contrasts, one row per (contrast, variant)
+    pairs: list[tuple[str, str, str]] = []
+    for entry in (variants.get(order[0], {}).get("contrasts") or []) if order else []:
+        pairs.append((entry["a"], entry["b"], entry.get("decision", "")))
+    for a, b, decision in pairs:
+        for variant in order:
+            found = next(
+                (item for item in (variants[variant].get("contrasts") or [])
+                 if (item["a"], item["b"]) == (a, b)),
+                {},
+            )
+            if found.get("status") != "ok":
+                rows["2"].append([f"{a} − {b}", decision, variant, "—", "—", "—"])
+                continue
+            rows["2"].append([
+                f"{a} − {b}", decision, variant,
+                _interval_cell(found.get("difference"), found),
+                _cell(found.get("delong_p")), _cell(found.get("p_holm")),
+            ])
+
+    # §3 — the two claims in both variants
+    for key in ("D53", "D56"):
+        claim = claims.get(key)
+        if not claim:
+            continue
+        for variant in order:
+            per = (claim.get("per_variant") or {}).get(variant) or {}
+            rows["3"].append([
+                key, variant,
+                _interval_cell(per.get("difference"), per),
+                _passed(per.get("holds")), _passed(claim.get("robust")),
+            ])
+
+    # §4 — the gates
+    reproduction = gates.get("reproduction") or {}
+    for model, entry in (reproduction.get("models") or {}).items():
+        rows["4"].append([
+            "takrorlanish", model, _cell(entry.get("frozen_run")), _cell(entry.get("h2")),
+            _passed(entry.get("equal")),
+        ])
+    dkt = gates.get("dkt")
+    if dkt is not None:
+        rows["4"].append([
+            "DKT (D58)", "DKT", _cell(dkt.get("auc")), _cell(dkt.get("h2")),
+            _passed(dkt.get("passed")),
+        ])
+    control = gates.get("bkt_control")
+    if control is not None:
+        rows["4"].append([
+            "nazorat", control.get("model", ""), _cell(control.get("largest_difference")),
+            _cell(0), _passed(control.get("passed")),
+        ])
+
+    # §5 — per-fold AUC, one row per (model, variant)
+    folds = metrics.get("folds") or []
+    for model in models:
+        for variant in order:
+            values = []
+            for fold in folds:
+                entry = (fold.get("models") or {}).get(model) or {}
+                values.append(((entry.get("variants") or {}).get(variant) or {}).get("auc"))
+            if model == "DKT":
+                values = [fold.get("auc") for fold in (metrics.get("dkt") or {}).get("folds", [])]
+            if not any(value is not None for value in values):
+                continue
+            rows["5"].append([model, variant, *[_cell(value) for value in values]])
+    return rows
+
+
+def render_h2_frozen_report(metrics: dict) -> str:
+    """``tables.md`` for ``h2_frozen.py`` (D60), from the metrics alone (D48)."""
+    require_sources(metrics)
+    provenance = metrics.get("provenance", {})
+    label = (metrics.get("dataset") or {}).get("label", "")
+    bounds = metrics.get("chapter_two_bounds") or {}
+    confidence = fmt(metrics.get("confidence_percent", 0))
+    replicates = fmt(metrics.get("replicates", 0))
+    reference = metrics.get("reference") or {}
+    parameters = metrics.get("parameters") or {}
+    dkt = metrics.get("dkt") or {}
+    claims = metrics.get("claims") or {}
+    split = metrics.get("split") or {}
+    dataset = metrics.get("dataset") or {}
+    rows = _frozen_rows(metrics)
+    folds = metrics.get("folds") or []
+
+    def table(header: list[str], body: list[list[str]]) -> list[str]:
+        out = ["| " + " | ".join(header) + " |", "|" + "---|" * len(header)]
+        out += ["| " + " | ".join(row) + " |" for row in body]
+        return out + [""]
+
+    lines: list[str] = [
+        f"# H2 — test vaqtida masala qiyinligi muzlatilganda (D60): {label}",
+        "",
+        "Bu fayl `metrics.json` dan avtomatik yasaladi (D48). Qo‘lda yozilgan son yo‘q.",
+    ]
+    lines += _tree_warning(provenance)
+    if metrics.get("quick"):
+        lines += [
+            "",
+            "> **`--quick` ishga tushirish — dissertatsiya natijasi emas.** Bu quvurni",
+            "> sinash uchun: talabalarning bir qismi.",
+        ]
+    lines += [
+        "",
+        "**Asosiy H2 jadvali almashtirilmaydi.** Bu — sezgirlik tahlili (D60): II bob",
+        "modelida masala qiyinligi `b_q` online yangilanadi, shuning uchun “hozirgi”",
+        f"ustun asosiy natija bo‘lib qoladi. Chegaralar: G_MAX = {fmt(bounds.get('g_max', 0))}, "
+        f"S_MAX = {fmt(bounds.get('s_max', 0))}.",
+        "",
+        "Ikki variant bir xil moslangan modellardan olinadi: har model bir marta",
+        "moslanadi va ikki marta so‘roqlanadi.",
+        "",
+        "- **hozirgi** — H2 ning o‘zi: `b_q` va `n_q` test oqimida yangilanib boradi;",
+        "- **frozen** — `b_q` va `n_q` o‘qitish to‘plamida isitilgan qiymatda qoladi;",
+        "  θ talabaning o‘z javoblari bilan yangilanishda davom etadi.",
+        "",
+        "BKT nazorat sifatida turadi: u `b_q` ni o‘qimaydi, shuning uchun ikki ustunda",
+        "aynan bir xil chiqishi shart. DKT o‘qitishdan keyin qotiriladi, shuning uchun",
+        "uning ikki ustundagi sonlari bir xil; u D56 uchun kerak.",
+        "",
+        "## 1. Natija (barcha fold'lar birga)",
+        "",
+        f"AUC uchun {confidence}% ishonch oralig‘i — talabalar bo‘yicha bootstrap,",
+        f"{replicates} replikat. Oxirgi ustundan bitta oldingisi — masalaning birinchi",
+        "qatorlari bo‘yicha AUC (D57 sezgirligi).",
+        "",
+    ]
+    lines += table(
+        ["Model", "Variant", f"AUC [{confidence}% CI]", "RMSE", "Aniqlik",
+         "Birinchi qatorlar AUC", "Javob"],
+        rows["1"],
+    )
+    lines += [
+        "## 2. Kontrastlar",
+        "",
+        "Farq — ikki modelning AUC'lari ayirmasi; ishonch oralig‘i — talabalar bo‘yicha",
+        "juftlik bootstrap (har replikatda ikkala model uchun bir xil talabalar).",
+        "DeLong javoblarni mustaqil deb hisoblaydi, shuning uchun uning p qiymati",
+        "haqiqiydan kichik bo‘lishi mumkin; Holm — shu variantdagi juftliklar oilasi uchun.",
+        "",
+    ]
+    lines += table(
+        ["Kontrast", "Qaror", "Variant", f"Farq [{confidence}% CI]", "p (DeLong)", "p (Holm)"],
+        rows["2"],
+    )
+    lines += [
+        "## 3. D53 va D56 ikkala variantda",
+        "",
+        "D60 ning o‘qish qoidasi (natijadan oldin yozilgan): da’vo ikkala variantda ham",
+        "bajarilsa “mustahkam” deb yoziladi. D53 — farq nolidan yuqori; D56 — farqning",
+        f"ishonch oralig‘ining pastki chegarasi {fmt(claims.get('d56_margin', 0))} dan past emas.",
+        "",
+    ]
+    lines += table(
+        ["Da'vo", "Variant", f"Farq [{confidence}% CI]", "Bajarildi", "Mustahkam"],
+        rows["3"],
+    )
+    lines += [
+        "## 4. Darvozalar",
+        "",
+        "Takrorlanish darvozasi: “hozirgi” ustun H2 natijasini "
+        f"(`{reference.get('path', '—')}`) {fmt(((metrics.get('gates') or {}).get('reproduction') or {}).get('digits', 0))} "
+        "xonaga qadar takrorlashi shart, aks holda hech narsa yozilmaydi. DKT — D58",
+        f"chegarasi ({fmt((((metrics.get('gates') or {}).get('dkt')) or {}).get('tolerance', 0))}).",
+        "Nazorat: BKT ning ikki ustundagi bashoratlari orasidagi eng katta farq.",
+        "",
+    ]
+    lines += table(
+        ["Darvoza", "Model", "Bu run", "H2 / kutilgan", "Natija"], rows["4"],
+    )
+    lines += [
+        "## 5. Fold'lar bo‘yicha AUC",
+        "",
+    ]
+    lines += table(
+        ["Model", "Variant", *[f"{fold['index'] + 1}-qism" for fold in folds]],
+        rows["5"],
+    )
+    lines += [
+        "## 6. Ma'lumot, parametrlar va ishga tushirish",
+        "",
+        f"- ishlatilgan: {fmt(dataset.get('answers_used', 0))} javob, "
+        f"{fmt(dataset.get('learners_used', 0))} talaba",
+        f"- bo‘linish: {fmt(split.get('folds', 0))} qism, seed {fmt(split.get('seed', 0))}, "
+        f"validatsiya ulushi {fmt(split.get('validation_fraction', 0))}",
+        f"- BKT parametrlari: {parameters.get('source', '—')}"
+        + (f" (`{parameters['checkpoint']}`)" if parameters.get("checkpoint") else ""),
+        f"- DKT: {dkt.get('source', '—')}, {fmt(dkt.get('epochs', 0))} epoch",
+        f"- reference: `{reference.get('path', '—')}` (`{reference.get('commit', '—')}`)",
+        "",
+    ]
+    lines += _sources_section(metrics, provenance, 7)
+    return "\n".join(lines) + "\n"
+
+
+def verify_h2_frozen_positions(markdown: str, metrics: dict) -> list[str]:
+    """Every cell of the D60 tables against its own (model, variant, metric)."""
+    problems: list[str] = []
+    sections = _sections(markdown)
+    expected_rows = _frozen_rows(metrics)
     for number, expected in expected_rows.items():
         if number not in sections:
             problems.append(f"§{number}: section missing")

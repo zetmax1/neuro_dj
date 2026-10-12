@@ -232,12 +232,19 @@ class BKTFamily:
         use_prereq_init: bool,
         params: dict[str, engine.TopicParams] | None = None,
         constants: engine.Constants = CONSTANTS,
+        freeze_items: bool = False,
     ) -> None:
         self.name = name
         self.flags = engine.Flags(use_irt=use_irt, use_prereq_init=use_prereq_init)
         # Chapter II's constants, except in the bounds sensitivity analysis
         # (D55), which varies G_MAX and S_MAX and nothing else.
         self.constants = constants
+        # D60: with freeze_items the item state (b_q and n_q) is warmed on the
+        # training fold and then held still over the test stream, so a
+        # learner's prediction cannot depend on another test learner's
+        # answers. θ keeps following the learner's own history. Chapter II's
+        # model is the unfrozen one; this is a sensitivity variant.
+        self.freeze_items = freeze_items
         self._params = dict(params or {})
         self._fit_metadata: dict = {}
         self._items: tuple[dict[str, float], dict[str, int]] = ({}, {})
@@ -266,6 +273,7 @@ class BKTFamily:
             },
             "parameters": self._fit_metadata,
             "items_warmed": len(self._items[0]),
+            "freeze_items": self.freeze_items,
         }
 
     def _warm_items(self, rows) -> tuple[dict[str, float], dict[str, int]]:
@@ -321,8 +329,9 @@ class BKTFamily:
                 state.mastery[key] = result.p_after
                 state.theta[row.user_id] = result.theta_after
                 state.theta_n[row.user_id] = observation.n_student + 1
-                state.difficulty[row.problem_id] = result.b_after
-                state.difficulty_n[row.problem_id] = observation.n_question + 1
+                if not self.freeze_items:
+                    state.difficulty[row.problem_id] = result.b_after
+                    state.difficulty_n[row.problem_id] = observation.n_question + 1
         return out
 
     @staticmethod
@@ -346,8 +355,13 @@ class BKTFamily:
         )
 
 
-def _step(state: _State, row, theta: float, b: float) -> None:
-    """One Elo update, with K(n) = α/(1 + βn) for the learner and the item."""
+def _step(state: _State, row, theta: float, b: float, *, freeze_items: bool = False) -> None:
+    """
+    One Elo update, with K(n) = α/(1 + βn) for the learner and the item.
+
+    ``freeze_items`` (D60) keeps b and n_q where the training fold left them;
+    θ still moves, so the learner's own history is used and nothing else.
+    """
     n_student = state.theta_n.get(row.user_id, 0)
     n_question = state.difficulty_n.get(row.problem_id, 0)
     step = elo.update(
@@ -359,9 +373,10 @@ def _step(state: _State, row, theta: float, b: float) -> None:
         theta_clamp=CONSTANTS.theta_clamp,
     )
     state.theta[row.user_id] = step.theta
-    state.difficulty[row.problem_id] = step.b
     state.theta_n[row.user_id] = n_student + 1
-    state.difficulty_n[row.problem_id] = n_question + 1
+    if not freeze_items:
+        state.difficulty[row.problem_id] = step.b
+        state.difficulty_n[row.problem_id] = n_question + 1
 
 
 class EloRasch:
@@ -373,8 +388,11 @@ class EloRasch:
 
     name = "Elo/Rasch"
 
-    def __init__(self) -> None:
+    def __init__(self, *, freeze_items: bool = False) -> None:
         self._items: tuple[dict[str, float], dict[str, int]] = ({}, {})
+        # D60, as in BKTFamily: b and n_q stay at their warmed values over the
+        # test stream. The warm-up itself is unchanged.
+        self.freeze_items = freeze_items
 
     def fit(self, train, validation=None) -> dict:
         # Nothing to fit: θ and b are online, which is how the platform runs
@@ -386,6 +404,7 @@ class EloRasch:
             "constants": {"elo_alpha": CONSTANTS.elo_alpha, "elo_beta": CONSTANTS.elo_beta},
             "warmed_on": len(train),
             "items_warmed": len(state.difficulty),
+            "freeze_items": self.freeze_items,
             "note": (
                 "θ is online and starts fresh for an unseen learner; b is carried "
                 "over from the training fold, where the items are the same"
@@ -409,6 +428,7 @@ class EloRasch:
                     state, row,
                     state.theta.get(row.user_id, 0.0),
                     state.difficulty.get(row.problem_id, 0.0),
+                    freeze_items=self.freeze_items,
                 )
         return out
 
