@@ -1667,6 +1667,89 @@ Teng qamrov: qoidalar har xil qamrovda turgani uchun τ qidirib boshqa qoidalarn
 
 ---
 
+## D62 — 8b-3 implementatsiyasi: D61 ochiq qoldirgan qarorlar (2026-10-12, kod va natijadan oldin)
+
+D61 Junyi to‘plamini, grafni, tozalashni, H1/H3 ning o‘lchovlarini va o‘qish
+qoidasini belgilaydi. Kodni yozish uchun yetmaydigan qarorlar shu yerda, hammasi
+natijadan oldin. Hech biri II bob konstantalarini, `DEFAULT_GRID` ni yoki
+`experiments/.venv` lock fayllarini o‘zgartirmaydi.
+
+**1. Yuklovchining joyi.** `experiments/loaders/` papkasi yo‘q: D49–D51 ning
+yuklovchilari `experiments/datasets/` da (`assist09.py`, `graphs.py`). Junyi
+yuklovchisi ham shu yerda — `experiments/datasets/junyi.py`, bitta modulda graf
+(mashqlar jadvali) va log.
+
+**2. SCC birlashtirishdagi nom.** `components.condense` komponentni eng kichik
+tugun indeksiga birlashtiradi. D61 esa birlashtirilgan mavzuning nomi
+a’zolarining alifbo tartibidagi birinchisi bo‘lishini talab qiladi, shuning
+uchun komponentlar `condense` ga alifbo bo‘yicha birinchi a’zosi boshida
+turgan holda beriladi; `condense` ning o‘zi o‘zgarmaydi.
+
+**3. BKT+IRT+Pre uchun graf argumenti.** `BKTFamily` ga ixtiyoriy `graph`
+argumenti qo‘shiladi (mavzu → ((prerekvizit, ω), …)). Graf berilmasa, model
+avvalgidek `Unavailable` deb e’lon qiladi, ya’ni H2 ning yo‘li va natijalari
+o‘zgarmaydi. Junyi grafida qirra vazni yo‘q, shuning uchun **ω = 1,0** (II
+bobning ta’rifida ω ∈ (0, 1], og‘irliklarsiz graf uchun teng vazn).
+Prerekvizitning P(L) si — talabaning shu mavzudagi oxirgi P(L) si, javob
+bermagan bo‘lsa `Prerequisite.p_l = None` va o‘rniga prerekvizitning o‘z P0 si
+(`neuro_model.init`, 3.3-bo‘lim).
+
+**4. H1 da P(L) qaydan.** Tayyorlik qoidalari P(L) ni talab qiladi, demak
+oqimda bitta model turishi kerak: **BKT+IRT (λ=0)** — H2 ning asosiy modeli,
+parametrlari fitting (train+validatsiya) to‘plamida moslangan, `b_q` o‘sha
+to‘plamda isitilgan. r_s(w), R_s(w) va M `neuro_model.readiness` ning
+funksiyalari bilan hisoblanadi (`readiness_score`, `is_ready`,
+`mastered_flag`) — platformaning `assessments/services/readiness.readiness_at`
+bilan bir xil kod. Javob berilmagan prerekvizit platformadagidek P(L) = 0 va
+M = False bilan kiradi.
+
+**5. H1 voqeasi.** Test qismidagi talabaning w mashqiga **birinchi** urinishi,
+Pre(w) ≠ ∅ va w ning kamida bitta prerekvizitiga oldin javob bergan bo‘lishi
+sharti bilan. Qoida qiymatlari voqeadan **oldingi** holatdan olinadi.
+
+**6. Muvaffaqiyatsizlik.** Voqeadan boshlab talabaning w dagi dastlabki k
+javobida to‘g‘rilar ulushi < 0,5 bo‘lsa — muvaffaqiyatsiz. Asosiy k = 3,
+qo‘shimcha ustun k = 5 (H2 ning dastlabki k ∈ {3, 5} ko‘rsatkichi bilan bir
+xil). k ta javobi yo‘q voqealar mavjud javoblari bo‘yicha baholanadi.
+
+**7. `pass_mark`.** 0,60 — platformaning `Topic.pass_mark_percentage` standart
+qiymati (`curriculum/models.py`, 60 %). Qoida: prerekvizitlarga berilgan barcha
+oldingi javoblar bo‘yicha aniqlik ≥ 0,60.
+
+**8. Teng qamrov.** τ **validatsiya** qismida qidiriladi: nomzodlar —
+validatsiyadagi voqealarning r qiymatlari, tanlangan τ taqqoslanadigan
+qoidaning validatsiyadagi qamroviga eng yaqin qamrovni beradi. O‘lchov test
+qismida. Shunday qilib τ test natijasiga moslanmaydi.
+
+**9. H1 statistikasi.** Xato ulushlari farqining 95 % CI si talabalar bo‘yicha
+klasterlangan bootstrap bilan (1 000 replika, seed `20261006`) —
+`stats.bootstrap_statistic`, `bootstrap_auc` bilan bir xil klasterlash. AUC
+oralig‘i — `bootstrap_auc`. DeLong H1 da ishlatilmaydi: o‘lchov AUC emas,
+ulushlar farqi.
+
+**10. H3 da λ.** λ grid {0,25; 0,50; 0,75}, har bir fold uchun validatsiyadagi
+AUC bo‘yicha tanlanadi; II bobning qiymati (0,50) grid ichida va o‘zgarmaydi.
+λ = 0 — alohida “grafsiz” arm, tanlovga kirmaydi.
+
+**11. H3 da tasodifiy graf.** `networkx.directed_edge_swap` (networkx 3.4.2
+`experiments/requirements.lock` da allaqachon bor — yangi bog‘liqlik emas), 20
+seed, har bir tugunning kiruvchi va chiquvchi darajasi saqlanadi. networkx bu
+yerda II bobning hisobini qayta yozmaydi, faqat null-model yasaydi.
+
+**12. `run_all.py`.** Faqat dispatcher: `--dataset`, `--models`, `--quick` ni
+oladi va h1/h2/h3 ni chaqiradi, o‘z natija turini yaratmaydi (V-E4 uchun
+`--quick`). **Diqqat:** `verification/tests/test_na.py::test_na_group_e_pipeline_run_all_is_not_implemented`
+aynan shu fayl paydo bo‘lganda yiqilishi uchun yozilgan (“This fails when it
+lands”). `verification/` ga tegilmaydi; V-E3/V-E4 ni qayta baholash
+tekshiruvchining ishi.
+
+**13. Kechiktirilganlar.** DBE-KT22 yuklovchisi — ma’lumot manbasi ochilmadi
+(ADA kirish so‘rovi javobsiz), annotatsiya vositasi (`annotate.py`) — annotator
+yo‘q. Ikkisi ham bog‘liqlik matritsasida “Kechiktirildi” sababi bilan yoziladi,
+kod yozilmaydi (D48: yo‘q narsa son chiqarmaydi).
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
