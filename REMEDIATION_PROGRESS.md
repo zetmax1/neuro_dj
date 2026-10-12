@@ -1966,6 +1966,56 @@ launcher'ning `systemd-run` + `systemd-inhibit` + xotira namunalari yo‘li;
 ga `mptt` va `benchmarks` qo‘shiladi — D3 aynan shuni nazarda tutgan: mptt
 faqat benchmark app'ida qoladi.
 
+### D63a — nimani o‘lchash to‘g‘ri: yozish yo‘li va qulf (2026-10-12, natijadan oldin)
+
+**Sabab (300 tugunli sinov ishga tushirishi, natija emas, tashlab yuborildi).**
+D63 ning kodi birinchi marta ishga tushirilganda ikki narsa ko‘rindi:
+
+1. `move_to` **o‘zi tekshiradi**: ko‘chirish tugunni o‘z shoxi ichiga
+   qo‘yadigan bo‘lsa, mptt `InvalidMove` chiqaradi. Xom CTE yo‘li
+   (`node.parent_id = target; save()`) hech narsa tekshirmaydi. Shu ikkisini
+   yonma-yon qo‘yish tezlikni emas, **tekshiruvning yo‘qligini** o‘lchaydi.
+   Platformaning o‘z CTE yo‘li esa tekshiradi:
+   `curriculum/services/kb.py` da Y1 aynan
+   `Topic.objects.ancestors(new_parent, include_self=True).filter(pk=current).exists()`
+   bilan tekshiriladi va struktura yozuvlari advisory lock ostida ketadi.
+2. Parallel yozishda **ikkala** usulda Y1 buzildi: CTE da 1 885 tugun siklga
+   tushdi (tekshiruv yo‘q), mptt da esa `InvalidMove` borligiga qaramay 26
+   tugun siklga tushdi va oraliqlar buzildi (494 tugun `rebuild` bilan farq
+   qildi) — ya’ni mptt ning tekshiruvi ham o‘qish va yozish orasida
+   poygaga uchraydi.
+
+**Qaror 1 — o‘lchanadigan yo‘l platformaning yo‘li.** CTE ning ko‘chirish
+amali endi Y1 tekshiruvini **o‘z ichiga oladi** (`ancestors(...).exists()`,
+`kb.py` dagi bilan bir xil ifoda), chunki taqqoslanadigan mptt amali ham
+tekshiradi. Bu bitta qo‘shimcha so‘rov turadi va u SQL ustunida ko‘rinadi;
+tekshiruv muvaffaqiyatsiz bo‘lsa, amal (mptt dagidek) xato bilan tugaydi va
+xato sifatida sanaladi.
+
+**Qaror 2 — parallel yozish ikki variantda.**
+
+- **qulfsiz** (`unlocked`) — har bir usulning o‘z yozish yo‘li, qulfsiz:
+  2, 4, 8 jarayon, 3 takror. Bu **saqlash usulining o‘zi** nimani
+  kafolatlaydi degan savolga javob beradi.
+- **qulfli** (`locked`) — platformaning yo‘li: tranzaksiya ichida
+  `pg_advisory_xact_lock` olinadi (BB9/D30 dagidek), keyin Y1 tekshiruvi va
+  yozuv. Vaqtni tejash uchun faqat **eng ko‘p jarayon soni** (8) bilan, 3
+  takror, ikkala usulda.
+
+**Qaror 3 — o‘qish qoidasidagi yaxlitlik sharti qulfli variantga tegishli.**
+D63 ning uchinchi sharti (“parallel yozishdan keyin CTE da yaxlitlik
+buzilishi yo‘q”) endi aniq: u **qulfli** variantda baholanadi, chunki
+platforma struktura yozuvlarini aynan shunday bajaradi. Qulfsiz variantning
+natijasi jadvalda qoladi va tavsifiy o‘qiladi: “qulfsiz holda ikkala usul ham
+Y1 ni buzadi” — bu ham natija, yashirilmaydi. Tezlik shartlari (yozishda CTE
+tezroq, o‘qishda 1,5 barobardan ko‘proq sekin emas) **o‘zgarmadi**, chegaralar
+ham o‘zgarmadi.
+
+Bu tuzatish natija **ko‘rilgandan keyin** yozildi, lekin sinov ishga
+tushirishining sonlari ishlatilmaydi va chegaralar siljimadi: o‘zgargani —
+nimani o‘lchash to‘g‘ri ekani.
+
+
 ---
 
 ## Savollar va qarorlar
