@@ -330,6 +330,30 @@ def test_a_junyi_mode_passes_no_reference(tmp_path):
     assert "--reference" not in log
 
 
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_bench_modes_run_the_django_command_as_a_script(tmp_path):
+    """
+    Stage 9's benchmark is a Django management command, not a module, so the
+    launcher runs ``manage.py`` as a script and through the 5433 wrapper
+    (D63) — the unit's environment never holds the DSN.
+    """
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "bench-quick", fake, H4_PY=str(fake), H4_WRAP="")
+
+    log = (tmp_path / "logs" / "h2-bench-quick.log").read_text()
+    assert "args: -u -W ignore manage.py run_tree_benchmark --quick" in log
+    assert "-m manage" not in log
+    assert "finished bench-quick (exit 0)" in log
+
+
+def test_the_bench_mode_uses_the_django_venv_and_the_wrapper():
+    script = RUN_H2.read_text()
+
+    assert 'PY="${H4_PY:-venv/bin/python}"' in script
+    assert 'WRAP="${H4_WRAP:-$PWD/scripts/dj5433.sh}"' in script
+    assert "run bench-full $BENCH run_tree_benchmark" in script
+
+
 def test_the_detached_launch_leaves_the_launchers_cgroup_and_survives_an_oom_kill():
     """
     setsid alone kept the run in the launching browser's cgroup, and systemd

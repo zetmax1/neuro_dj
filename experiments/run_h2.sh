@@ -18,6 +18,13 @@
 #                                   # D61, Junyi: experiments.h1 / experiments.h3
 #   experiments/run_h2.sh junyi-quick | junyi-full | junyi-both
 #                                   # both hypotheses of D61, h1 then h3
+#   experiments/run_h2.sh bench-quick | bench-full | bench-both
+#                                   # H4, stage 9 (D63): manage.py
+#                                   # run_tree_benchmark. A Django command, so
+#                                   # these modes use the Django venv and the
+#                                   # scripts/dj5433.sh wrapper, which builds
+#                                   # the DSN inside the process (the unit's
+#                                   # environment never holds it)
 #
 # The Junyi modes read a 2.6 GB log, so the inventory pass alone takes a while
 # and the log lines of each pass show its progress (D61). They take no
@@ -132,7 +139,13 @@ run() {
     # before the line is written.
     local status=0 pid sampler peak
     echo 0 > "$peak_file"
-    "$PY" -u -W ignore -m "$module" "$@" >> "$log" 2>&1 &
+    # A module (python -m experiments.h2) or a script (manage.py): the
+    # benchmark of stage 9 is a Django management command, not a module.
+    if [[ "$module" == *.py ]]; then
+        ${WRAP:-} "$PY" -u -W ignore "$module" "$@" >> "$log" 2>&1 &
+    else
+        ${WRAP:-} "$PY" -u -W ignore -m "$module" "$@" >> "$log" 2>&1 &
+    fi
     pid=$!
     sample "$pid" "$peak_file" >> "$log" 2>&1 &
     sampler=$!
@@ -150,6 +163,8 @@ BOUNDS=experiments.h2_bounds
 FROZEN=experiments.h2_frozen
 H1=experiments.h1
 H3=experiments.h3
+BENCH=manage.py
+WRAP=""
 REF=""
 [[ -n "${H2_REFERENCE:-}" ]] && REF="--reference $H2_REFERENCE"
 POOL=""
@@ -174,7 +189,18 @@ case "$MODE" in
     junyi-full)  CHAIN="run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
     junyi-both)  CHAIN="run h1-quick $H1 --quick $POOL && run h3-quick $H3 --quick $POOL \
                         && run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
-    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both}" >&2; exit 2 ;;
+    bench-quick|bench-full|bench-both)
+        # A Django command: the Django venv, through the 5433 wrapper (D63).
+        PY="${H4_PY:-venv/bin/python}"
+        WRAP="${H4_WRAP:-$PWD/scripts/dj5433.sh}"
+        case "$MODE" in
+            bench-quick) CHAIN="run bench-quick $BENCH run_tree_benchmark --quick" ;;
+            bench-full)  CHAIN="run bench-full $BENCH run_tree_benchmark" ;;
+            bench-both)  CHAIN="run bench-quick $BENCH run_tree_benchmark --quick \
+                                && run bench-full $BENCH run_tree_benchmark" ;;
+        esac
+        ;;
+    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both|bench-quick|bench-full|bench-both}" >&2; exit 2 ;;
 esac
 
 LAUNCHER="${H2_LAUNCHER:-}"
@@ -187,7 +213,7 @@ if [[ -z "$LAUNCHER" ]]; then
 fi
 UNIT=""
 [[ "$LAUNCHER" == systemd ]] && UNIT="neurolearn-h2-$MODE-$(date +%Y%m%d-%H%M%S)"
-BODY="$(declare -f memory sample run); LOGS='$LOGS' PY='$PY' SAMPLE='$SAMPLE' UNIT='$UNIT'; $CHAIN"
+BODY="$(declare -f memory sample run); LOGS='$LOGS' PY='$PY' WRAP='$WRAP' SAMPLE='$SAMPLE' UNIT='$UNIT'; $CHAIN"
 
 case "$LAUNCHER" in
     systemd)

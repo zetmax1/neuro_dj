@@ -92,6 +92,10 @@ INSTALLED_APPS = [
     'curriculum',
     'assessments',
     'analytics',
+    # Stage 9 (H4, D63): the storage benchmark, and django-mptt which D3
+    # keeps for this app alone. Its tables live in DATABASES['benchmark'].
+    'mptt',
+    'benchmarks',
 ]
 
 REST_FRAMEWORK = {
@@ -153,6 +157,30 @@ DATABASES = {
     'default': env.db("DATABASE_URL"),
 }
 DATABASES['default'].setdefault('CONN_MAX_AGE', env.int("DB_CONN_MAX_AGE", default=0))
+
+# The storage benchmark of stage 9 writes trees of up to 100 000 nodes and
+# truncates its own tables between cells, so it gets a database of its own
+# (D63). By default the same server as 'default' with "_bench" appended to the
+# name; BENCHMARK_DATABASE_URL overrides it. The command refuses to run when
+# this resolves to the development database, and benchmarks.routers keeps the
+# two apart in both directions.
+_BENCHMARK_DATABASE_URL = env("BENCHMARK_DATABASE_URL", default="")
+if _BENCHMARK_DATABASE_URL:
+    DATABASES['benchmark'] = env.db_url_config(_BENCHMARK_DATABASE_URL)
+else:
+    DATABASES['benchmark'] = dict(DATABASES['default'])
+    DATABASES['benchmark']['NAME'] = f"{DATABASES['default'].get('NAME', '')}_bench"
+DATABASES['benchmark'].setdefault('CONN_MAX_AGE', 0)
+# Its own TEST block, not the one copied from 'default': the test runner
+# writes into TEST, and a shared dict would hand both aliases the same test
+# database. Django then creates test_<name>_bench beside test_<name>, and a
+# test that writes here asks for both aliases (benchmarks/tests).
+DATABASES['benchmark']['TEST'] = {
+    **{k: v for k, v in (DATABASES['default'].get('TEST') or {}).items() if k != 'NAME'},
+    'NAME': f"test_{DATABASES['benchmark']['NAME']}",
+}
+
+DATABASE_ROUTERS = ['benchmarks.routers.BenchmarkRouter']
 
 
 # ---------------------------------------------------------------------------

@@ -34,7 +34,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8b-1 — Yuklovchilar (D49–D51) va graf tahlili (D52) | **Bajarildi** | `c1a683b` | — |
 | 8b-2 — H2: ASSISTments 2009 (D53, D56, D57) | **Bajarildi** — to‘liq natija `experiments/results/assist09/20261009-055443/` (D57); D55 D57 bilan hali ishga tushirilmagan | `7ff7ae2` … `e97621c`, natija `abb1fe4` | — |
 | 8b-3 — H1/H3 kodi, Junyi yuklovchisi, graf nazoratlari, `run_all.py` | **Kod bajarildi** — natijalar log yuklanishini kutadi (D61); DBE-KT22 yuklovchisi va annotatsiya vositasi kechiktirildi (D62) | `056f17d` … | — |
-| 9 — Saqlash usullari benchmarki | Kutilmoqda | — | — |
+| 9 — Saqlash usullari benchmarki (H4, D63) | **Kod bajarildi** — `--quick` natijasi bor, to‘liq run kutilmoqda | `68acf4e` … | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
 
 ---
@@ -2016,6 +2016,50 @@ tushirishining sonlari ishlatilmaydi va chegaralar siljimadi: o‘zgargani —
 nimani o‘lchash to‘g‘ri ekani.
 
 
+## 9-bosqich kodi — `benchmarks` app'i va H4 (2026-10-12, natijadan oldin)
+
+D63 va D63a bo‘yicha yozildi. **Dissertatsiya natijasi yo‘q**: to‘liq run hali
+ishga tushirilmagan (quyida `--quick` bor, u natija emas).
+
+### Modullar
+
+| Fayl | Nima qiladi |
+|---|---|
+| `benchmarks/models.py` | `MpttNode` (oraliq kodlash) va `CteNode` (platformaning o‘z usuli: `TreeNode`, `TreeQuerySet`, `(position, id)` tartibi) |
+| `benchmarks/routers.py` | `benchmarks` app'i faqat `benchmark` alias'ida, boshqa hech narsa u yerda emas (ikki yo‘nalishda) |
+| `benchmarks/generator.py` | uchta shakl (seed bilan), bitta `parent_id` ketma-ketligidan ikkala jadval, MPTT oraliqlari Python'da (`rebuild()` o‘rniga, test bilan tengligi tasdiqlangan), `parent_id` ketma-ketligining sha256'si |
+| `benchmarks/operations.py` | oltita amal, har biri kutubxona hujjatidagi usulda; juftlashtirilgan nishonlar; CTE ko‘chirishida platformaning Y1 tekshiruvi (D63a) |
+| `benchmarks/parallel.py` | 2/4/8 jarayon, har biri o‘z ulanishi bilan; qulfsiz va qulfli (`pg_advisory_xact_lock`) variantlar; xatolar turlari bo‘yicha sanaladi |
+| `benchmarks/integrity.py` | Y1 (sikl, ildiz, dangling) ikkala usulda; MPTT uchun `lft < rght`, ichma-ichlik, takroriy chegaralar, `level`, qayta hisoblash bilan solishtirish |
+| `benchmarks/runner.py` | o‘lchov tartibi (5+30, timeout, orqaga qaytarilgan tranzaksiya), ρ va juftlashtirilgan bootstrap, o‘qish qoidasi, checkpoint, CSV |
+| `benchmarks/management/commands/run_tree_benchmark.py` | buyruq, ikki darvoza (dev bazasi emas; PostgreSQL) |
+| `scripts/dj5433.sh` | DSN'ni konteyner muhitidan yasaydi, `config/.env` o‘qilmaydi va parol chiqmaydi |
+
+O‘zgargan: `config/settings.py` (`mptt` va `benchmarks` INSTALLED_APPS'da,
+`DATABASES["benchmark"]`, router), `experiments/tables.py`
+(`render_tree_benchmark_report` va pozitsion tekshiruv), `experiments/run_h2.sh`
+(`bench-quick|bench-full|bench-both`, skript rejimi va Django venv'i).
+
+**Dev bazasiga tegilmadi.** Benchmark `neurolearn_bench` bazasida ishlaydi;
+router dev bazasida `benchmarks_*` jadvallari paydo bo‘lishiga yo‘l qo‘ymaydi
+(tekshirildi: dev bazasida 0 ta shunday jadval), buyruq esa alias dev bazasiga
+tushsa to‘xtaydi (test bilan). Hech bir jadval o‘chirilmadi yoki tozalanmadi.
+
+### Testlar
+
+`benchmarks/tests`: **69 passed** (`scripts/dj5433.sh venv/bin/python -m pytest
+benchmarks/tests`). Butun backend suite: **1206 passed, 51 skipped, 13
+subtests** (4 daq 57 s); `experiments/.venv` da experiments suite: **393
+passed, 2 skipped** (7 daq 59 s). `manage.py check` toza,
+`makemigrations --check` — “No changes detected”.
+
+Har bir yaxlitlik tekshiruvi ikki marta sinaladi: toza daraxtda o‘tadi,
+ataylab buzilgan daraxtda (xom SQL bilan) yiqiladi. `generator.intervals`
+mptt ning `rebuild()` i bilan uchta shaklda aynan teng — shuning uchun
+100 000 tugunli daraxtda `rebuild()` ni chaqirmaslik tekshirilgan qisqartma,
+taxmin emas.
+
+
 ---
 
 ## Savollar va qarorlar
@@ -2222,7 +2266,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | EX2 Oflayn baholash | B8 | Kutilmoqda (B8) | — |
 | EX3 Metrikalar | B8 | Kutilmoqda (B8) | — |
 | EX4 Statistika | B8 | Kutilmoqda (B8) | — |
-| EX5 Benchmark | B9 | Kutilmoqda (B9) | — |
+| EX5 Benchmark | B9 | Bajarildi (kod) | `benchmarks/` app'i: `MpttNode` va `CteNode`, uchta shakl, 10³–10⁵, oltita amal, parallel yozish (qulfsiz va qulfli), Y1 va oraliq tekshiruvlari, `manage.py run_tree_benchmark` (D63, D63a). Natija alohida bazada, D48 verify bilan |
 | EX6 Rozilik va anonimlashtirish | B8 | Kutilmoqda (B8) | `is_simulated` belgisi qo‘shildi (`332d56f`) |
 | SN1 Unit testlar | B2–B6, B10 | Qisman | B0: 17, B1: 32, B2: 300 ta tasodifiy + 57 ta yangi/qayta yozilgan test (`neuro_model/tests`, `test_tree.py`, `test_kb.py`, `test_dag.py`, `test_kb_concurrency.py`) |
 | SN2 Hypothesis | B10 | Kutilmoqda (B10) | `hypothesis` `requirements-dev.txt` da |
@@ -2258,12 +2302,12 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | DBE-KT22 yuklovchisi (javoblar bilan) | 8b-3 | **Kechiktirildi — ma’lumot manbasi ochilmadi (D61)** | ADA kirish so‘rovi javobsiz qoldi; o‘rniga Junyi Academy (2015) ishlatiladi (D61, foydalanuvchi ruxsati bilan). DBE-KT22 **grafi** bor va ishlatilgan (`datasets/graphs.py`, D51; `graph_report` ikkala yo‘nalishda). Kod yozilmadi: ma’lumoti yo‘q yuklovchi son chiqarmaydi (D48) |
 | Annotatsiya vositasi (`experiments/graphs/annotate.py`), Cohen κ | 8b-3 | **Kechiktirildi — annotator yo‘q (D61)** | Ikki mustaqil annotator yo‘q, shuning uchun κ “hisoblanmadi — annotator yo‘q” bo‘lib qoladi (D13). O‘rniga Junyi ning o‘z annotatsiya fayllari bilan **tavsifiy** moslik yozildi (D61: 1 131 juftlik, AUC 0,6824 / 0,5595) |
 | AUC/RMSE/statistika yo‘q | EX3, EX4 (B8) | Kutilmoqda (B8) | — |
-| Benchmark zaif | EX5 (B9) | Kutilmoqda (B9) | — |
+| Benchmark zaif | EX5 (B9) | Bajarildi (kod) | Eski `benchmark_tree.py` o‘chirilgan (`5e5cb09`); o‘rniga `benchmarks/` — PostgreSQL, yozish va parallel yozish, mediana va p95, uchta shakl, 10³–10⁵, yaxlitlik tekshiruvlari (D63) |
 | Simulyator generativ emas | B8 | Kutilmoqda (B8) | — |
 | H1 tayyorligi | B1, B4, B8 | Qisman | B1: `readiness_score`, `was_ready` maydonlari (`888a96f`). 8b-3: `experiments/h1.py` — to‘rtta qoida, teng qamrov uchun τ qidirish, τ×δ sezgirligi, r_s(w) AUC; r_s(w)/R/M `neuro_model.readiness` dan (D61, D62). Natija Junyi log'i yuklanishini kutadi |
 | H2 tayyorligi | B3, B8 | Bajarildi | `experiments/h2.py`, to‘liq natija `experiments/results/assist09/20261010-060005/` (D53, D57, D59); sezgirliklar D55 va D60 |
 | H3 tayyorligi | B3, B8 | Qisman | `experiments/h3.py` — BKT+IRT+Pre to‘rt graf arm'i bilan (asl, teskari, daraja saqlangan tasodifiy ×20, grafsiz), λ validatsiyada; `BKTFamily(graph=…)` (D61, D62). Natija Junyi log'i yuklanishini kutadi |
-| H4 tayyorligi | B2, B9 | Kutilmoqda | B2 qismi bajarildi: CTE (django-tree-queries) asosiy model, `79b907c`; benchmark — B9 |
+| H4 tayyorligi | B2, B9 | Qisman | B2: CTE (django-tree-queries) asosiy model, `79b907c`. B9: `benchmarks/` app'i va `run_tree_benchmark` (D63, D63a), ρ va juftlashtirilgan bootstrap bilan o‘qish qoidasi. To‘liq run kutilmoqda |
 
 ### 7-bo‘lim (testlar va sifat)
 

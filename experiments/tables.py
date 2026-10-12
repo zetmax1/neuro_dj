@@ -156,6 +156,8 @@ def verify(markdown: str, metrics: dict) -> list[str]:
         strays += verify_h1_positions(markdown, metrics)
     elif metrics.get("report") == "h3":
         strays += verify_h3_positions(markdown, metrics)
+    elif metrics.get("report") == "tree_benchmark":
+        strays += verify_tree_benchmark_positions(markdown, metrics)
     return strays
 
 
@@ -2059,3 +2061,238 @@ def render_h3_report(metrics: dict) -> str:
 def verify_h3_positions(markdown: str, metrics: dict) -> list[str]:
     """Every cell of the H3 tables against its own (arm, metric) key."""
     return _positions(markdown, _h3_rows(metrics))
+
+
+# ---------------------------------------------------------------------------
+# H4 — the storage benchmark (D63)
+# ---------------------------------------------------------------------------
+
+def _benchmark_rows(metrics: dict) -> dict[str, list[list[str]]]:
+    """Every table row of the H4 report, by section, built from the metrics."""
+    rows: dict[str, list[list[str]]] = {str(number): [] for number in range(1, 8)}
+    cells = metrics.get("cells", [])
+
+    for cell in cells:
+        mptt = (cell.get("methods") or {}).get("mptt") or {}
+        cte = (cell.get("methods") or {}).get("cte") or {}
+        ratio = cell.get("ratio") or {}
+        rows["1"].append([
+            cell.get("shape", ""), _cell(cell.get("size")), cell.get("label", ""),
+            cell.get("kind", ""),
+            _ms_cell(mptt), _ms_cell(cte),
+            _interval_cell(ratio.get("ratio"), ratio),
+            cell.get("verdict", ""),
+        ])
+        rows["2"].append([
+            cell.get("shape", ""), _cell(cell.get("size")), cell.get("label", ""),
+            _cell(mptt.get("queries_median")), _cell(cte.get("queries_median")),
+            _cell((mptt.get("changed") or {}).get("rows_changed")),
+            _cell((cte.get("changed") or {}).get("rows_changed")),
+        ])
+        rows["3"].append([
+            cell.get("shape", ""), _cell(cell.get("size")), cell.get("label", ""),
+            _cell((mptt.get("seconds") or {}).get("p95_ms")),
+            _cell((cte.get("seconds") or {}).get("p95_ms")),
+        ])
+
+    for row in metrics.get("parallel_ratios", []):
+        rows["4"].append([
+            row.get("shape", ""), _cell(row.get("size")), _cell(row.get("workers")),
+            row.get("variant", ""),
+            _cell(row.get("throughput_cte")), _cell(row.get("throughput_mptt")),
+            _interval_only(row.get("ci_low"), row.get("ci_high")),
+            row.get("verdict", ""),
+            fmt(bool(row.get("integrity_cte"))), fmt(bool(row.get("integrity_mptt"))),
+            _cell(row.get("errors_cte")), _cell(row.get("errors_mptt")),
+        ])
+
+    for entry in metrics.get("trees", []):
+        rows["5"].append([
+            entry.get("shape", ""), _cell(entry.get("size")), entry.get("method", ""),
+            _cell(entry.get("nodes")), _cell(entry.get("max_depth")),
+            f"`{(entry.get('sha256') or '')[:SHA_PREFIX]}`",
+            _cell(entry.get("build_seconds")),
+        ])
+
+    reading = metrics.get("reading") or {}
+    for label, key in (
+        ("yozish amallari", "write_failures"),
+        ("o‘qish amallari", "read_failures"),
+        ("parallel yozishdagi yaxlitlik", "integrity_failures"),
+        ("son chiqmagan kataklar", "not_computed"),
+    ):
+        entries = reading.get(key) or []
+        rows["6"].append([
+            label, _cell(len(entries)),
+            ", ".join(entries) if entries else "—",
+        ])
+    return rows
+
+
+def _ms_cell(entry: dict) -> str:
+    """A method's median in milliseconds, or what stopped it."""
+    status = entry.get("status")
+    if status == "ok":
+        return _cell((entry.get("seconds") or {}).get("median_ms"))
+    if status is None:
+        return "—"
+    return str(status)
+
+
+def render_tree_benchmark_report(metrics: dict) -> str:
+    """``tables.md`` for ``manage.py run_tree_benchmark``, from the metrics alone (D48)."""
+    require_sources(metrics)
+    provenance = metrics.get("provenance", {})
+    settings = metrics.get("settings") or {}
+    reading = metrics.get("reading") or {}
+    environment = metrics.get("environment") or {}
+    postgres = environment.get("postgres") or {}
+    cpu = environment.get("cpu") or {}
+    memory = environment.get("memory") or {}
+    rows = _benchmark_rows(metrics)
+
+    lines: list[str] = [
+        "# H4 — daraxtni saqlash usullari: MPTT va CTE",
+        "",
+        "Bu fayl `metrics.json` dan avtomatik yasaladi (D48). Qo‘lda yozilgan son yo‘q.",
+    ]
+    lines += _tree_warning(provenance)
+    lines += [
+        "",
+        "Ikkita jadval bir xil daraxtni saqlaydi: `MpttNode` — oraliq kodlash",
+        "(django-mptt), `CteNode` — qo‘shni ro‘yxat va rekursiv CTE",
+        "(django-tree-queries), ya’ni platformaning o‘zi ishlatadigan usul (D3).",
+        "",
+        f"ρ = mediana(MPTT) / mediana(CTE), ya’ni ρ > 1 — CTE tezroq. Oraliq —",
+        f"juftlashtirilgan bootstrap ({_cell(settings.get('replicates'))} replika, "
+        f"{_cell(settings.get('confidence_percent'))} %): har takrorda ikkala usul",
+        "bir xil nishon tugunda ishlagan.",
+        "",
+        "O‘zgartiruvchi amallar tranzaksiyada o‘lchanadi va orqaga qaytariladi,",
+        "shuning uchun har takror bir xil daraxtdan boshlanadi; commit'ning narxi",
+        "o‘lchovga kirmaydi va bu ikkala usulga teng ta’sir qiladi (D63).",
+    ]
+    if metrics.get("quick"):
+        lines += [
+            "",
+            "> **`--quick` ishga tushirish — dissertatsiya natijasi emas.** Bu quvurni",
+            "> sinash uchun: kichik daraxt, kam takror va qisqa parallel bosqich.",
+            "> To‘liq natija uchun `manage.py run_tree_benchmark` bayroqsiz",
+            "> ishga tushiriladi.",
+        ]
+    lines += [
+        "",
+        "## 1. Amallar",
+        "",
+        "| Shakl | Hajm | Amal | Tur | MPTT mediana (ms) | CTE mediana (ms) | ρ [CI] | Xulosa |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["1"]]
+    lines += [
+        "",
+        "## 2. SQL so‘rovlar va o‘zgargan qatorlar",
+        "",
+        "So‘rovlar soni — `CaptureQueriesContext`, har takrorda. O‘zgargan qatorlar",
+        "bitta qo‘shimcha, **o‘lchanmagan** takrorda sanaladi: amaldan oldin va keyin",
+        "ustunlar solishtiriladi. MPTT ning ko‘chirish qatori shu ustunda ko‘rinadi —",
+        "oraliqlar jadvalning katta qismida qayta yoziladi.",
+        "",
+        "| Shakl | Hajm | Amal | MPTT SQL | CTE SQL | MPTT o‘zgargan | CTE o‘zgargan |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["2"]]
+    lines += [
+        "",
+        "## 3. Dumi (p95)",
+        "",
+        "p95 da’voga kirmaydi (D63), lekin UI uchun eng yomon holat ham muhim.",
+        "",
+        "| Shakl | Hajm | Amal | MPTT p95 (ms) | CTE p95 (ms) |",
+        "|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["3"]]
+    lines += [
+        "",
+        "## 4. Parallel yozish va yaxlitlik",
+        "",
+        "Har bir jarayon o‘z ulanishi bilan, belgilangan vaqt davomida aralash",
+        "qo‘shish va ko‘chirish bajaradi. ρ — CTE ning o‘tkazuvchanligi MPTT ga",
+        "nisbatan (ρ > 1 — CTE tezroq). Yaxlitlik ustunlari parallel yozish",
+        "**tugagandan keyin** o‘qiladi: Y1 ikkala usulda, oraliqlar tekshiruvi",
+        "MPTT da.",
+        "",
+        "Variant (D63a): `unlocked` — har bir usulning o‘z yozish yo‘li, qulfsiz;",
+        "`locked` — platformaning yo‘li, `pg_advisory_xact_lock` bilan. D63 ning",
+        "yaxlitlik sharti **qulfli** variantdan o‘qiladi; qulfsiz qatorlar",
+        "saqlash usulining o‘zi nimani kafolatlaganini ko‘rsatadi.",
+        "",
+        "| Shakl | Hajm | Jarayon | Variant | CTE op/s | MPTT op/s | ρ CI | Xulosa | "
+        "CTE yaxlit | MPTT yaxlit | CTE xato | MPTT xato |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["4"]]
+    lines += [
+        "",
+        "## 5. O‘lchangan daraxtlar",
+        "",
+        "Benchmark'ning kirishi fayl emas, generator: uning izi — `parent_id`",
+        "ketma-ketligining sha256'si. Ikkala usul bir xil ketma-ketlikdan quriladi,",
+        "shuning uchun hash ikki qatorda bir xil bo‘ladi. Qurish vaqti amal emas va",
+        "o‘lchovga kirmaydi.",
+        "",
+        "| Shakl | Hajm | Usul | Tugun | Maks chuqurlik | sha256 | Qurish (s) |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["5"]]
+    lines += [
+        "",
+        "## 6. O‘qish qoidasi (natijadan oldin yozilgan)",
+        "",
+        f"{reading.get('rule', '—')}",
+        "",
+        f"**Xulosa: {reading.get('status', '—')}.**",
+        "",
+        "| Shart | Buzilgan katak | Qaysi |",
+        "|---|---|---|",
+    ]
+    lines += ["| " + " | ".join(row) + " |" for row in rows["6"]]
+    lines += [
+        "",
+        "## 7. Muhit",
+        "",
+        "Vaqt o‘lchovlari mashinaga bog‘liq; nisbat va uning oralig‘i kamroq",
+        "bog‘liq, shuning uchun da’vo ular ustiga qurilgan.",
+        "",
+        f"- PostgreSQL: {postgres.get('version', '—')}, `shared_buffers` "
+        f"{postgres.get('shared_buffers', '—')}, `fsync` {postgres.get('fsync', '—')}, "
+        f"`synchronous_commit` {postgres.get('synchronous_commit', '—')}",
+        f"- baza: `{(metrics.get('database') or {}).get('name', '—')}` "
+        f"(alias `{(metrics.get('database') or {}).get('alias', '—')}`)",
+        f"- CPU: {cpu.get('model', '—')}, mantiqiy yadro "
+        f"{_cell(cpu.get('logical_cores'))}, governor "
+        f"{', '.join(cpu.get('governors') or []) or '—'}",
+        f"- RAM: {_cell(memory.get('total_kb'))} kB, bo‘sh "
+        f"{_cell(memory.get('available_kb'))} kB",
+        f"- yuklama (boshida): {_cell((environment.get('load') or {}).get('load_1m'))}",
+        f"- platforma: {cpu.get('platform', '—')}",
+        "",
+        "Ishga tushirish paytida eng ko‘p CPU yegan jarayonlar:",
+        "",
+    ]
+    busiest = environment.get("busiest_processes") or []
+    if busiest:
+        lines += ["| Jarayon | CPU % |", "|---|---|"]
+        lines += [
+            f"| `{entry.get('command', '—')}` | {_cell(entry.get('cpu_percent'))} |"
+            for entry in busiest
+        ]
+    else:
+        lines.append("(o‘lchanmadi)")
+    lines.append("")
+    lines += _sources_section(metrics, provenance, number=8)
+    return "\n".join(lines) + "\n"
+
+
+def verify_tree_benchmark_positions(markdown: str, metrics: dict) -> list[str]:
+    """Every cell of the H4 tables against its own (shape, size, operation) key."""
+    return _positions(markdown, _benchmark_rows(metrics))
