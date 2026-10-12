@@ -1575,6 +1575,98 @@ Qo‘shimcha (nuqtaviy): BKT+IRT − Elo/Rasch farqi −0.038244 → −0.026203
 
 ---
 
+## QADAM 7 — D60 to‘liq run (test vaqtida qiyinlik muzlatilganda, 2026-10-12)
+
+### Ishga tushirishlar
+
+| Run | Commit | Boshlangan | Yakun qatori | Holat |
+|---|---|---|---|---|
+| `--quick` (`neurolearn`siz, qo‘lda) | `6e0278c` | 2026-10-12 10:18 | exit 0 (10:29) | natija `assist09-frozen-quick/20261012-052856/` (`6f647dc`); uchala darvoza o‘tdi, `tables.verify` [] |
+| to‘liq (`neurolearn-h2-frozen-full-20261012-103039`) | `244f046` | 2026-10-12 10:30:39 | 11:34:40 `finished frozen-full (exit 0); peak sampled tree_rss_kb=335240`, `SERVICE_RESULT=success EXIT_CODE=exited EXIT_STATUS=0` | natija `assist09-frozen/20261012-063439/` (`1fee77a`); `git_start`/`git_end` `244f046`, ikkala uchida toza; `tables.verify` = [] va `tables.verify_h2_frozen_positions` = [] |
+
+To‘liq run 1 soat 4 daqiqa 1 sekund; eng yuqori `tree_rss_kb` 335 240 (parametrlar va DKT checkpoint’dan olingani uchun fit ham, o‘qitish ham bo‘lmadi — vaqtning deyarli hammasi 2 × 1 000 replikali bootstrap).
+
+**Qayta ishlatilgani va darvozalari.** BKT parametrlari va DKT ballari D55 ning to‘liq checkpoint’idan (`h2-bounds-99bb9f9117e5e296`, `fit-0-*`, `dkt-*`). Darvozalar: (1) muzlatilmagan ustun H2 ni 6 xonada takrorladi — BKT 0.707479 = 0.707479, BKT+IRT 0.723898 = 0.723898; (2) DKT 0.727307, H2 dagi 0.727307 dan |Δ| = 0 (chegara 5e-4); (3) nazorat — BKT ning ikki ustundagi bashoratlari 338 001 javobda **aynan bir xil** (eng katta farq 0.0).
+
+### Natija: hozirgi va frozen yonma-yon
+
+| Model | hozirgi AUC [95 % CI] | frozen AUC [95 % CI] | Δ (frozen − hozirgi) |
+|---|---|---|---|
+| BKT | 0.707479 [0.701003, 0.713817] | 0.707479 [0.701003, 0.713817] | 0.000000 |
+| BKT+IRT (λ=0) | 0.723898 [0.717699, 0.730044] | 0.723646 [0.717500, 0.729784] | −0.000252 |
+| Elo/Rasch | 0.762142 [0.756818, 0.767435] | 0.760567 [0.755131, 0.766044] | −0.001575 |
+| DKT | 0.727307 [0.721100, 0.733392] | 0.727307 [0.721100, 0.733392] | 0.000000 |
+
+| Kontrast | Variant | Farq [95 % CI] | DeLong p | Holm p |
+|---|---|---|---|---|
+| BKT+IRT (λ=0) − BKT (D53) | hozirgi | +0.016420 [+0.015539, +0.017361] | 0 | 0 |
+| BKT+IRT (λ=0) − BKT (D53) | frozen | +0.016167 [+0.015279, +0.017097] | 0 | 0 |
+| BKT+IRT (λ=0) − DKT (D56) | hozirgi | −0.003409 [−0.005372, −0.001425] | 2.94e-06 | 2.94e-06 |
+| BKT+IRT (λ=0) − DKT (D56) | frozen | −0.003661 [−0.005569, −0.001607] | 5.2e-07 | 5.2e-07 |
+| Elo/Rasch − DKT (D60) | hozirgi | +0.034835 [+0.030856, +0.039029] | 0 | 0 |
+| Elo/Rasch − DKT (D60) | frozen | +0.033260 [+0.029317, +0.037600] | 0 | 0 |
+
+### D60 ning o‘qish qoidasi bo‘yicha xulosa
+
+| Da’vo | hozirgi | frozen | Mustahkam? |
+|---|---|---|---|
+| **D53** (BKT+IRT − BKT > 0) | **ha** — CI pastki chegarasi +0.015539 | **ha** — +0.015279 | **ha** |
+| **D56** (BKT+IRT − DKT CI pastki chegarasi ≥ −0,01) | **ha** — −0.005372 | **ha** — −0.005569 | **ha** |
+
+Ikkala da’vo ham ikkala variantda bajarildi, shuning uchun D60 ning natijadan oldin yozilgan qoidasi bo‘yicha ular dissertatsiyada **“mustahkam”** deb yozilishi mumkin. Asosiy H2 jadvali almashtirilmaydi: frozen ustun sezgirlik tahlili bo‘lib qoladi (II bob modelida `b_q` online yangilanadi).
+
+Muzlatishning ta’siri kattaligi: BKT+IRT uchun −0.000252, Elo/Rasch uchun −0.001575 AUC — ya’ni oqim tartibidan keladigan ustunlik ikki modelda ham bor, lekin D53/D56 ning yo‘nalishini ham, muhimligini ham o‘zgartirmaydi. PFA frozen variantga kirmaydi (D60; `classical.py:445–459`, `471–477`, `510–540`).
+
+---
+
+## D61 — Junyi Academy (2015) ma'lumoti, H1 va H3 uchun (2026-10-12, kod va natijadan oldin)
+
+**Manba va ruxsat.** `http://base.ustc.edu.cn/data/JunyiAcademy_Math_Practicing_Log/junyi.rar` (USTC BASE oynasi, 1 295 551 222 bayt, `Last-Modified` 2021-01-22); dataset hujjati — o‘sha papkadagi `README.md` (9 599 bayt, sha256 `597d3ae8…7857b7`), u asl manbani `https://pslcdatashop.web.cmu.edu/Files?datasetId=1198` deb ko‘rsatadi. Hujjatdagi shartlar: **“Any form of commercial usage is not allowed!”** va iqtibos:
+
+> Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach,” International Conference on Educational Data Mining (EDM), 2015.
+
+Hujjat ma’lumot 2015-yil yanvarda Junyi Academy platformasidan olinganini, maqoladagi to‘plam esa 2014-yil iyulda olinganini yozadi. DBE-KT22 o‘rniga shu to‘plam ishlatiladi (foydalanuvchi ruxsat berdi).
+
+**Inventarizatsiya (o‘lchangan).** `junyi_Exercise_table.csv` 837 qator (**835 noyob nom**; `matrix_mul_two` va `matrix_app_fruit_oil` ikki marta, ikkisi ham `live=FALSE`), `relationship_annotation_training.csv` 1 131 juftlik, `relationship_annotation_testing.csv` 823 juftlik. Hujjatdagi 837 mashq va 1 131 annotatsiya juftligi mos keladi; 25 925 992 log yozuvi va 247 606 talaba hamda log fayli bo‘yicha sonlar **hali tekshirilmagan** (fayl yuklanmoqda, pastga qarang).
+
+**Daraxt va E_P.** 9 area (`arithmetic` 301, `algebra` 258, `geometry` 161, `probability-statistics` 40, `analytic-geometry` 30, `N/A` 20, `biology` 12, `calculus` 10, `logics` 5), 41 topic, har topic aynan bitta area ichida, bo‘sh katak yo‘q. Modelga moslash: **kurs** — bitta `Junyi Academy` ildizi; **bo‘lim** — area; **ichki bo‘lim** — topic; **mavzu (barg)** — mashq. `area=N/A` va `topic=N/A` bo‘lgan 20 mashq “N/A” bo‘limi ostida qoladi va hisobotda shunday belgilanadi.
+
+`prerequisites` ustuni — vergul bilan ajratilgan mashq nomlari (189 katakda vergul bor). **Yo‘nalish:** hujjat bu ustunni “Indicate its prerequisite exercise (**parent shown in its knowledge map**)” deb ta’riflaydi, ya’ni A qatorida B turса B — A ning bilim xaritasidagi otasi va A dan oldin keladi ⇒ qirra **B → A**. Ma’lumot ham shuni ko‘rsatadi: 979 noyob qirraning 885 tasida (90,40 %) `h_position(B) < h_position(A)`, teskarisi 33 tada (3,37 %), tengi 61 tada; `creation_date` bo‘yicha dalil kuchsiz (57,94 % oldin). Shu ikki dalil bilan yo‘nalish aniq.
+
+E_P ning holati: 986 qirra o‘qiladi, 979 tasi noyob (3 juftlik ikki marta yozilgan), **nomi topilmagan prerekvizit yo‘q (0)**, **2 o‘z-o‘ziga qirra** (`proportions_1`, `number_sense_length_l1`) — Y2 bo‘yicha tashlanadi. Prerekvizitsiz mashqlar: 95 (11,35 %); hech qanday qirrasi yo‘q mashqlar: 59. `live=FALSE`: 61 mashq. Eng katta kiruvchi daraja 7, chiquvchi 14. Qirralarning 83,86 % i bitta topic ichida, 94,79 % i bitta area ichida.
+
+**Sikl.** Graf DAG emas: bitta SCC (3 tugun) — `simplifying_radicals` → `adding_and_subtracting_radicals` → `radical_multiplication_and_division` → birinchisiga. Boshqa sikl yo‘q. **Qoida:** Tarjan bilan topilgan har bir SCC bitta mavzuga birlashtiriladi (spetsifikatsiyaning 8-bosqichi, DBE-KT22 uchun yozilgan qoida), birlashtirilgan mavzu nomi a’zolarining alifbo tartibidagi birinchisi bo‘ladi va metadata’ga a’zolar ro‘yxati yoziladi. Birlashtirilgandan keyin graf DAG: 833 tugun, 976 qirra, **eng uzun yo‘l 65 qirra** (`count_one_by_one_1` … `quotient_rule`).
+
+**Bitta javob = bitta order (D57).** Junyi log’ida har qator bitta mashqqa bitta urinish to‘plamidir va bir qatorda bitta mashq bo‘ladi, ya’ni ko‘p-skill’li order yo‘q: `order_id` har qator uchun alohida beriladi (javob tartibida), `problem_id` — `exercise` + `problem_type`, `skill_id` — mashq (SCC birlashtirilgandan keyingi nomi).
+
+**Tozalash.**
+- **Javob ta’rifi:** `correct` ustuni hujjat bo‘yicha “whether the student’s **first attempt** is correct, and the field would be false if any hint is requested” — ya’ni birinchi urinish to‘g‘riligi allaqachon shu ustunda. Qo‘shimcha hisob-kitob qilinmaydi; `count_attempts` va `count_hints` faqat metadata’ga yoziladi.
+- **Tartib:** `time_done` — Unix vaqti **mikrosekundda**; javoblar (talaba, `time_done`) bo‘yicha o‘sish tartibida o‘qiladi. Bir xil `time_done` bo‘lsa, `problem_number` bo‘yicha, keyin fayl tartibi bo‘yicha.
+- **Filtr:** faqat `exercise` nomi mashqlar jadvalida bor qatorlar; `live` qiymati filtrga kirmaydi (2015-yil yanvardagi holat javobning o‘zini bekor qilmaydi), lekin `live=FALSE` mashqlar soni va ularning javoblari ulushi metadata’ga yoziladi. `review_mode=true` qatorlar **kiritiladi**, chunki ular ham haqiqiy javob; `topic_mode` va `suggested` faqat metadata.
+- `problem_number = 1` bo‘lgan qatorlar dastlabki k urinish tahlili (H3) uchun alohida belgilanadi.
+
+**Talabalar tanlovi.** Seed `20261006` bilan tasodifiy N talaba (talaba darajasida, javoblari butun olinadi). N ning hisobi H2 ning o‘lchangan fit vaqtidan: D59/D55 to‘liq run’larida bitta fold uchun `fit_skill_params` 2 936–3 029 s (o‘rtacha ≈ 2 980 s) oldi, fold’ning moslash to‘plami 338 001 × 0,8 ≈ 270 400 javob va grid 4 752 nomzod; demak ≈ 2 980 / (270 400 × 4 752) ≈ **2,3 µs** bitta (javob × nomzod) uchun, ya’ni fold uchun ≈ 0,011 s × javoblar soni. Junyi’da grid o‘sha (DEFAULT_GRID o‘zgarmaydi), shuning uchun H2 bilan bir xil fit vaqtini (fold uchun ~50 daqiqa) saqlash uchun moslash to‘plami ≈ 270 000 javob bo‘lishi kerak. Hujjatdagi namunada (50 000 session) talaba boshiga javoblar o‘rtachasi 167,8 (mediana 19), demak N × 167,8 × 0,8 ≈ 270 000 ⇒ **N = 2 000 talaba** (≈ 336 000 javob). Bu son log inventarizatsiyasi (B4) tugagach qayta tekshiriladi: tanlangan talabalarning haqiqiy javoblari soni 270 000 ± 30 % dan chiqsa, N shu nisbatda o‘zgartiriladi va o‘zgartirish H1/H3 ishga tushirilishidan **oldin** shu yerga yoziladi.
+
+**H1 — tayyorlik qoidalari.** Qoidalar: (1) ehtimoliy — r_s(w) ≥ τ; (2) bajarilganlik — har bir prerekvizitga ≥ 1 javob; (3) o‘tish bali — prerekvizitlar bo‘yicha aniqlik ≥ `pass_mark`; (4) **qo‘shimcha, platformaning o‘zi** — `earned_proficiency` (hujjat Khan Academy ning o‘zlashtirish algoritmiga havola qiladi: `http://david-hu.com/2011/11/02/how-khan-academy-is-using-machine-learning-to-assess-student-mastery.html`): mashq w ning barcha prerekvizitlari uchun talaba `earned_proficiency=true` ga yetgan bo‘lsa, w tayyor deb hisoblanadi. Bu qoida platformaning amaldagi qarori bo‘lgani uchun qo‘shimcha taqqoslash sifatida kiradi, II bob qoidasi emas.
+Teng qamrov: qoidalar har xil qamrovda turgani uchun τ qidirib boshqa qoidalarning qamroviga tenglashtiriladi. O‘lchovlar: xato ulushi (tayyor deb belgilangan, lekin keyingi k javobda muvaffaqiyatsiz), qamrov va r_s(w) bo‘yicha AUC. Sezgirlik: τ ∈ {0,70; 0,80; 0,90; 0,95}, δ ∈ {0,05; 0,10; 0,15}.
+
+**H3 — graf nazoratlari.** BKT+IRT+Pre (λ validatsiyada tanlanadi) to‘rtta graf bilan: asl graf; teskari graf (barcha qirralar aylantirilgan); daraja taqsimoti saqlangan tasodifiy graf (`networkx.directed_edge_swap`, 20 seed); grafsiz (λ = 0). O‘lchov: dastlabki k ∈ {3, 5} urinish bo‘yicha AUC (va butun to‘plam bo‘yicha AUC qo‘shimcha ustun sifatida).
+
+**Split va statistika.** Talabalar bo‘yicha 5 qism, o‘qitish qismining 20 % i validatsiya, seed `20261006` (H2 bilan bir xil). Bootstrap talaba bo‘yicha klasterlangan: asosiy to‘rt taqqoslash (asl, teskari, tasodifiy grafларning o‘rtachasi, grafsiz) uchun 1 000 replika; 20 tasodifiy seed alohida bootstrap qilinmaydi — ularning nuqtaviy AUC taqsimoti (min, mediana, max) beriladi, aks holda hisob vaqti bir necha baravar oshadi. DeLong va Holm H2 dagidek.
+
+**O‘qish qoidasi (natijadan oldin).**
+- **H1 “qo‘llab-quvvatlandi”**: teng qamrovda ehtimoliy qoidaning xato ulushi bajarilganlik va o‘tish bali qoidalarining har ikkisidan past va bu farqning 95 % CI si nolni kesib o‘tmasa. “Qo‘llab-quvvatlanmadi”: farqning CI si teskari tomonda nolni kesmasa. Aks holda **“aniqlanmadi”**.
+- **H3 “qo‘llab-quvvatlandi”**: asl graf bilan dastlabki k AUC teskari grafdan ham, tasodifiy graflarning o‘rtachasidan ham, grafsiz variantdan ham yuqori va har uch farqning 95 % CI si nolni kesib o‘tmasa. “Qo‘llab-quvvatlanmadi”: biror farqning CI si teskari tomonda nolni kesmasa. Aks holda **“aniqlanmadi”**.
+- Har ikkisida ham son chiqmasa (masalan, ma’lumot yetmasa) “ishga tushirilmadi” deb yoziladi, taxmin yozilmaydi.
+
+**Graf sifati.** Annotatorlar yo‘q, shuning uchun Cohen κ **“hisoblanmadi — annotator yo‘q”** deb qoladi (D13/8b-3 qoidasi). Uning o‘rniga platformaning grafi bilan dataset annotatsiyasining mosligi **tavsifiy** ko‘rsatkich sifatida yoziladi (o‘lchangan): 1 131 juftlikning 414 tasida (36,60 %) platformada qirra bor (A→B 169, B→A 245, ikkisi ham yo‘q 717); `Prerequisite_avg` ning “qirra bor” ni ajratish AUC’i **0,6824**, faqat A→B yo‘nalishi uchun **0,5595**; qirra bor juftliklarda o‘rtacha baho 5,5770, yo‘qlarida 4,3531 (`Prerequisite_avg`: min 1,1667, mediana 4,7778, max 8,8000; har juftlikni 5–15 ta ishchi baholagan). **Cheklovlar:** graf platformaning o‘z bilim xaritasi (ekspertlar qo‘lda qurgan, 2015-yil yanvar holati), mustaqil annotatsiya emas; 2 o‘z-o‘ziga qirra va 3 takroriy qirra bor; bitta uch tugunli sikl bor; 11,35 % mashqda prerekvizit yo‘q; annotatsiyaning yo‘nalishi platforma qirrasining yo‘nalishi bilan kuchsiz mos (yuqoridagi 0,5595). Shu sababli H3 natijasi “bu graf bilan” deb o‘qiladi, “prerekvizit grafi umuman” deb emas.
+
+**Taxminiy hisob vaqti va xotira.** Parametr fit: 5 fold × ~50 daqiqa (4 worker bilan parallel ≈ 1 soat 15 daqiqa; grid va javoblar soni yuqoridagi hisob bo‘yicha). Graf arm’lari: 23 variant × 5 fold × bashorat (~5 s) ≈ 10 daqiqa. Bootstrap: asosiy to‘rt taqqoslash uchun 1 000 replika ≈ 35–40 daqiqa (D60 da 338 001 javob va 4 model uchun o‘lchangan). Jami ≈ **2–2,5 soat**. Xotira: javoblar soni H2 bilan bir xil tartibda, D60/D55 run’larida daraxt RSS 1,4 GB dan oshmagan; log faylini bo‘laklab (chunk) o‘qib faqat tanlangan talabalarning qatorlari saqlanadi, shuning uchun fit bosqichida `MemAvailable` ≥ 2 GB qoladi (worker soni avvalgi xotira qoidasi bo‘yicha hisoblanadi).
+
+**Hali bajarilmagani.** `junyi_ProblemLog_original.csv` (hujjat bo‘yicha siqilmagan holda ≈ 2,6 GB) yuklanmoqda: 1 295 551 222 baytdan 2026-10-12 11:10 da 37 125 568 bayt (2,9 %), o‘lchangan tezlik ≈ 39 KB/s, qolgan vaqt ≈ 8 soat. Shu sababli B4 ning **ma’lumotdan olinadigan** sonlari (talaba boshiga va mashq boshiga javoblar taqsimoti, loglarning necha foizi graf mashqlariga tegishli, 25 925 992 / 247 606 ni tasdiqlash) hali yo‘q; ustunlarning **ma’nosi** yuqorida hujjatdan ko‘chirilgan. H1/H3 kodi yozilishidan oldin shu sonlar qo‘shiladi va N qayta tekshiriladi.
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
