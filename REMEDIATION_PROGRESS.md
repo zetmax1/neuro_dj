@@ -1476,7 +1476,73 @@ Shart: fit bosqichida `MemAvailable` ≥ 2 GB. Hisob bo‘sh xotira qancha ekani
 
 ### D55 full ishga tushirildi
 
-Shartlar bajarildi: H2 full exit 0, `tables.verify` va pozitsion tekshiruv [], provenance ikkala uchida toza, DKT 0.727307 D53 oralig‘ida. Buyruq: `H2_REFERENCE=experiments/results/assist09/20261010-060005 H2_WORKERS=4 experiments/run_h2.sh bounds-full`, toza daraxtdan, transient user unit sifatida. Birinchi ishga tushirish (`neurolearn-h2-bounds-full-20261010-143846`, 14:38:46) `H2_WORKERS=5` bilan boshlangan va 14:39:30 da qo‘lda to‘xtatilgan (`EXIT_CODE=killed EXIT_STATUS=TERM`, log'dagi shu qator) — o‘sha paytdagi bo‘sh xotira 5 worker uchun yetmasligi ko‘rinib qoldi; to‘xtatish L-BFGS-B tekshiruvining birinchi sozlamasida bo‘lgan, birorta fit boshlanmagan, natija yozilmagan. Unit nomi, yakun qatori va natijasi run tugagandan keyin yoziladi: run davomida commit qilinmaydi, aks holda `git_end` `git_start` dan farq qiladi va provenance “tree changed” deb belgilanadi.
+Shartlar bajarildi: H2 full exit 0, `tables.verify` va pozitsion tekshiruv [], provenance ikkala uchida toza, DKT 0.727307 D53 oralig‘ida. Buyruq: `H2_REFERENCE=experiments/results/assist09/20261010-060005 H2_WORKERS=4 experiments/run_h2.sh bounds-full`, toza daraxtdan, transient user unit sifatida. Birinchi ishga tushirish (`neurolearn-h2-bounds-full-20261010-143846`, 14:38:46) `H2_WORKERS=5` bilan boshlangan va 14:39:30 da qo‘lda to‘xtatilgan (`EXIT_CODE=killed EXIT_STATUS=TERM`, log'dagi shu qator) — o‘sha paytdagi bo‘sh xotira 5 worker uchun yetmasligi ko‘rinib qoldi; to‘xtatish L-BFGS-B tekshiruvining birinchi sozlamasida bo‘lgan, birorta fit boshlanmagan, natija yozilmagan. O‘sha ishga tushirish 2026-10-10 16:35:59 da kompyuter o‘chirilgani uchun to‘xtadi; natija 2026-10-11 dagi ikkinchi urinishdan olindi — QADAM 6 ga qarang.
+
+---
+
+## QADAM 6 — D55 to‘liq run (chegaralar sezgirligi, 2026-10-11)
+
+### Ishga tushirishlar
+
+| Run | Commit | Boshlangan | Yakun qatori (`ExecStopPost`) | Holat |
+|---|---|---|---|---|
+| 1-urinish (`neurolearn-h2-bounds-full-20261010-144010`) | `30ad4e4` | 2026-10-10 14:40:10 | 16:35:59 `SERVICE_RESULT=success EXIT_CODE=killed EXIT_STATUS=TERM; Result=success ExecMainStatus=15`, `finished` qatori yo‘q | **kompyuter GNOME sessiya dialogidan o‘chirilgani uchun TERM bilan to‘xtagan**: journal 16:35:57 `gnome-shell: endSessionDialog`, 16:35:58 `systemd-logind: The system will power off now!` / `System is powering down.`, boot −1 16:36:02 da tugaydi (`systemd-inhibit --what=sleep:idle` ataylab o‘chirishni to‘smaydi). Xotira bosimi yo‘q (oxirgi namuna `mem_available_kb=3684620`, `swap_free_kb=2204796`). L-BFGS-B tekshiruvi (3/3) va 1-fold darvozasi o‘tgan, 15 fitdan 4 tasi (asosiy fold 1–4) tugab checkpoint'ga yozilgan; 2-to‘lqin (asosiy fold 5 + kengroq fold 1–3) ~36 daqiqa ishlab yo‘qolgan. Natija yozilmagan |
+| 2-urinish (`neurolearn-h2-bounds-full-20261011-203541`) | `30ad4e4` | 2026-10-11 20:35:42 | 23:37:57 `SERVICE_RESULT=success EXIT_CODE=exited EXIT_STATUS=0; Result=success ExecMainStatus=0`, oldidan `finished bounds-full (exit 0); peak sampled tree_rss_kb=1370892` | natija `assist09-bounds/20261011-183756/` (`9db6276`); `git_start`/`git_end` `30ad4e4`, ikkala uchida toza, `tree_changed=False`; `tables.verify` = [] va `tables.verify_h2_bounds_positions` = [] |
+
+2-urinish 3 soat 2 daqiqa 15 sekund. Checkpoint `h2-bounds-99bb9f9117e5e296` (kalitda `commit: 30ad4e4`, shu sababli ikki urinish bir kalitga tushdi): **4 fit tiklandi** (`resumed_items: 4`, asosiy fold 1–4), qolgan **11 fit** 4 worker bilan moslandi (2412–3030 s). Xotira: eng yuqori `tree_rss_kb` 1 370 892, eng past `mem_available_kb` 7 017 728, `swap_free_kb` 4 193 684 (183 namuna) — swap tegilmagan. DKT 5 fold, har biri 10 epoch, 30–34 s.
+
+### Darvozalar (D58)
+
+| Darvoza | Bu run | H2 (`20261010-060005`) | Natija |
+|---|---|---|---|
+| 1-fold, BKT | 0.711909 | 0.711909 | o‘tdi (6 xonaga teng) |
+| 1-fold, BKT+IRT (λ=0) | 0.728172 | 0.728172 | o‘tdi |
+| pooled, BKT | 0.707479 | 0.707479 | o‘tdi |
+| pooled, BKT+IRT (λ=0) | 0.723898 | 0.723898 | o‘tdi |
+| pooled, DKT | 0.727307 | 0.727307 | **\|Δ\| = 0.0** (chegara 5e-4) |
+
+Reference provenance: `experiments/results/assist09/20261010-060005`, commit `66ff452`, 4163 o‘quvchi.
+
+L-BFGS-B tekshiruvi (5 mavzu: 311, 47, 277, 280, 70; 1-fold train+validation; chegara 0.01, uchchalasi o‘tdi):
+
+| Sozlama | Eng katta nisbiy farq | Mavzu | Grid cheti |
+|---|---|---|---|
+| asosiy | 0.006702 | **311** | g0=max, s0=max |
+| kengroq | 0.002235 | **70** | s0=max |
+| eng keng | 0.001676 | **280** | g0=min |
+
+D59 dan oldin (eski P0/PT grid, `20261009-152102`) kengroq 0.011495 va eng keng 0.011346 bilan yiqilgan edi, ikkisida ham mavzu 277; endi 277 ning farqi 0.000142 (kengroq) va 0.001439 (eng keng).
+
+### Uch sozlama
+
+| Ko‘rsatkich | asosiy (0,30; 0,10) | kengroq (0,40; 0,20) | eng keng (0,49; 0,30) |
+|---|---|---|---|
+| BKT pooled AUC [95 % CI] | 0.707479 [0.701801, 0.714096] | 0.715568 [0.709755, 0.722006] | 0.715626 [0.709771, 0.722024] |
+| BKT+IRT (λ=0) pooled AUC [95 % CI] | 0.723898 [0.717988, 0.730260] | 0.735939 [0.730382, 0.741909] | 0.746815 [0.741650, 0.752298] |
+| §10 AUC (masalaning birinchi qatorlari) | — | — | — |
+| BKT+IRT − BKT [95 % CI] | +0.016420 [0.015536, 0.017368] | +0.020371 [0.019311, 0.021532] | +0.031188 [0.029420, 0.032600] |
+| … DeLong z, p, Holm p | 92.002777; 0; 0 | 79.367296; 0; 0 | 83.683109; 0; 0 |
+| BKT+IRT − DKT [95 % CI] | −0.003409 [−0.005350, −0.001424] | +0.008632 [0.006869, 0.010959] | +0.019507 [0.017772, 0.022179] |
+| D56 (CI pastki ≥ −0,01) | **bajarildi** | bajarildi | bajarildi |
+| P0 cheti (eng past / eng yuqori) | 0.0649 / 0.0577 | 0.0559 / 0.0631 | 0.0739 / 0.0901 |
+| PT cheti | 0.0162 / 0.1063 | 0.0252 / 0.1297 | 0.0505 / 0.1423 |
+| P(G) cheti | 0.0468 / **0.7658** | 0.0991 / **0.3928** | 0.3099 / **0.1495** |
+| P(S) cheti | 0.0432 / **0.8739** | 0.0667 / **0.6036** | 0.0865 / **0.2757** |
+| Test log-likelihood (BKT / BKT+IRT) | −201 910.9638 / −199 849.3698 | −194 522.7950 / −190 710.6381 | −193 757.5989 / −188 005.8888 |
+| O‘qitish log-likelihood (jami) | −804 830.3537 | −774 410.2007 | −771 203.0794 |
+| BKT+IRT − Elo/Rasch (nuqtaviy) | −0.038244 | −0.026203 | −0.015327 |
+
+Har sozlamada 555 fit (5 fold × 111 mavzu), standart parametrda qolgan mavzular 12/11/12/12/12, grid 4752 nomzod; har sozlamaning eng yuqori qiymati chegaraning bir xil ulushida (G 0.9667, S 0.97). Elo/Rasch H2 dagi 0.762142 (qayta ishga tushirilmaydi). `h2_bounds` masalaning birinchi qatorlari bo‘yicha (§10) AUC hisoblamaydi — u faqat H2 jadvallarida bor.
+
+### D58 ning uch savoliga javob
+
+1. BKT+IRT(λ=0) − BKT ning CI si har uch sozlamada 0 dan yuqorimi? — **ha**: pastki chegaralar 0.015536 / 0.019311 / 0.029420.
+2. BKT+IRT(λ=0) − DKT ning CI pastki chegarasi har sozlamada ≥ −0,01 mi? — **ha**: −0.005350 / +0.006869 / +0.017772.
+3. G0 va S0 ning chegaradagi to‘planish ulushi? — **G0: 0.7658 / 0.3928 / 0.1495; S0: 0.8739 / 0.6036 / 0.2757** (asosiy / kengroq / eng keng).
+
+Qo‘shimcha (nuqtaviy): BKT+IRT − Elo/Rasch farqi −0.038244 → −0.026203 → −0.015327, ya’ni asosiydan eng kengga 0.022917 ga kamayadi.
+
+**II bob qarori o‘zgarmaydi**: asosiy natija (G_MAX; S_MAX) = (0,30; 0,10), sozlama AUC bo‘yicha tanlanmaydi (D55, D58).
 
 ---
 
