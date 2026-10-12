@@ -355,13 +355,36 @@ def test_d48_every_number_in_every_tables_md_is_in_its_metrics_json():
     assert checked >= 1
 
 
-@pytest.mark.parametrize("edit", [
-    ("graphs", "| 1004 |", "| 1005 |", "1005"),                     # an edited size
-    ("assist09-quick", "| 0.697 [", "| 0.684 [", "0.684"),        # an edited AUC (0.684 is no rounding of any metric)
+def _unbacked_token(metrics: dict, *, places: int, whole: int = 0) -> str:
+    """
+    A number of the given shape that ``metrics.json`` does not back.
+
+    Nothing may be hard-coded here. ``0.684`` was a safe planted value while
+    H2's grid was narrower; under D59 it became a real AUC, and the test that
+    used it started failing for the wrong reason. So the planted number is
+    searched for against the very metrics file under test: the first candidate
+    that ``_unbacked_numbers`` rejects is the one planted.
+    """
+    step = 10 ** -places if places else 1
+    count = int(round(1 / step)) if places else 9000
+    for index in range(1, count):
+        value = index * step if places else whole + index
+        token = f"{value:.{places}f}" if places else str(int(value))
+        if _unbacked_numbers(f"| {token} |", metrics) == [token]:
+            return token
+    raise AssertionError(f"no unbacked {places}-decimal number exists for this result")
+
+
+@pytest.mark.parametrize("kind, pattern", [
+    ("graphs", r"\| (\d{3,5}) \|"),            # an edited size
+    ("assist09-quick", r"\| (0\.\d{3}) \["),    # an edited AUC
+    ("assist09", r"\| (0\.\d{3}) \["),          # the same, in the full result
+    # at least three decimals: a one-decimal cell such as G_MAX = 0.3 has no
+    # unbacked variant at all, since every 0.1 … 0.9 occurs in the metrics
+    ("assist09-bounds", r"\| (-?\d+\.\d{3,}) \|"),  # D55's own tables
 ])
-def test_d48_the_checker_catches_a_hand_written_number(edit):
+def test_d48_the_checker_catches_a_hand_written_number(kind, pattern):
     """The test above is only worth something if it can fail."""
-    kind, before, after, token = edit
     found = sorted(RESULTS.glob(f"{kind}/*/tables.md"))
     if not found:
         pytest.skip(f"experiments/results/{kind}/ da natija yo'q")
@@ -369,14 +392,25 @@ def test_d48_the_checker_catches_a_hand_written_number(edit):
     tables = (directory / "tables.md").read_text(encoding="utf-8")
     metrics = json.loads((directory / "metrics.json").read_text(encoding="utf-8"))
     assert _unbacked_numbers(tables, metrics) == []
-    assert _unbacked_numbers(tables + "\n| AUC | 0.8634 |\n", metrics) == ["0.8634"]
-    # A number from the literature written into the prose (decimal comma).
-    assert _unbacked_numbers(tables + "\nDKT AUC 0,8634 (Piech va boshq.)\n", metrics) == ["0,8634"]
-    # An existing number edited after the run.
-    if before not in tables:
-        pytest.skip(f"{before!r} not in {directory.relative_to(REPO)}/tables.md (the run's numbers differ)")
-    edited = tables.replace(before, after, 1)
-    assert _unbacked_numbers(edited, metrics) == [token]
+
+    # A number appended to the file.
+    planted = _unbacked_token(metrics, places=4)
+    assert _unbacked_numbers(tables + f"\n| AUC | {planted} |\n", metrics) == [planted]
+    # The same number in the prose, with a decimal comma.
+    comma = planted.replace(".", ",")
+    assert _unbacked_numbers(
+        tables + f"\nDKT AUC {comma} (Piech va boshq.)\n", metrics
+    ) == [comma]
+
+    # An existing cell edited after the run: the first cell of the right shape
+    # is replaced by a value of that same shape which the metrics do not back.
+    match = re.search(pattern, tables)
+    assert match, f"{directory.relative_to(REPO)}/tables.md has no cell matching {pattern}"
+    original = match.group(1)
+    places = len(original.split(".")[1]) if "." in original else 0
+    replacement = _unbacked_token(metrics, places=places, whole=int(float(original)))
+    edited = tables[: match.start(1)] + replacement + tables[match.end(1):]
+    assert _unbacked_numbers(edited, metrics) == [replacement], (original, replacement)
 
 
 def test_d48_every_result_has_sha256_commit_seed_and_command():
@@ -400,8 +434,31 @@ def test_d48_every_result_has_sha256_commit_seed_and_command():
                 assert re.fullmatch(r"[0-9a-f]{64}", entry["source"].get("sha256") or ""), (where, entry.get("name"))
 
 
+def _results_of(report: str) -> list[Path]:
+    """
+    Result directories whose ``metrics.json`` says it is this report.
+
+    ``assist09*`` also matches ``assist09-bounds*`` (D55), whose metrics have no
+    ``pooled`` block at all, so the glob alone is not a filter — the report
+    name in the file is.
+    """
+    out = []
+    for path in sorted(RESULTS.glob("assist09*/*/metrics.json")):
+        try:
+            metrics = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as broken:  # pragma: no cover - a finding, not a skip
+            raise AssertionError(f"{path}: {broken}") from broken
+        if metrics.get("report") == report:
+            out.append(path.parent)
+    return out
+
+
 def _h2_results() -> list[Path]:
-    return sorted(p.parent for p in RESULTS.glob("assist09*/*/metrics.json"))
+    return _results_of("h2")
+
+
+def _bounds_results() -> list[Path]:
+    return _results_of("h2_bounds")
 
 
 def test_d48_h2_full_result_is_present():
@@ -476,6 +533,135 @@ def test_d48_h2_tables_show_each_models_own_numbers():
             assert _shown(first3, scores["first_3"]["auc"]), (where, name)
             assert _shown(first5, scores["first_5"]["auc"]), (where, name)
             assert int(cold) == models[name].get("cold_rows", 0), (where, name)
+
+
+def test_d48_bounds_tables_show_each_settings_own_numbers():
+    """
+    Positional D48 for D55's own report (the counterpart of the H2 test above).
+
+    The bounds report has no ``pooled`` block: its numbers hang off
+    ``settings[]``, one entry per (G_MAX, S_MAX) pair. Every cell of the result
+    table, the difference tables and the gate table is compared with the entry
+    of its own setting and model, so a cell copied from the neighbouring row
+    would be caught.
+    """
+    results = _bounds_results()
+    if not results:
+        pytest.skip("D55 natijasi hali yo'q")
+    number = r"-?\d+(?:\.\d+)?"
+    for directory in results:
+        text = (directory / "tables.md").read_text(encoding="utf-8")
+        metrics = json.loads((directory / "metrics.json").read_text(encoding="utf-8"))
+        where = directory.relative_to(REPO)
+        settings_by_name = {entry["name"]: entry for entry in metrics["settings"]}
+        assert settings_by_name, where
+
+        # §2 — one row per (setting, model)
+        rows = _md_table(text, "## 2.")
+        seen = set()
+        for name, model, auc_cell, rmse, accuracy, log_likelihood, n in rows:
+            entry = settings_by_name[name]
+            model_entry = entry["models"][model]
+            seen.add((name, model))
+            auc, low, high = re.fullmatch(
+                rf"({number}) \[({number}), ({number})\]", auc_cell
+            ).groups()
+            scores, interval = model_entry["scores"], model_entry["auc_interval"]
+            assert _shown(auc, scores["auc"]), (where, name, model, auc_cell)
+            assert _shown(low, interval["ci_low"]) and _shown(high, interval["ci_high"]), (
+                where, name, model, auc_cell,
+            )
+            assert _shown(rmse, scores["rmse"]) and _shown(accuracy, scores["accuracy"]), (
+                where, name, model,
+            )
+            assert _shown(log_likelihood, model_entry["log_likelihood"]), (where, name, model)
+            assert int(n) == scores["n"], (where, name, model)
+        assert seen == {
+            (name, model) for name, entry in settings_by_name.items() for model in entry["models"]
+        }, (where, seen)
+
+        # §3 — BKT+IRT − BKT per setting
+        for name, difference, interval_cell, z, p_value, holm, significant in _md_table(
+            text, "## 3."
+        ):
+            entry = settings_by_name[name]["difference"]
+            low, high = re.fullmatch(
+                rf"\[({number}), ({number})\]", interval_cell
+            ).groups()
+            assert _shown(difference, entry["bootstrap"]["estimate"]), (where, name)
+            assert _shown(low, entry["bootstrap"]["ci_low"]), (where, name)
+            assert _shown(high, entry["bootstrap"]["ci_high"]), (where, name)
+            assert _shown(z, entry["delong"]["z"]), (where, name)
+            assert significant in ("ha", "yo'q")
+            assert (significant == "ha") == entry["delong"]["significant"], (where, name)
+
+        # §4 — the DKT and Elo/Rasch differences per setting
+        for name, dkt_cell, margin, elo_cell, elo_auc in _md_table(text, "## 4."):
+            entry = settings_by_name[name]
+            dkt = entry["dkt_difference"]
+            if dkt.get("status") == "ok":
+                estimate, low, high = re.fullmatch(
+                    rf"({number}) \[({number}), ({number})\]", dkt_cell
+                ).groups()
+                assert _shown(estimate, dkt["estimate"]), (where, name)
+                assert _shown(low, dkt["ci_low"]) and _shown(high, dkt["ci_high"]), (where, name)
+                assert _shown(margin, dkt["d56_margin"]), (where, name)
+            assert _shown(elo_cell, entry["elo_difference"]["difference"]), (where, name)
+            assert _shown(elo_auc, entry["elo_difference"]["elo_auc_h2"]), (where, name)
+
+        # §5 — the reproduction gates, cell by cell against the gate block
+        gates = metrics["gates"]
+        for where_name, model, produced, h2_value, verdict in _md_table(text, "## 5."):
+            key = {"1-fold": "fold_1", "pooled": "pooled"}[where_name]
+            gate = gates[key]
+            if model in gate["models"]:
+                recorded = gate["models"][model]
+                assert _shown(produced, recorded["bounds"]), (where, where_name, model)
+                assert _shown(h2_value, recorded["h2"]), (where, where_name, model)
+                assert (verdict == "o‘tdi") == recorded["equal"], (where, where_name, model)
+            else:
+                assert model == "DKT", (where, model)
+                assert _shown(produced, gates["dkt"]["auc"]), where
+                assert _shown(h2_value, gates["dkt"]["h2"]), where
+                assert (verdict == "o‘tdi") == gates["dkt"]["passed"], where
+
+        # §6 — the fits that sat at the ceiling
+        for name, fits, g_at, g_share, s_at, s_share, fit_ll in _md_table(text, "## 6."):
+            entry = settings_by_name[name]
+            parameters = entry["grid_check"]["parameters"]
+            assert int(fits) == entry["grid_check"]["fits"], (where, name)
+            assert int(g_at) == parameters["g0"]["at_highest"], (where, name)
+            assert _shown(g_share, parameters["g0"]["share_at_highest"]), (where, name)
+            assert int(s_at) == parameters["s0"]["at_highest"], (where, name)
+            assert _shown(s_share, parameters["s0"]["share_at_highest"]), (where, name)
+            assert _shown(fit_ll, entry["fit_log_likelihood"]), (where, name)
+
+
+def test_d48_the_bounds_result_reproduces_the_h2_run_it_names():
+    """
+    D58's gate, re-checked from outside: the main setting's numbers must equal
+    the H2 result the run was given, and that result must be on disk with the
+    commit the metrics name.
+    """
+    for directory in _bounds_results():
+        metrics = json.loads((directory / "metrics.json").read_text(encoding="utf-8"))
+        where = directory.relative_to(REPO)
+        reference = metrics["reference"]
+        referenced = REPO / reference["path"]
+        assert referenced.exists(), (where, reference["path"])
+        h2 = json.loads((referenced / "metrics.json").read_text(encoding="utf-8"))
+        assert h2["report"] == "h2", (where, reference["path"])
+        assert h2["provenance"]["code_commit"] == reference["commit"], where
+
+        main = next(entry for entry in metrics["settings"] if entry["main"])
+        for model, recorded in main["models"].items():
+            # H2 keeps its scores per evaluation slice, the bounds report flat
+            assert recorded["scores"]["auc"] == pytest.approx(
+                h2["pooled"]["models"][model]["scores"]["all"]["auc"], abs=5e-7
+            ), (where, model)
+        assert metrics["gates"]["pooled"]["passed"] and metrics["gates"]["fold_1"]["passed"], where
+        assert metrics["gates"]["dkt"]["passed"], where
+        assert abs(metrics["gates"]["dkt"]["difference"]) <= metrics["gates"]["dkt"]["tolerance"]
 
 
 # ---------------------------------------------------------------------------

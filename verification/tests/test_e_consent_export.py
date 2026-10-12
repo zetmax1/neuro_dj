@@ -397,13 +397,25 @@ def test_v_e2_include_simulated_exports_what_the_simulator_wrote(world, tmp_path
     (``simulate_bkt_data``) writes every answer with ``source=simulated``, so
     the simulator's own rows must be in such an export.
     """
-    out, _ = _export(tmp_path / "sim", include_simulated=True)
+    _export(tmp_path / "sim", include_simulated=True)
+    # D44 marks the directory even when --out names it, so the export of
+    # ``tmp/sim`` lands in ``tmp/sim-simulated``; reading ``tmp/sim`` was this
+    # test's own mistake and made it contradict
+    # ``…_with_an_explicit_out_still_marks_the_directory`` (R2, 2026-10-05).
+    written = [p for p in tmp_path.iterdir() if (p / "metadata.json").exists()]
+    assert [p.name for p in written] == ["sim-simulated"], [p.name for p in tmp_path.iterdir()]
+    assert not (tmp_path / "sim").exists()
+    out = written[0]
+
     got = {_csv_key(r) for r in _csv_rows((out / "attempts.csv").read_text(encoding="utf-8"))}
     assert world.planted["simulated_account_simulator"] in got, (
         "--include-simulated left out every row the simulator wrote: the export "
         "filters source IN (adaptive, test_session) before the simulated accounts "
         "are added, and the simulator writes source=simulated"
     )
+    # the real learner's own ``simulated`` row stays out: the flag widens the
+    # export to simulator *accounts*, not to simulated rows of real accounts
+    assert world.planted["simulated"] not in got
 
 
 def test_v_e2_include_simulated_on_simulator_only_data_is_not_empty(reference_course, tmp_path):
