@@ -192,3 +192,36 @@ def test_a_failure_is_named_rather_than_hidden():
 
     assert result["passed"] is False
     assert result["failures"] == ["mptt_intervals"]
+
+
+@pytest.mark.django_db(databases=["default", ALIAS])
+def test_a_deep_tree_is_checked_without_mptts_recursive_rebuild():
+    """
+    D63d: ``mptt.managers._rebuild_helper`` calls itself once per level, so a
+    tree deeper than the frame budget cannot be checked that way — this is
+    what ended the full pass of 2026-10-14 at the 10 000-deep chain. Above
+    ``REBUILD_DEPTH_LIMIT`` the iterative recomputation is used instead, and
+    the check still passes on a clean tree and still catches a broken one.
+    """
+    build(Shape.DEEP_CHAIN, size=1200)
+
+    result = integrity.check_mptt_intervals(using=ALIAS)
+
+    assert result["passed"] is True
+    assert "too deep" in result["rebuild_source"]
+    assert integrity.REBUILD_DEPTH_LIMIT == 500
+
+    sql('UPDATE "benchmarks_mptt_node" SET lft = rght, rght = lft WHERE id = 600')
+    broken = integrity.check_mptt_intervals(using=ALIAS)
+    assert broken["passed"] is False
+    assert 600 in broken["examples"]["inverted"]
+
+
+@pytest.mark.django_db(databases=["default", ALIAS])
+def test_a_shallow_tree_still_goes_through_rebuild():
+    build(Shape.COURSE_LIKE, size=200)
+
+    result = integrity.check_mptt_intervals(using=ALIAS)
+
+    assert result["rebuild_source"] == "mptt rebuild()"
+    assert result["passed"] is True

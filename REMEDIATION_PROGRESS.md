@@ -2072,6 +2072,41 @@ bajarildi.
 
 ---
 
+### D63d — chuqur daraxtda mptt'ning `rebuild()` i ishlatilmaydi (2026-10-14, natijadan oldin)
+
+**Sabab.** Toza mashinada ishga tushirilgan to‘liq run (`…-140928`) beshinchi
+blokda, `deep_chain/10000` ning parallel bosqichidan keyingi yaxlitlik
+tekshiruvida yiqildi: `mptt.managers._rebuild_helper` o‘zini **har bir daraja
+uchun** chaqiradi, 10 000 chuqur zanjirda esa interpretatorning freymlari
+tugaydi (`RecursionError`, traceback'da “Previous line repeated 983 more
+times”). Chiqish kodi 1, **natija yozilmadi** (natija faqat oxirgi blokdan
+keyin yoziladi). Shu paytgacha to‘rt blok tugagan edi
+(`course_like/1000`, `/10000`, `/100000`, `deep_chain/1000`) va **birortasida
+ham D63c belgisi yo‘q** (eng past `MemAvailable` 3,28 GB, eng past `SwapFree`
+2 399 MB).
+
+**Qaror.** Oraliqlarni solishtirishda mptt ning `rebuild()` i faqat
+**sayoz** daraxtda ishlatiladi: tugunlar soni ≤ 20 000 **va** chuqurlik
+≤ **500**. Ikkisidan biri oshsa, iterativ qayta hisoblash ishlatiladi
+(`recompute_intervals`), u `test_generator.py` da mptt ning o‘z `rebuild()` i
+bilan uchta shaklda tengligi tasdiqlangan. Qo‘shimcha sug‘urta: `rebuild()`
+chaqiruvi atrofida rekursiya chegarasi D63b dagi qiymatga ko‘tariladi va
+qaytariladi. Natijada `rebuild_source` ustuni qaysi yo‘l ishlatilganini
+(“mptt rebuild()” yoki “recomputed … too deep / too many nodes”) aytadi.
+
+**O‘zgarmagani.** Tekshiruvning **mazmuni** o‘zgarmadi: saqlangan
+`lft`/`rght`/`level` lar parent havolalaridan kelib chiqadigan qiymatlar bilan
+solishtiriladi. O‘lchov tartibi, takrorlar, chegaralar, seed va o‘qish qoidasi
+ham o‘zgarmadi.
+
+**Checkpoint.** Tuzatish commit qilinadi, demak checkpoint kaliti yangilanadi
+va to‘rtta tugagan blok qayta o‘lchanadi (≈ 40 daqiqa). Eski bloklar
+(`tree-bench-d77747c9b1b0eb00`) o‘chirilmaydi, lekin ishlatilmaydi: ular
+tekshiruvning eski yo‘li bilan o‘lchangan.
+
+
+---
+
 ## 9-bosqich kodi — `benchmarks` app'i va H4 (2026-10-12, natijadan oldin)
 
 D63 va D63a bo‘yicha yozildi. **Dissertatsiya natijasi yo‘q**: to‘liq run hali

@@ -19,7 +19,9 @@ So after every parallel phase both methods are checked:
   compares; for large ones it compares against
   ``generator.intervals``-style recomputation, which ``test_generator.py``
   pins against ``rebuild()`` — a 100 000-node rebuild walks the tree one query
-  at a time and would dominate the run.
+  at a time and would dominate the run. A **deep** tree takes that same
+  recomputation whatever its size: ``rebuild()`` calls itself once per level,
+  and a 10 000-deep chain exhausts the interpreter's frames (D63d).
 
 A violation is **a result**: it is counted, named and reported, and the run
 carries on (D63). Nothing here repairs the tree except the ``rebuild()`` the
@@ -28,11 +30,21 @@ small-tree branch performs, which happens after its comparison.
 
 from __future__ import annotations
 
-from benchmarks.models import MPTT, MODELS
+import sys
+
+from benchmarks.models import MODELS, MPTT
+from benchmarks.operations import DEEP_RECURSION_LIMIT
 
 # Above this many nodes the stored intervals are compared against a Python
 # recomputation instead of mptt's rebuild() (see the module docstring).
 REBUILD_LIMIT = 20_000
+
+# And above this depth as well, whatever the size: mptt's rebuild() calls
+# itself once per tree level (``mptt.managers._rebuild_helper``), so a deep
+# chain exhausts the interpreter's frames long before the node count matters
+# (D63d — it ended a full pass at the 10 000-deep chain). The recomputation is
+# iterative and ``test_generator`` pins it against rebuild() itself.
+REBUILD_DEPTH_LIMIT = 500
 
 
 def parent_map(method: str, *, using: str) -> dict[int, int | None]:
@@ -116,6 +128,7 @@ def check_mptt_intervals(*, using: str, allow_rebuild: bool = True) -> dict:
     stored = {pk: (lft, rght, level) for pk, _parent, _tree, lft, rght, level in rows}
     trees = {pk: tree for pk, _parent, tree, *_ in rows}
 
+    depth = _depths(parents)
     inverted = sorted(pk for pk, (lft, rght, _level) in stored.items() if lft >= rght)
 
     # A child's interval must sit strictly inside its parent's, and that alone
@@ -138,16 +151,25 @@ def check_mptt_intervals(*, using: str, allow_rebuild: bool = True) -> dict:
         len(values) - len(set(values)) for values in boundaries.values()
     )
 
-    depth = _depths(parents)
     wrong_level = sorted(
         pk for pk, (_lft, _rght, level) in stored.items()
         if depth.get(pk) is not None and level != depth[pk]
     )
 
-    if allow_rebuild and len(rows) <= REBUILD_LIMIT:
+    deepest = max((value for value in depth.values() if value is not None), default=0)
+    too_big = len(rows) > REBUILD_LIMIT
+    too_deep = deepest > REBUILD_DEPTH_LIMIT
+    if allow_rebuild and not too_big and not too_deep:
         # rebuild() lives on mptt's manager, not on the queryset, so the alias
-        # is bound with db_manager rather than using().
-        model.objects.db_manager(using).rebuild()
+        # is bound with db_manager rather than using(). The recursion limit is
+        # raised around it as insurance (D63b, D63d): the helper recurses per
+        # level and the depth check above is a bound, not a guarantee.
+        previous = sys.getrecursionlimit()
+        sys.setrecursionlimit(max(previous, DEEP_RECURSION_LIMIT))
+        try:
+            model.objects.db_manager(using).rebuild()
+        finally:
+            sys.setrecursionlimit(previous)
         after = dict(
             (pk, (lft, rght, level))
             for pk, lft, rght, level in model.objects.using(using).values_list(
@@ -157,7 +179,11 @@ def check_mptt_intervals(*, using: str, allow_rebuild: bool = True) -> dict:
         source = "mptt rebuild()"
     else:
         after = recompute_intervals(parents)
-        source = "recomputed from the parent links (test_generator pins it against rebuild())"
+        why = "too many nodes" if too_big else ("too deep" if too_deep else "rebuild not allowed")
+        source = (
+            f"recomputed from the parent links ({why}; "
+            "test_generator pins it against rebuild())"
+        )
 
     differing = sorted(pk for pk in stored if stored.get(pk) != after.get(pk))
 
@@ -228,5 +254,5 @@ def check(method: str, *, using: str, allow_rebuild: bool = True) -> dict:
 
 __all__ = [
     "check", "check_y1", "check_mptt_intervals", "recompute_intervals",
-    "parent_map", "REBUILD_LIMIT",
+    "parent_map", "REBUILD_LIMIT", "REBUILD_DEPTH_LIMIT",
 ]
