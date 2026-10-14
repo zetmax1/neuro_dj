@@ -2089,6 +2089,47 @@ mptt ning `rebuild()` i bilan uchta shaklda aynan teng — shuning uchun
 taxmin emas.
 
 
+## QADAM 8 — H4 benchmarki: `--quick` (2026-10-12, dissertatsiya natijasi emas)
+
+### Ishga tushirishlar
+
+| Run | Commit | Holat |
+|---|---|---|
+| `--quick` (1-urinish) | `2a8d1dc` | **ishlatilmaydi** — `deep_chain` ning `delete_branch` katagi `RecursionError` bilan tugadi (D63b shundan keldi); natija papkasi `feat(bench)` commit'iga tasodifan kirib qolgan va `4e9f2b9` da olib tashlandi |
+| `--quick` (2-urinish) | `c420209` | **ishlatilmaydi** — o‘sha o‘chirish hali commit qilinmagan edi, shuning uchun provenance D54 ogohlantirishi bilan chiqdi |
+| `--quick` (3-urinish) | `c420209` → natija `4e9f2b9` da toza daraxtdan | **saqlandi** — `experiments/results/tree-benchmark-quick/20261012-131931/`, `git_start`/`git_end` ikkalasi ham toza, `tables.verify` va pozitsion tekshiruv `[]` |
+
+Sozlama: 10³ tugun, uchta shakl, 2 qizdirish + 5 takror, parallel 2/4 jarayon
+× 5 s × 2 takror, timeout 120 s. Muhit: PostgreSQL 16.15 (Debian), 16 mantiqiy
+yadro, governor **`powersave`** — absolyut vaqtlar shuning uchun past, lekin
+da’vo nisbat (ρ) ustiga qurilgan.
+
+### Nima ko‘rindi (quvur ishlayotganining dalili, natija emas)
+
+Yozish amallarida CTE ustun: `course_like` da oxiriga barg ρ = 10,90,
+eng chapga barg ρ = 11,55, ko‘chirish ρ = 2,11, o‘chirish ρ = 5,41 (hammasi
+CI si 1 dan yuqori). `random` da ham shunday (1,58 … 9,58). **`deep_chain`
+boshqacha**: ko‘chirish ρ = 0,11 va o‘chirish ρ = 0,87 — ya’ni 1 000 chuqur
+zanjirda CTE ning Y1 tekshiruvi (rekursiv CTE, D63a) ko‘chirishni MPTT dan
+sekin qiladi.
+
+O‘qish amallarida MPTT ustun va farq katta: `course_like` ρ = 0,31 / 0,18,
+`random` ρ = 0,25 / 0,15, `deep_chain` ρ = 0,019 / 0,025. D63 ning 1,5
+chegarasidan oltita katak chiqdi.
+
+Parallel yozish: **qulfsiz** variantda MPTT ning yaxlitligi har bir shakl va
+jarayon sonida buzildi (Y1 va oraliqlar), CTE da esa faqat Y1 tekshiruvi bor
+va u ushlab turdi; o‘tkazuvchanlik 4 jarayonda MPTT da 1,5–2 op/s ga tushdi
+(oraliqlarni qayta yozish bilan to‘qnashuvlar), CTE da 184–487 op/s.
+**Qulfli** variantda ikkala usul ham yaxlitligini saqladi va o‘tkazuvchanlik
+tenglashdi (ρ 0,19 … 1,07).
+
+Shu sozlamada o‘qish qoidasining xulosasi: **qo‘llab-quvvatlanmadi** (oltita
+o‘qish katagi va `deep_chain` ning ikki yozish katagi sababli). **Bu
+dissertatsiya natijasi emas**: 10³ tugun, 5 takror. To‘liq run 10³, 10⁴ va 10⁵
+hajmlarda, 30 takror bilan ishga tushiriladi.
+
+
 ---
 
 ## Savollar va qarorlar
