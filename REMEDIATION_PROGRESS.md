@@ -2045,6 +2045,33 @@ katak “hisoblanmadi” bo‘lib qoladi va taxmin yozilmaydi.
 
 ---
 
+**Qo‘shimcha (2026-10-14 12:10, natijani ko‘rmasdan).** Log'dagi namunalar
+bo‘yicha bosim 11:40 dan beri uzluksiz edi, ya’ni **har bir blok** belgi
+ostida qolardi va joriy run baribir to‘liq qayta o‘lchanishi kerak edi.
+Shuning uchun u to‘xtatildi:
+
+- unit `neurolearn-h2-bench-full-20261014-113251`, yakun qatori
+  `SERVICE_RESULT=success EXIT_CODE=killed EXIT_STATUS=TERM; Result=success
+  ExecMainStatus=15` (12:09:59) — wrapper unit bilan birga to‘xtadi, shuning
+  uchun `finished bench-full` qatori yo‘q;
+- **natija yozilmadi**: natija papkasi faqat oxirgi blokdan keyin yoziladi,
+  demak yarim natija yo‘q;
+- tugagan bloklar: `course_like/1000`, `course_like/10000`,
+  `course_like/100000` (checkpoint `tree-bench-68b96862614e0a11`),
+  `deep_chain/1000` yarim qolgan. Bosim namunalari soni: 1, 10, 6 va 5 —
+  **hammasi “bosim ostida o‘lchangan”**;
+- bu run **asosiy natija emas**. Checkpoint o‘chirilmaydi va solishtirish
+  uchun saqlanadi; yangi run yangi commit'dan boshlanadi, ya’ni checkpoint
+  kaliti ham yangi bo‘ladi va eski bloklar ishlatilmaydi.
+
+**Yangi run boshlanish sharti.** Ishga tushirishdan **oldin**
+`MemAvailable ≥ 6 GB` **va** ishlatilgan swap `< 200 MB` bo‘lishi shart.
+Bajarilmasa, run boshlanmaydi va shart buzilgani yoziladi. O‘lchangan
+(2026-10-14 12:15): `MemAvailable` 9,09 GB, ishlatilgan swap 0 MB — shart
+bajarildi.
+
+---
+
 ## 9-bosqich kodi — `benchmarks` app'i va H4 (2026-10-12, natijadan oldin)
 
 D63 va D63a bo‘yicha yozildi. **Dissertatsiya natijasi yo‘q**: to‘liq run hali
