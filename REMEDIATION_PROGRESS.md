@@ -2070,6 +2070,17 @@ Bajarilmasa, run boshlanmaydi va shart buzilgani yoziladi. O‘lchangan
 (2026-10-14 12:15): `MemAvailable` 9,09 GB, ishlatilgan swap 0 MB — shart
 bajarildi.
 
+**Shart buzilgan urinish (2026-10-14 15:28:48).** D63d ning tuzatishidan keyin
+run ishga tushirildi, lekin boshlash sharti **bajarilmagan** edi:
+`MemAvailable` 7,69 GB (shart bajarildi), ishlatilgan swap esa **1 737 MB**
+(shart: < 200 MB) — bu oldingi pass'dan qolgan sahifalar (uning eng yuqori
+`tree_rss_kb` i 4 509 296, ya’ni 4,3 GB edi). Unit
+`neurolearn-h2-bench-full-20261014-152848` 49 sekunddan keyin, 15:29:37 da
+to‘xtatildi (`EXIT_STATUS=TERM`, `ExecMainStatus=15`); birorta blok
+checkpoint'ga yozilmadi va natija yozilmadi. Keyingi urinish swap tozalangandan
+(`swapoff -a && swapon -a`, root huquqi kerak) keyin, shart qayta o‘lchanib
+qilinadi.
+
 ---
 
 ### D63d — chuqur daraxtda mptt'ning `rebuild()` i ishlatilmaydi (2026-10-14, natijadan oldin)
