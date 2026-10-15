@@ -48,7 +48,9 @@
 #   H2_PY        interpreter            (default experiments/.venv/bin/python)
 #   H2_LOGS      log directory          (default experiments/.runs)
 #   H2_LAUNCHER  systemd | setsid | inline   (default: systemd if available)
-#   H2_SAMPLE_SECONDS  memory sample interval  (default 60)
+#   H2_SAMPLE_SECONDS  memory sample interval  (default 60). A gap in the
+#                 "memory:" lines larger than a few intervals means the machine
+#                 was suspended, not that the run was slow (D63e)
 #   H2_REFERENCE  the H2 result the bounds and frozen modes must reproduce
 #                 (D58, D59, D60); passed as --reference, and those runs refuse
 #                 to start without it
@@ -229,7 +231,11 @@ case "$LAUNCHER" in
         # unit on this machine). Without it the run still starts, and says so.
         INHIBIT=()
         if command -v systemd-inhibit >/dev/null 2>&1; then
-            INHIBIT=(systemd-inhibit --what=sleep:idle --who="$UNIT" --why="NeuroLearn experiment run" --mode=block)
+            # handle-lid-switch as well as sleep:idle: the pass of 2026-10-14
+            # was suspended at 16:56 and resumed at 08:31 with sleep:idle held,
+            # because closing the lid is a separate inhibitor (D63e). The
+            # sampler's own 15.6 h gap is what identified it.
+            INHIBIT=(systemd-inhibit --what=sleep:idle:handle-lid-switch --who="$UNIT" --why="NeuroLearn experiment run" --mode=block)
         else
             echo "warning: systemd-inhibit not found; the machine may sleep during the run" >&2
         fi

@@ -2118,6 +2118,43 @@ tekshiruvning eski yo‘li bilan o‘lchangan.
 
 ---
 
+### D63e — uzilish bilan o‘lchangan blok ham qayta o‘lchanadi (2026-10-15, natijadan oldin)
+
+**Sabab.** Toza mashinada, shart bajarilgan holda boshlangan run
+(`…-165416`, 2026-10-14 16:54) **noutbuk uxlab qolgani** uchun uzildi:
+log'dagi `memory:` namunalari 16:56:16 dan 08:31:34 gacha, ya’ni **15,59
+soat** yo‘q, holbuki sampler har 60 sekundda yozadi; `uptime -s` o‘sha-o‘sha
+(14:04), demak qayta yuklanish bo‘lmagan — tizim suspend bo‘lgan.
+`systemd-inhibit --what=sleep:idle` qopqoqni yopishni to‘smaydi: u alohida
+inhibitor (`handle-lid-switch`).
+
+Uzilish o‘lchovni ikki joyda buzadi: (1) uyqudan keyin kesh sovuq, Postgres
+ulanishlari yangi, CPU chastotasi boshqa holatda; (2) `CLOCK_MONOTONIC` uyqu
+vaqtini hisoblamaydi, shuning uchun uyqu paytida “to‘xtab turgan” parallel
+bosqich uyg‘ongandan keyin qolgan sekundlarini davom ettiradi, ya’ni bitta
+bosqich ikki xil mashina holatida o‘lchanadi.
+
+**Belgi va qoida.** Blok **“uzilish bilan o‘lchangan”** deb belgilanadi, agar
+uning oynasidagi ketma-ket `memory:` namunalari orasida **3 × namuna
+oralig‘idan** (standart 60 s da, ya’ni 180 s dan) katta tanaffus bo‘lsa.
+Bunday blok, D63c dagi “bosim ostida” bloklar kabi, **qayta o‘lchanadi**;
+jadvalda asosiy son qayta o‘lchangan qiymat bo‘ladi.
+
+**Launcher tuzatildi.** `experiments/run_h2.sh` endi
+`systemd-inhibit --what=sleep:idle:handle-lid-switch` bilan ishga tushiradi,
+ya’ni qopqoq yopilishi ham to‘siladi (`test_provenance.py` shu qatorni
+tekshiradi). Bu to‘siq “foydalanuvchi ataylab suspend qilsa” ham ishlaydi,
+lekin uzilish baribir bo‘lsa, yuqoridagi belgi uni ushlaydi.
+
+**Hozirgi holat.** `…-165416` run'i 08:39:02 da to‘xtatildi
+(`EXIT_STATUS=TERM`, `ExecMainStatus=15`), **natija yozilmadi**; uning yagona
+tugagan bloki (`course_like/1000`) uzilish bilan o‘lchangan, shuning uchun
+ishlatilmaydi. Tuzatish commit qilinadi (checkpoint kaliti yangilanadi) va
+run noldan, kun davomida qayta boshlanadi.
+
+
+---
+
 ## 9-bosqich kodi — `benchmarks` app'i va H4 (2026-10-12, natijadan oldin)
 
 D63 va D63a bo‘yicha yozildi. **Dissertatsiya natijasi yo‘q**: to‘liq run hali

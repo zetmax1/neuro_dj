@@ -439,8 +439,13 @@ def test_the_unit_reports_how_it_ended_whatever_ends_it():
 
 
 def test_the_unit_keeps_the_machine_awake_while_it_runs():
+    """
+    sleep:idle alone was not enough: the pass of 2026-10-14 was suspended at
+    16:56 and resumed at 08:31 because closing the lid is its own inhibitor
+    (D63e).
+    """
     script = RUN_H2.read_text()
-    assert 'systemd-inhibit --what=sleep:idle --who="$UNIT"' in script
+    assert 'systemd-inhibit --what=sleep:idle:handle-lid-switch --who="$UNIT"' in script
     assert '--mode=block' in script
     assert '"${INHIBIT[@]}" bash -c "$BODY"' in script
 
