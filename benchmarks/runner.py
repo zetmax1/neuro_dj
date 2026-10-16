@@ -89,9 +89,12 @@ def apply_statement_timeout(using: str, milliseconds: int) -> None:
     chain, whose CTE materialises an ancestor array per row — is only noticed
     after it has filled the machine. With it, the server stops the statement
     and the cell is recorded as a timeout, which is what the budget means.
-    Zero disables it, which is Postgres's own default.
+
+    Zero is Postgres's own "no limit" and is **sent**, not skipped: the
+    setting lives on the connection, so a caller putting it back needs the
+    statement to run. A negative value leaves the connection alone.
     """
-    if milliseconds <= 0:
+    if milliseconds < 0:
         return
     with connections[using].cursor() as cursor:
         cursor.execute(f"SET statement_timeout = {int(milliseconds)}")

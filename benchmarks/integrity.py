@@ -88,16 +88,27 @@ def check_y1(method: str, *, using: str) -> dict:
     }
 
 
-def recompute_intervals(parents: dict[int, int | None]) -> dict[int, tuple[int, int, int]]:
+def recompute_intervals(
+    parents: dict[int, int | None],
+    order: dict[int, int] | None = None,
+) -> dict[int, tuple[int, int, int]]:
     """
-    ``(lft, rght, level)`` per node from the parent links alone, children in
-    primary-key order — the order both tables were built in.
+    ``(lft, rght, level)`` per node from the parent links alone.
+
+    ``order`` gives each node's stored ``lft`` and decides the sibling order,
+    which is what mptt's ``rebuild()`` does — it reads the rows by
+    ``tree_id, lft``. Without it the children would be walked in primary-key
+    order, and a legitimate ``move_to(target, "last-child")`` would then look
+    like corruption (D63g: measured, 16 rows "differ" where rebuild() sees
+    none). The numbering is still rebuilt from scratch, so a gap, an overlap
+    or a wrong subtree size is caught as before.
     """
     children: dict[int | None, list[int]] = {}
     for pk, parent in parents.items():
         children.setdefault(parent, []).append(pk)
+    key = (lambda pk: (order.get(pk, 0), pk)) if order else (lambda pk: pk)
     for group in children.values():
-        group.sort()
+        group.sort(key=key)
 
     out: dict[int, tuple[int, int, int]] = {}
     counter = 0
@@ -178,7 +189,7 @@ def check_mptt_intervals(*, using: str, allow_rebuild: bool = True) -> dict:
         )
         source = "mptt rebuild()"
     else:
-        after = recompute_intervals(parents)
+        after = recompute_intervals(parents, {pk: value[0] for pk, value in stored.items()})
         why = "too many nodes" if too_big else ("too deep" if too_deep else "rebuild not allowed")
         source = (
             f"recomputed from the parent links ({why}; "

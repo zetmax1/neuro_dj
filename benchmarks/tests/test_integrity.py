@@ -138,7 +138,8 @@ def test_the_recomputation_is_what_rebuild_would_have_written():
     """
     build(size=120)
     stored = integrity.parent_map(MPTT, using=ALIAS)
-    recomputed = integrity.recompute_intervals(stored)
+    order = dict(MpttNode.objects.using(ALIAS).values_list("pk", "lft"))
+    recomputed = integrity.recompute_intervals(stored, order)
 
     MpttNode.objects.db_manager(ALIAS).rebuild()
     after = {
@@ -225,3 +226,32 @@ def test_a_shallow_tree_still_goes_through_rebuild():
 
     assert result["rebuild_source"] == "mptt rebuild()"
     assert result["passed"] is True
+
+
+@pytest.mark.django_db(databases=["default", ALIAS])
+def test_a_legitimate_move_is_not_reported_as_broken_intervals():
+    """
+    D63g: ``move_to(target, "last-child")`` separates the sibling order from
+    the primary-key order. mptt's own ``rebuild()`` sees nothing wrong there,
+    so neither may the recomputation the large-tree branch uses.
+    """
+    build(Shape.COURSE_LIKE, size=200)
+    node = MpttNode.objects.using(ALIAS).get(pk=5)
+    node.move_to(MpttNode.objects.using(ALIAS).get(pk=3), position="last-child")
+
+    assert integrity.check_mptt_intervals(using=ALIAS, allow_rebuild=False)["passed"] is True
+    assert integrity.check_mptt_intervals(using=ALIAS)["passed"] is True
+
+
+@pytest.mark.django_db(databases=["default", ALIAS])
+def test_broken_intervals_are_still_caught_after_a_move():
+    """The other half of D63g: the comparison must still catch real damage."""
+    build(Shape.COURSE_LIKE, size=200)
+    node = MpttNode.objects.using(ALIAS).get(pk=5)
+    node.move_to(MpttNode.objects.using(ALIAS).get(pk=3), position="last-child")
+    sql('UPDATE "benchmarks_mptt_node" SET rght = rght + 2 WHERE id = 40')
+
+    result = integrity.check_mptt_intervals(using=ALIAS, allow_rebuild=False)
+
+    assert result["passed"] is False
+    assert result["differs_from_rebuild"] >= 1

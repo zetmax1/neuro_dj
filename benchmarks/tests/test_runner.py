@@ -373,11 +373,16 @@ def test_a_phase_that_did_not_run_is_not_an_integrity_failure():
     assert result["status"] == runner.NOT_COMPUTED
 
 
-@pytest.mark.django_db(databases=["default", ALIAS])
+@pytest.mark.django_db(transaction=True, databases=["default", ALIAS])
 def test_a_statement_that_cannot_finish_in_the_budget_is_a_timeout():
     """
     D63f: the per-repeat budget now also applies inside PostgreSQL, so a query
     that cannot finish is stopped before its rows are materialised.
+
+    ``transaction=True`` because this mirrors the run: there, each read runs in
+    autocommit, so a cancelled statement ends itself and the next repeat
+    starts clean. Inside pytest's wrapping transaction it would instead
+    poison everything after it.
     """
     from django.db import connections
 
