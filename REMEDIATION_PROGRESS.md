@@ -2155,6 +2155,88 @@ run noldan, kun davomida qayta boshlanadi.
 
 ---
 
+### D63f — xotira: nima to‘ldiradi, nima qilinadi (2026-10-16, ishga tushirishdan oldin)
+
+**Raqamlash.** Foydalanuvchining topshirig‘ida bu qaror “D63d” deb atalgan;
+D63d (mptt `rebuild()` rekursiyasi) va D63e (suspend) allaqachon band, shuning
+uchun bu qaror **D63f** nomini oladi. Mazmuni o‘zgarmagan.
+
+**Diagnostika (o‘qishdan olingan).** 2026-10-14 dan beri oltita urinish:
+
+| # | Unit | Qayerda to‘xtadi | Yakun qatori | Peak tree_rss |
+|---|---|---|---|---|
+| 1 | `…-113251` | `deep_chain/1000` (4-blok) | TERM (qo‘lda, D63c) | 1,77 GB |
+| 2 | `…-140826` | hech qayerda | exit 1 — Postgres o‘chiq edi | 0,01 GB |
+| 3 | `…-140928` | `deep_chain/10000` (5-blok) | exit 1 — `RecursionError` (D63d) | 4,30 GB |
+| 4 | `…-152848` | `course_like/1000` | TERM (shart buzilgan, D63c) | 0,01 GB |
+| 5 | `…-165416` | `course_like/10000` | TERM (suspend, D63e) | 0,96 GB |
+| 6 | `…-084605` | `deep_chain/100000` (6-blok) | **exit 137 (SIGKILL — OOM)** | **11,43 GB** |
+
+6-urinishda bloklar bo‘yicha: `course_like` 1000/10000/100000 → peak 0,98 /
+1,51 / 1,76 GB; `deep_chain/1000` → 1,78 GB; **`deep_chain/10000` → 11,43 GB**
+(eng past `mem_available` 2,48 GB, `swap_free` 661 MB);
+`deep_chain/100000` → 8,04 GB (eng past 1,75 GB / 0 MB, D63c belgisi).
+O‘ldirilishdan oldingi namunalar: 10:57 da 1,35 GB → 10:58 da 2,65 GB →
+10:59 da **8,43 GB**, va `tree_rss == rss`, ya’ni **bola jarayonlar yo‘q
+edi** — demak sabab 8 jarayonli fork emas. Kernel journal'i root'siz
+o‘qilmaydi; user journal'ida `app.slice: … 11.3G memory peak, 1.6G memory
+swap peak` — bu transient unit'ning o‘zi.
+
+**Sabab (o‘lchangan).** Xotirani **ish stoli dasturlari emas, benchmark'ning
+o‘zi** to‘ldiradi, aniqrog‘i `deep_chain` shaklida CTE ning `descendants()`
+amali: `django-tree-queries` rekursiv CTE'si har bir qator uchun ajdodlar
+massivini (`tree_path`) olib yuradi, shuning uchun n tugunli zanjirda
+materializatsiya ~n²/2 element bo‘ladi. O‘lchangan (toza probe):
+chuqurlik 2 000 → 0,86 s va 0,25 GB; chuqurlik 10 000 → **22,3 s va 4,50 GB**
+(MPTT: 0,01 s va 0,07 s). 10⁵ da bu ~2 200 s va ~450 GB, ya’ni bu mashinada
+**jismonan sig‘maydi**. 6-urinish aynan shu yerda — `deep_chain/100000`
+blokining birinchi o‘lchanadigan amalida — o‘ldirilgan (blok sarlavhasidan
+keyin birorta katak qatori chiqmagan).
+
+Bu H4 uchun **natija**, nosozlik emas: CTE usulining chuqur zanjirdagi o‘qishi
+yo‘l materiali bo‘yicha kvadratik. Lekin u butun run'ni o‘ldirmasligi kerak.
+
+**Qarorlar.**
+
+**(a) Ishga tushirish.** Run transient user unit sifatida ishlaydi va
+Claude Code/Antigravity/terminal yopiq bo‘lsa ham davom etadi (`systemd-run
+--user`, `systemd-inhibit --what=sleep:idle:handle-lid-switch`). Boshlanish
+sharti D63c dagidek: `MemAvailable ≥ 6 GB` va ishlatilgan swap `< 200 MB`.
+
+**(b) Xotira izini kamaytirish — o‘lchanadigan amallar o‘zgarmaydi.**
+1. Har bir benchmark ulanishida `statement_timeout` = bitta takror uchun
+   berilgan vaqt chegarasi (standart 120 000 ms): D63 ning chegarasi endi
+   **serverda** ham qo‘llanadi, ya’ni sig‘maydigan so‘rov natijani
+   materializatsiya qilishdan oldin to‘xtatiladi. Bunday xato katakda
+   “timeout” deb yoziladi (son emas).
+2. Jarayonning o‘ziga **manzil maydoni chegarasi** (`RLIMIT_AS`, standart
+   8 GB, `--memory-limit-gb` bilan o‘zgaradi): chegaradan oshgan ajratish
+   `MemoryError` beradi va katak “ishga tushirilmadi — xotira” bo‘lib
+   yoziladi, OOM-killer butun run'ni o‘ldirmaydi.
+3. Gigiyena: har katakdan keyin katta tuzilmalar bo‘shatiladi va
+   `gc.collect()` chaqiriladi; parallel bosqich **fork'dan oldin** ham
+   shunday qilinadi, ya’ni bola jarayonlar kichik ota uyumidan nusxa oladi.
+   SQL va natija o‘zgarmaydi — buni testlar tekshiradi (so‘rovlar soni va
+   qaytarilgan qatorlar bir xil).
+
+**(c) Sig‘masa — son emas, gap.** Parallel bosqichdan oldin bo‘sh xotira
+tekshiriladi: `MemAvailable ≥ jarayonlar × 400 MB + 2 GB` bo‘lmasa, o‘sha
+bosqich **“ishga tushirilmadi — xotira”** deb yoziladi (D48: son emas) va
+2/4 jarayonli variantlar qoladi. Shakl va hajmlar **olib tashlanmaydi**,
+jumladan `deep_chain/100000`: jismonan sig‘magan kataklar ham xuddi shu gap
+bilan chiqadi. **Natijaga qarab blok tanlash taqiqlanadi**: tanlov faqat
+xotira chegarasiga asoslanadi va chegara natijadan oldin yozilgan.
+
+**(d) Checkpoint.** Kod o‘zgargani uchun kalit yangilanadi va **hamma blok
+qaytadan o‘lchanadi**; eski checkpoint'lar (`tree-bench-b8676f6351044db6` va
+oldingilari) o‘chirilmaydi, lekin ishlatilmaydi. Ularning hech biri baribir
+ishlatilmas edi: 6-urinishning birinchi besh bloki D63c/D63e bo‘yicha toza
+bo‘lsa ham, kod o‘zgarishi (statement_timeout va xotira chegarasi) o‘lchov
+shartini o‘zgartiradi.
+
+
+---
+
 ## 9-bosqich kodi — `benchmarks` app'i va H4 (2026-10-12, natijadan oldin)
 
 D63 va D63a bo‘yicha yozildi. **Dissertatsiya natijasi yo‘q**: to‘liq run hali
