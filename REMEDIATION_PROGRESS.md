@@ -34,7 +34,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8b-1 — Yuklovchilar (D49–D51) va graf tahlili (D52) | **Bajarildi** | `c1a683b` | — |
 | 8b-2 — H2: ASSISTments 2009 (D53, D56, D57) | **Bajarildi** — to‘liq natija `experiments/results/assist09/20261009-055443/` (D57); D55 D57 bilan hali ishga tushirilmagan | `7ff7ae2` … `e97621c`, natija `abb1fe4` | — |
 | 8b-3 — H1/H3 kodi, Junyi yuklovchisi, graf nazoratlari, `run_all.py` | **Kod bajarildi** — natijalar log yuklanishini kutadi (D61); DBE-KT22 yuklovchisi va annotatsiya vositasi kechiktirildi (D62) | `056f17d` … | — |
-| 9 — Saqlash usullari benchmarki (H4, D63) | **Kod bajarildi** — `--quick` natijasi bor, to‘liq run kutilmoqda | `68acf4e` … | — |
+| 9 — Saqlash usullari benchmarki (H4, D63) | **Ishga tushirildi** — birinchi to‘liq pass `20261016-093916` (H4 qo‘llab-quvvatlanmadi); D63c/D63g bo‘yicha qayta o‘lchanadi | `68acf4e` … `cb7aec4` | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
 
 ---
@@ -2363,6 +2363,127 @@ Shu sozlamada o‘qish qoidasining xulosasi: **qo‘llab-quvvatlanmadi** (oltita
 o‘qish katagi va `deep_chain` ning ikki yozish katagi sababli). **Bu
 dissertatsiya natijasi emas**: 10³ tugun, 5 takror. To‘liq run 10³, 10⁴ va 10⁵
 hajmlarda, 30 takror bilan ishga tushiriladi.
+
+
+## QADAM 9 — H4 ning birinchi to‘liq run'i (2026-10-16)
+
+### Ishga tushirish
+
+| | |
+|---|---|
+| Unit | `neurolearn-h2-bench-full-20261016-085158` |
+| Commit | `b8d6b3a`, `git_start`/`git_end` ikkalasi ham **toza** |
+| Vaqt | 08:51:58 → 14:39:16 (**5 soat 47 daqiqa**), `finished bench-full (exit 0)` |
+| Natija | `experiments/results/tree-benchmark/20261016-093916/` (`cb7aec4`) |
+| Tekshiruvlar | `tables.verify` = [] va pozitsion tekshiruv = [] |
+| Chegaralar | xotira capi 8 GiB, `statement_timeout` 120 000 ms (D63f) |
+| Muhit | PostgreSQL 16.15, `shared_buffers` 128MB, `fsync` on, `synchronous_commit` on; i7-11800H, 16 mantiqiy yadro, governor **`powersave`**; RAM 14,89 GB, boshida bo‘sh 6,82 GB |
+
+To‘qqizta blokning sakkiztasi **bosimsiz** o‘lchandi; `deep_chain/100000`
+bloki D63c belgisini oldi (eng past `MemAvailable` 2,64 GB, `SwapFree` 1 MB)
+— u qayta o‘lchanadi. Uzilish (D63e) hech bir blokda yo‘q.
+
+### 1. Amallar: ρ = mediana(MPTT) / mediana(CTE)
+
+ρ > 1 — CTE tezroq. Oraliq — juftlashtirilgan bootstrap (1 000 replika, 95 %).
+
+| Shakl | Hajm | shox o‘qish | ajdod o‘qish | oxiriga barg | eng chapga barg | ko‘chirish | o‘chirish |
+|---|---|---|---|---|---|---|---|
+| kursga o‘xshash | 10³ | 0,33 | 0,17 | 5,65 | 5,13 | 1,88 | 2,97 |
+| kursga o‘xshash | 10⁴ | 0,07 | 0,04 | 57,66 | 55,53 | 3,38 | 22,06 |
+| kursga o‘xshash | 10⁵ | 0,02 | 0,006 | 410,00 | 595,25 | 1,15 | 134,62 |
+| chuqur zanjir | 10³ | 0,02 | 0,03 | 8,90 | 13,59 | **0,13** | **0,92** |
+| chuqur zanjir | 10⁴ | 0,002 | 0,002 | 48,42 | 96,07 | **0,010** | **0,86** |
+| chuqur zanjir | 10⁵ | **xotira** | **xotira** | 412,09 | 1 240,00 | **timeout** | **0,82** |
+| tasodifiy | 10³ | 0,27 | 0,17 | 10,06 | 10,23 | 1,98 | 4,44 |
+| tasodifiy | 10⁴ | 0,05 | 0,03 | 70,99 | 70,95 | 2,72 | 35,44 |
+| tasodifiy | 10⁵ | 0,006 | 0,003 | 679,14 | 764,18 | **0,76** | 283,02 |
+
+Qalin yozilganlar — CTE **sekinroq** yoki son chiqmagan kataklar. Hamma
+kataklarning CI si `tables.md` §1 da; 54 katakdan 51 tasida CI 1 ni kesmaydi
+(ya’ni “taqqoslanadigan” faqat `deep_chain/1000` ning o‘chirishida).
+
+**Son chiqmagan uchta katak** (`deep_chain/100000`): shox o‘qish va ajdod
+o‘qish — **“ishga tushirilmadi — xotira”** (CTE ning rekursiv CTE'si har
+qatorda ajdodlar massivini olib yuradi, 10⁵ chuqurlikda bu mashinaga
+sig‘maydi: o‘lchangan o‘sish 2 000 → 0,86 s / 0,25 GB, 10 000 → 22,3 s /
+4,50 GB); ko‘chirish — **“timeout”** (serverdagi 120 s chegarasi, D63f).
+Taxmin yozilmadi.
+
+### 2. Parallel yozish
+
+Qulfsiz variantda 2/4/8 jarayon, qulfli variantda 8 jarayon (D63a), har biri
+3 takror × 20 s. O‘tkazuvchanlik (op/s) va yaxlitlik:
+
+| Shakl | Hajm | 2 (CTE/MPTT) | 4 (CTE/MPTT) | 8 (CTE/MPTT) | 8 qulfli (CTE/MPTT) |
+|---|---|---|---|---|---|
+| kursga o‘xshash | 10³ | 207,5 / 136,0 | 278,4 / 1,8 | 317,1 / 1,3 | 132,0 / 98,8 |
+| kursga o‘xshash | 10⁴ | 115,1 / 3,5 | 199,4 / 2,6 | 266,0 / 0,9 | 65,5 / 9,9 |
+| kursga o‘xshash | 10⁵ | 5,8 / 0,6 | 10,9 / 0,6 | 16,7 / 0,7 | 3,7 / 1,1 |
+| chuqur zanjir | 10³ | 110,3 / 128,0 | 194,1 / 1,6 | 283,3 / 0,9 | 75,0 / 117,0 |
+| chuqur zanjir | 10⁴ | 0,4 / 3,5 | 0,7 / 1,7 | 0,8 / 0,7 | 0,2 / 7,8 |
+| chuqur zanjir | 10⁵ | 0,0 / 0,8 | 0,0 / 0,6 | 0,1 / 0,4 | 0,1 / 1,1 |
+| tasodifiy | 10³ | 196,8 / 151,8 | 262,1 / 1,5 | 333,9 / 1,5 | 122,0 / 130,9 |
+| tasodifiy | 10⁴ | 91,3 / 3,1 | 122,6 / 1,3 | 168,4 / 1,0 | 48,5 / 11,4 |
+| tasodifiy | 10⁵ | 2,5 / 1,0 | 4,8 / 0,5 | 7,7 / 0,4 | 1,8 / 1,0 |
+
+**Yaxlitlik.** Qulfsizda MPTT **27 bosqichning 27 tasida** buzildi va bu
+tartibdan mustaqil invariantlar bo‘yicha (har uch takrorda): `lft < rght`,
+ota oralig‘i ichida joylashish, takroriy chegaralar, `level`; sakkizta
+bosqichda bundan tashqari **Y1 sikli** topildi. CTE qulfsizda 27 bosqichdan
+26 tasida yaxlitligini saqladi (yagona istisno — `deep_chain/1000` ×8).
+Qulfli variantda **CTE hamma joyda toza**.
+
+Qulfli variantda MPTT to‘rtta bosqichda “buzildi” deb chiqqan edi, lekin bu
+**tekshiruvning soxta ijobiysi** (D63g): o‘sha to‘rttasida faqat
+`differs_from_rebuild` nolmas, tartibdan mustaqil invariantlar toza, va
+hammasi qayta hisoblash yo‘li bilan tekshirilgan. Sabab — qayta hisoblash
+birodarlarni pk tartibida yurgani; o‘lchangan: qonuniy `move_to` dan keyin
+mptt ning `rebuild()` i 0 farq, qayta hisoblash 16 farq ko‘rsatadi. Tuzatildi
+(`5e34934`).
+
+### 3. D63 ning uchta sharti
+
+| # | Shart | Bajarildimi | Qaysi kataklar |
+|---|---|---|---|
+| 1 | To‘rtta yozish amali **har** shakl va hajmda “CTE tezroq” | **yo‘q** | `deep_chain` ning ko‘chirishi (10³, 10⁴) va o‘chirishi (10³, 10⁴, 10⁵), `random/100000` ning ko‘chirishi |
+| 2 | O‘qishda hech bir katakda CTE 1,5 barobardan ko‘proq sekin emas | **yo‘q** | 16 katak (barcha shakl va hajmlardagi ikkala o‘qish amali, `deep_chain/100000` dan tashqari — u son bermadi) |
+| 3 | Parallel yozishdan keyin **qulfli** variantda CTE yaxlitligi buzilmagan | **ha** | buzilish yo‘q (12 qulfli bosqichning hammasida) |
+
+**Umumiy xulosa: H4 qo‘llab-quvvatlanmadi.** Da’voning yozish qismi
+kursga o‘xshash va tasodifiy shakllarda kuchli tasdiqlandi (ρ 1,15 … 764), ya’ni
+**platformaning haqiqiy shakli** (kurs daraxti) uchun CTE yozishda bir necha
+yuz barobar tezroq; lekin chuqur zanjirda ko‘chirish va o‘chirish MPTT
+tomonida, va o‘qishda CTE hamma joyda sezilarli sekin.
+
+**Alohida qator (qulfli o‘qish qoidasidan qat’i nazar):** qulfsiz parallel
+yozishda **MPTT ning yaxlitligi har bir shakl, hajm va jarayon sonida
+buzildi** — oraliq kodlash denormalizatsiya bo‘lgani uchun; CTE da
+buziladigan ikkinchi nusxa yo‘q va uning Y1 tekshiruvi 27 dan 26 tasida
+ushlab turdi. Platformaning yo‘li (advisory lock) ikkala usulni ham
+yaxlit saqlaydi.
+
+### 4. `--quick` ning uchta urinishi
+
+| Urinish | Commit | Nega saqlanmadi / saqlandi |
+|---|---|---|
+| 1 (`20261012-113208`) | `2a8d1dc` | **texnik**: `deep_chain` ning `delete_branch` katagi `RecursionError` bilan tugadi (Django ning CASCADE kollektori har daraja uchun bitta freym; D63b shundan keldi) — katakda son yo‘q edi. Papka `feat(bench)` commit'iga tasodifan kirib qolgan va `4e9f2b9` da olib tashlandi |
+| 2 (`20261012-113917`) | `c420209` | **texnik**: o‘sha o‘chirish hali commit qilinmagan edi, shuning uchun provenance D54 ogohlantirishi bilan chiqdi (`git_start.dirty = true`) — natija bitta kod holatidan ekani kafolatlanmaydi |
+| 3 (`20261012-131931`) | `c420209`, commit `c12221c` | **saqlandi**: toza daraxtdan, ikkala uchida toza provenance, `tables.verify` va pozitsion tekshiruv [] |
+
+Ikkala tashlangan urinish ham **natijasi yoqmagani uchun emas**, quvurning
+texnik holati uchun tashlandi: birinchisida son chiqmagan katak bor edi,
+ikkinchisida provenance kafolati yo‘q edi. Uchalasining ham xulosasi bir xil
+(“qo‘llab-quvvatlanmadi”) edi.
+
+### 5. Keyingi qadam
+
+Natija **qayta o‘lchanadi** (D63c va D63g): `deep_chain/100000` bosim ostida
+o‘lchangan, va yaxlitlik ustuni tartibga bog‘liq tekshiruv bilan olingan.
+`20261016-093916` o‘chirilmaydi — u solishtirish uchun qoladi; qayta
+o‘lchangan pass asosiy natija bo‘ladi. Vaqt o‘lchovlari (ρ) D63g dan
+mustaqil, shuning uchun yuqoridagi ρ jadvali katta o‘zgarishga uchramaydi
+deb kutiladi, lekin asosiy son yangi pass'dan olinadi.
 
 
 ---
