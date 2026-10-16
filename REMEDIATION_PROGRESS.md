@@ -2237,6 +2237,49 @@ shartini o‘zgartiradi.
 
 ---
 
+### D63g — oraliqlarni solishtirish tartibdan mustaqil bo‘lishi kerak (2026-10-16, qayta o‘lchashdan oldin)
+
+**Sabab.** To‘liq run (`…-085158`, natija `20261016-093916`) qulfli variantda
+to‘rtta bosqichda “MPTT yaxlitligi buzildi” dedi. Tekshirilganda: o‘sha
+to‘rttasida **faqat** `differs_from_rebuild` nolmas, tartibdan mustaqil uchta
+invariant (`lft < rght`, ota oralig‘i ichida, takroriy chegara, `level`) esa
+**toza**, va hammasi `REBUILD_LIMIT`/`REBUILD_DEPTH_LIMIT` dan oshgani uchun
+**qayta hisoblash** yo‘li bilan tekshirilgan.
+
+Sabab — tekshiruvning o‘zida: `recompute_intervals` farzandlarni **pk
+tartibida** yuradi, mptt esa mavjud **birodarlar tartibini** saqlaydi
+(`_rebuild_helper` qatorlarni `tree_id, lft` bo‘yicha o‘qiydi). Qonuniy
+`move_to(target, "last-child")` tugunni birodarlar oxiriga ko‘chiradi, ya’ni
+pk tartibi bilan birodarlar tartibi ajraladi. O‘lchangan (40 tugunli daraxt,
+bitta qonuniy ko‘chirish): mptt ning `rebuild()` i **0 farq**, qayta hisoblash
+esa **16 farq** ko‘rsatdi. Demak bu buzilish emas, **tekshiruvning soxta
+ijobiysi**.
+
+**Qaror.** `recompute_intervals` birodarlarni saqlangan `lft` bo‘yicha
+tartiblaydi (pk — faqat teng bo‘lsa), ya’ni `rebuild()` nima qilsa, shuni
+qiladi. Raqamlash baribir noldan qayta quriladi, shuning uchun haqiqiy
+buzilish (bo‘sh oraliq, kesishish, noto‘g‘ri shox o‘lchami) avvalgidek
+ushlanadi; ushlanmaydigan yagona narsa — birodarlarning qayta tartiblanishi,
+u esa buzilish emas (mptt ning o‘z `rebuild()` i ham uni buzilish demaydi).
+Test: qonuniy `move_to` dan keyin tekshiruv **o‘tishi** kerak, buzilgan
+oraliqda esa **yiqilishi**.
+
+**Natijaga ta’siri.** Vaqt o‘lchovlari (ρ, mediana, p95) bu kamchilikdan
+mustaqil — ular o‘zgarmaydi. Yaxlitlik xulosalaridan **qulfli variantdagi
+to‘rtta “buzildi”** bekor bo‘ladi (ular soxta), qulfsiz variantdagi
+buzilishlar esa qoladi: u yerda tartibdan mustaqil invariantlar 27/27
+bosqichda, har uch takrorda yiqilgan va 8 bosqichda Y1 sikli ham bor.
+
+**Qayta o‘lchash.** Kod o‘zgargani uchun kalit yangilanadi; to‘liq pass
+qaytadan o‘lchanadi. Bu bir vaqtning o‘zida D63c ning talabini ham bajaradi:
+`20261016-093916` natijasida `deep_chain/100000` bloki bosim belgisi bilan
+o‘lchangan (eng past `MemAvailable` 2,64 GB, `SwapFree` 1 MB). Birinchi
+natija o‘chirilmaydi — u solishtirish uchun qoladi va “tekshiruvning
+tartibga bog‘liq versiyasi bilan o‘lchangan” deb belgilanadi.
+
+
+---
+
 ## 9-bosqich kodi — `benchmarks` app'i va H4 (2026-10-12, natijadan oldin)
 
 D63 va D63a bo‘yicha yozildi. **Dissertatsiya natijasi yo‘q**: to‘liq run hali
