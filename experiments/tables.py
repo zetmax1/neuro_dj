@@ -2096,6 +2096,15 @@ def _benchmark_rows(metrics: dict) -> dict[str, list[list[str]]]:
         ])
 
     for row in metrics.get("parallel_ratios", []):
+        if row.get("status") and row.get("status") != "ok":
+            # D63f: a phase that did not fit the memory is a sentence, not a
+            # number — and not an integrity verdict either.
+            rows["4"].append([
+                row.get("shape", ""), _cell(row.get("size")), _cell(row.get("workers")),
+                row.get("variant", ""), row["status"], "—", "—", row["status"],
+                "—", "—", "—", "—",
+            ])
+            continue
         rows["4"].append([
             row.get("shape", ""), _cell(row.get("size")), _cell(row.get("workers")),
             row.get("variant", ""),

@@ -29,6 +29,7 @@ afterwards.
 
 from __future__ import annotations
 
+import gc
 import hashlib
 import json
 import random
@@ -50,6 +51,16 @@ CONFIDENCE = 0.95
 # this many times slower than MPTT.
 READ_TOLERANCE = 1.5
 
+# D63f: what a phase needs before it is allowed to fork, and what is left for
+# the rest of the machine. A worker is a Django process with its own
+# connection; 400 MB is twice the largest per-worker RSS the samples showed.
+WORKER_BUDGET_KB = 400 * 1024
+RESERVE_KB = 2 * 1024 * 1024
+
+# A cell or a phase that could not be measured because the memory was not
+# there. Never a number (D48).
+NOT_RUN_MEMORY = "ishga tushirilmadi — xotira"
+
 CTE_FASTER = "CTE tezroq"
 MPTT_FASTER = "MPTT tezroq"
 COMPARABLE = "taqqoslanadigan"
@@ -69,6 +80,34 @@ QUICK_WORKERS: tuple[int, ...] = (2, 4)
 # ---------------------------------------------------------------------------
 # Statistics
 # ---------------------------------------------------------------------------
+
+def apply_statement_timeout(using: str, milliseconds: int) -> None:
+    """
+    Put D63's per-repeat budget on the server as well (D63f).
+
+    Without it a query that cannot finish — ``descendants()`` of a 100 000-deep
+    chain, whose CTE materialises an ancestor array per row — is only noticed
+    after it has filled the machine. With it, the server stops the statement
+    and the cell is recorded as a timeout, which is what the budget means.
+    Zero disables it, which is Postgres's own default.
+    """
+    if milliseconds <= 0:
+        return
+    with connections[using].cursor() as cursor:
+        cursor.execute(f"SET statement_timeout = {int(milliseconds)}")
+
+
+def available_memory_kb() -> int | None:
+    """``MemAvailable`` in kB, or None where /proc is not readable."""
+    try:
+        with open("/proc/meminfo", encoding="utf-8") as handle:
+            for line in handle:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1])
+    except OSError:  # pragma: no cover - /proc is always there on Linux
+        return None
+    return None
+
 
 def quantile(values: list[float], share: float) -> float | None:
     if not values:
@@ -196,10 +235,37 @@ def measure(
                 else:
                     touched = operation.run(method, target, using)
                 seconds = time.perf_counter() - started
+        except MemoryError as error:
+            # D63f: the address-space cap turned a runaway allocation into an
+            # exception instead of an OOM kill, so the cell says so and the
+            # pass continues.
+            return {
+                "status": NOT_RUN_MEMORY,
+                "error": f"{type(error).__name__}: {error}",
+                "completed_repeats": len(timings),
+            }
         except Exception as error:  # noqa: BLE001 - reported, never silently skipped
+            text = f"{type(error).__name__}: {error}"
+            if "statement timeout" in text or "canceling statement" in text:
+                # The per-repeat budget, enforced by the server (D63f): the
+                # query could not finish inside it, so the cell is a timeout
+                # and carries no number.
+                return {
+                    "status": TIMEOUT,
+                    "timeout": budget.timeout,
+                    "reached": None,
+                    "completed_repeats": len(timings),
+                    "stopped_by": "statement_timeout",
+                }
+            if "out of memory" in text.lower():
+                return {
+                    "status": NOT_RUN_MEMORY,
+                    "error": text,
+                    "completed_repeats": len(timings),
+                }
             return {
                 "status": "error",
-                "error": f"{type(error).__name__}: {error}",
+                "error": text,
                 "completed_repeats": len(timings),
             }
         if budget.exceeded(seconds):
@@ -301,6 +367,9 @@ def run_cell(
             entry["methods"][method]["changed"] = changed_rows(
                 operation, method, target_list[0], using=using,
             )
+        # D63f: a read of a deep chain can hold gigabytes of result rows; the
+        # next method must not start on top of them.
+        gc.collect()
 
     left, right = entry["methods"][MPTT], entry["methods"][CTE]
     if left["status"] == "ok" and right["status"] == "ok":
@@ -311,9 +380,13 @@ def run_cell(
             f"{method}: {entry['methods'][method]['status']}"
             for method in METHODS if entry["methods"][method]["status"] != "ok"
         )
-    entry["verdict"] = (
-        TIMEOUT if TIMEOUT in (left["status"], right["status"]) else verdict_of(entry["ratio"])
-    )
+    statuses = (left["status"], right["status"])
+    if NOT_RUN_MEMORY in statuses:
+        entry["verdict"] = NOT_RUN_MEMORY
+    elif TIMEOUT in statuses:
+        entry["verdict"] = TIMEOUT
+    else:
+        entry["verdict"] = verdict_of(entry["ratio"])
     log(f"    {operation.name:16s} mptt={_ms(left)} cte={_ms(right)} "
         f"ρ={_value(entry['ratio'].get('ratio'))} → {entry['verdict']}")
     return entry
@@ -342,6 +415,7 @@ def run_parallel(
     repeats: int,
     seed: int,
     allow_rebuild: bool = True,
+    statement_timeout: int = 0,
     log=print,
 ) -> list[dict]:
     """
@@ -364,6 +438,29 @@ def run_parallel(
         combinations += [(max(workers), True)]
     for count, locked in combinations:
         for method in METHODS:
+            needed = count * WORKER_BUDGET_KB + RESERVE_KB
+            free = available_memory_kb()
+            if free is not None and free < needed:
+                # D63f(c): a phase that does not fit is a sentence, not a
+                # number. The shapes and the sizes are never dropped.
+                out.append({
+                    "shape": spec.shape,
+                    "size": spec.size,
+                    "method": method,
+                    "workers": count,
+                    "variant": parallel.LOCKED if locked else parallel.UNLOCKED,
+                    "status": NOT_RUN_MEMORY,
+                    "memory_available_kb": free,
+                    "memory_needed_kb": needed,
+                    "integrity": [],
+                    "integrity_passed": None,
+                    "errors": {},
+                    "phases": [],
+                })
+                log(f"    parallel {method:4s} ×{count} "
+                    f"{'locked' if locked else 'unlocked':8s}: {NOT_RUN_MEMORY} "
+                    f"({free // 1024} MB < {needed // 1024} MB)")
+                continue
             phases: list[dict] = []
             checks: list[dict] = []
             for repeat in range(repeats):
@@ -371,9 +468,11 @@ def run_parallel(
                 phase = parallel.run_phase(
                     method=method, using=using, workers=count, seconds=seconds,
                     seed=seed + repeat, node_count=spec.size, locked=locked,
+                    statement_timeout=statement_timeout,
                 )
                 phase["repeat"] = repeat
                 phases.append(phase)
+                gc.collect()
                 checks.append(integrity.check(
                     method, using=using, allow_rebuild=allow_rebuild,
                 ))
@@ -384,6 +483,7 @@ def run_parallel(
                 "method": method,
                 "workers": count,
                 "variant": parallel.LOCKED if locked else parallel.UNLOCKED,
+                "status": "ok",
                 "seconds": seconds,
                 "repeats": repeats,
                 "throughput_median": round(statistics.median(throughput), 3) if throughput else None,
@@ -434,6 +534,17 @@ def parallel_ratios(entries: list[dict], *, seed: int) -> list[dict]:
         mptt, cte = pair.get(MPTT), pair.get(CTE)
         if not mptt or not cte:
             continue
+        if mptt.get("status") != "ok" or cte.get("status") != "ok":
+            out.append({
+                "shape": shape, "size": size, "workers": workers, "variant": variant,
+                "status": NOT_RUN_MEMORY,
+                "throughput_cte": None, "throughput_mptt": None,
+                "ratio": None, "ci_low": None, "ci_high": None,
+                "verdict": NOT_RUN_MEMORY,
+                "integrity_mptt": None, "integrity_cte": None,
+                "errors_mptt": None, "errors_cte": None,
+            })
+            continue
         left = [phase["throughput"] for phase in cte["phases"] if phase["throughput"]]
         right = [phase["throughput"] for phase in mptt["phases"] if phase["throughput"]]
         entry = ratio_interval(left, right, seed=seed) if len(left) == len(right) else {
@@ -444,6 +555,7 @@ def parallel_ratios(entries: list[dict], *, seed: int) -> list[dict]:
             "size": size,
             "workers": workers,
             "variant": variant,
+            "status": "ok",
             "throughput_cte": cte["throughput_median"],
             "throughput_mptt": mptt["throughput_median"],
             "ratio": entry.get("ratio"),
@@ -488,10 +600,15 @@ def reading(cells: list[dict], parallel_rows: list[dict]) -> dict:
     integrity_failures = [
         f"{row['shape']}/{row['size']}/×{row['workers']}"
         for row in parallel_rows
-        if row.get("variant") == parallel.LOCKED and not row["integrity_cte"]
+        if row.get("variant") == parallel.LOCKED and row.get("status") == "ok"
+        and not row["integrity_cte"]
     ]
     not_computed = [
-        _where(cell) for cell in cells if cell["verdict"] in (TIMEOUT, NOT_COMPUTED)
+        _where(cell) for cell in cells
+        if cell["verdict"] in (TIMEOUT, NOT_COMPUTED, NOT_RUN_MEMORY)
+    ] + [
+        f"{row['shape']}/{row['size']}/×{row['workers']} ({row.get('variant', '')})"
+        for row in parallel_rows if row.get("status") == NOT_RUN_MEMORY
     ]
 
     if not writes or not reads:
@@ -599,10 +716,12 @@ def run(
     seed: int,
     checkpoint: Checkpoint,
     quick: bool,
+    statement_timeout: int = 0,
     log=print,
 ) -> dict:
     """Every cell, the parallel phase, and the verdict."""
     budget = Budget(timeout=timeout)
+    apply_statement_timeout(using, statement_timeout)
     cells: list[dict] = []
     trees: list[dict] = []
     parallel_rows: list[dict] = []
@@ -636,7 +755,8 @@ def run(
             block_parallel = run_parallel(
                 spec, using=using, workers=workers, seconds=parallel_seconds,
                 repeats=parallel_repeats, seed=seed,
-                allow_rebuild=size <= integrity.REBUILD_LIMIT, log=log,
+                allow_rebuild=size <= integrity.REBUILD_LIMIT,
+                statement_timeout=statement_timeout, log=log,
             )
             cells.extend(block_cells)
             parallel_rows.extend(block_parallel)
@@ -669,6 +789,9 @@ def run(
             "quick": quick,
             "rebuild_limit": integrity.REBUILD_LIMIT,
             "deep_recursion_limit": operations.DEEP_RECURSION_LIMIT,
+            "worker_budget_kb": WORKER_BUDGET_KB,
+            "reserve_kb": RESERVE_KB,
+            "statement_timeout_ms": statement_timeout,
         },
     }
 
@@ -706,4 +829,5 @@ __all__ = [
     "Budget", "Checkpoint", "DEFAULT_SHAPES", "DEFAULT_SIZES", "DEFAULT_WORKERS",
     "QUICK_SIZES", "QUICK_WORKERS", "CTE_FASTER", "MPTT_FASTER", "COMPARABLE",
     "TIMEOUT", "SUPPORTED", "NOT_SUPPORTED", "NOT_COMPUTED", "READ_TOLERANCE",
+    "NOT_RUN_MEMORY", "available_memory_kb", "WORKER_BUDGET_KB", "RESERVE_KB",
 ]

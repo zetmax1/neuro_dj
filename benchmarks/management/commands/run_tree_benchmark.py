@@ -55,6 +55,21 @@ class Command(BaseCommand):
         parser.add_argument("--repeats", type=int, default=30)
         parser.add_argument("--timeout", type=float, default=120.0,
                             help="Seconds one repeat may take before the cell is a timeout.")
+        parser.add_argument(
+            "--memory-limit-gb", type=float, default=8.0,
+            help=(
+                "Address-space cap for this process (D63f). An allocation past it "
+                "raises MemoryError, which a cell records, instead of the OOM "
+                "killer ending the pass. 0 disables the cap."
+            ),
+        )
+        parser.add_argument(
+            "--statement-timeout", type=int, default=None,
+            help=(
+                "Server-side statement timeout in ms (D63f); the default is --timeout, "
+                "so the per-repeat budget also applies inside PostgreSQL. 0 disables it."
+            ),
+        )
         parser.add_argument("--parallel-seconds", type=float, default=None)
         parser.add_argument("--parallel-repeats", type=int, default=3)
         parser.add_argument("--seed", type=int, default=20261006)
@@ -82,10 +97,21 @@ class Command(BaseCommand):
         parallel_seconds = options["parallel_seconds"] or (5.0 if quick else 20.0)
         parallel_repeats = 2 if quick and options["parallel_repeats"] == 3 else options["parallel_repeats"]
 
+        statement_timeout = (
+            int(options["timeout"] * 1000) if options["statement_timeout"] is None
+            else options["statement_timeout"]
+        )
+        limit = _memory_cap(options["memory_limit_gb"])
+
         git_start = GitState.capture()
         self.stdout.write(
             f"run_tree_benchmark (H4, D63) — {'quick' if quick else 'full'}, "
             f"database alias {using}"
+        )
+        self.stdout.write(
+            f"  memory cap: {'off' if not limit else f'{limit / 2**30:.1f} GiB'}, "
+            f"statement_timeout: {statement_timeout} ms, "
+            f"MemAvailable now: {(runner.available_memory_kb() or 0) / 2**20:.2f} GiB"
         )
         start_environment = environment.capture(using)
 
@@ -124,6 +150,7 @@ class Command(BaseCommand):
             seed=options["seed"],
             checkpoint=checkpoint,
             quick=bool(quick),
+            statement_timeout=statement_timeout,
             log=self.stdout.write,
         )
 
@@ -149,6 +176,15 @@ class Command(BaseCommand):
                 "vendor": connections[using].vendor,
             },
             "checkpoint": checkpoint.payload(),
+            "limits": {
+                "memory_cap_bytes": limit,
+                "statement_timeout_ms": statement_timeout,
+                "note": (
+                    "D63f: xotira chegarasidan oshgan ajratish MemoryError beradi va "
+                    "katak “ishga tushirilmadi — xotira” bo‘ladi; serverdagi "
+                    "statement_timeout bir takror uchun berilgan vaqtga teng"
+                ),
+            },
             **document,
         }
 
@@ -197,6 +233,27 @@ class Command(BaseCommand):
             ) from error
 
 
+def _memory_cap(gigabytes: float) -> int:
+    """
+    Cap this process's address space (D63f), returning the cap in bytes.
+
+    An allocation past the cap raises ``MemoryError``, which ``runner.measure``
+    records as a cell that could not be measured — where without it the OOM
+    killer ends the whole pass, as it did on 2026-10-15 (exit 137 after
+    11.43 GB). Zero leaves the limit alone.
+    """
+    import resource
+
+    if gigabytes <= 0:
+        return 0
+    limit = int(gigabytes * 2 ** 30)
+    soft, hard = resource.getrlimit(resource.RLIMIT_AS)
+    if hard != resource.RLIM_INFINITY:
+        limit = min(limit, hard)
+    resource.setrlimit(resource.RLIMIT_AS, (limit, hard))
+    return limit
+
+
 def _numbers(text: str | None) -> tuple[int, ...]:
     if not text:
         return ()
@@ -209,7 +266,8 @@ def _argv(options: dict) -> list[str]:
     if options["quick"]:
         out.append("--quick")
     for name in ("database", "shapes", "sizes", "parallel_workers", "warmups",
-                 "repeats", "timeout", "parallel_seconds", "parallel_repeats", "seed"):
+                 "repeats", "timeout", "parallel_seconds", "parallel_repeats", "seed",
+                 "memory_limit_gb", "statement_timeout"):
         value = options.get(name)
         if value not in (None, ""):
             out += [f"--{name.replace('_', '-')}", str(value)]

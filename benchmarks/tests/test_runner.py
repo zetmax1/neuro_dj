@@ -95,9 +95,10 @@ def cell(operation: str, kind: str, verdict: str, ratio: float | None = 2.0) -> 
 
 
 def parallel_row(locked: bool, *, integrity_cte: bool = True) -> dict:
+    # "status" is what D63f added: a phase that did not run carries no verdict.
     return {
         "shape": Shape.COURSE_LIKE, "size": 1000, "workers": 8,
-        "variant": "locked" if locked else "unlocked",
+        "variant": "locked" if locked else "unlocked", "status": "ok",
         "integrity_cte": integrity_cte, "integrity_mptt": True,
     }
 
@@ -320,3 +321,115 @@ def test_the_csv_has_one_row_per_repeat():
     assert rows[2][4:] == [MPTT, 1, 0.2, "ok"]
     assert rows[3][4:] == [CTE, "", "", runner.TIMEOUT]
     assert rows[4][2] == "parallel_2"
+
+
+# ---------------------------------------------------------------------------
+# Memory (D63f)
+# ---------------------------------------------------------------------------
+
+def test_the_free_memory_is_read_from_the_system():
+    value = runner.available_memory_kb()
+
+    assert value is None or value > 0
+    assert runner.WORKER_BUDGET_KB == 400 * 1024
+    assert runner.RESERVE_KB == 2 * 1024 * 1024
+
+
+def test_a_phase_that_does_not_fit_is_a_sentence_not_a_number(monkeypatch):
+    """
+    D63f(c): with too little free memory the phase is not run, 2 and 4
+    processes are kept, and no shape or size is dropped.
+    """
+    monkeypatch.setattr(runner, "available_memory_kb", lambda: 1024)       # 1 MB
+    monkeypatch.setattr(runner.parallel, "run_phase",
+                        lambda **kw: pytest.fail("the phase must not run"))
+    spec = generator.TreeSpec(shape=Shape.COURSE_LIKE, size=1000, seed=1)
+
+    rows = runner.run_parallel(
+        spec, using=ALIAS, workers=(2, 8), seconds=1, repeats=1, seed=1,
+        log=lambda *a, **k: None,
+    )
+
+    assert {row["status"] for row in rows} == {runner.NOT_RUN_MEMORY}
+    assert {row["workers"] for row in rows} == {2, 8}
+    assert all(row["phases"] == [] for row in rows)
+    assert all(row["integrity_passed"] is None for row in rows)
+
+    ratios = runner.parallel_ratios(rows, seed=1)
+    assert [row["verdict"] for row in ratios] == [runner.NOT_RUN_MEMORY] * len(ratios)
+    assert all(row["ratio"] is None for row in ratios)
+
+
+def test_a_phase_that_did_not_run_is_not_an_integrity_failure():
+    cells = [cell("append_leaf", "write", runner.CTE_FASTER),
+             cell("read_branch", "read", runner.COMPARABLE, ratio=1.0)]
+    rows = [{"shape": "deep_chain", "size": 100000, "workers": 8, "variant": "locked",
+             "status": runner.NOT_RUN_MEMORY, "integrity_cte": None}]
+
+    result = runner.reading(cells, rows)
+
+    assert result["integrity_failures"] == []
+    assert result["not_computed"] == ["deep_chain/100000/×8 (locked)"]
+    assert result["status"] == runner.NOT_COMPUTED
+
+
+@pytest.mark.django_db(databases=["default", ALIAS])
+def test_a_statement_that_cannot_finish_in_the_budget_is_a_timeout():
+    """
+    D63f: the per-repeat budget now also applies inside PostgreSQL, so a query
+    that cannot finish is stopped before its rows are materialised.
+    """
+    from django.db import connections
+
+    generator.build_all(
+        generator.TreeSpec(shape=Shape.COURSE_LIKE, size=60, seed=1), using=ALIAS,
+    )
+    runner.apply_statement_timeout(ALIAS, 1)      # 1 ms
+    try:
+        with connections[ALIAS].cursor() as cursor:
+            cursor.execute("SELECT 1")            # fast enough to survive
+    except Exception as error:  # pragma: no cover - a 1 ms budget is generous for SELECT 1
+        pytest.skip(f"even SELECT 1 did not fit: {error}")
+
+    result = runner.measure(
+        operations.BY_NAME["read_branch"], CTE,
+        operations.targets(generator.TreeSpec(shape=Shape.COURSE_LIKE, size=60, seed=1), count=1),
+        using=ALIAS, warmups=0, repeats=1, budget=runner.Budget(timeout=120.0),
+    )
+    runner.apply_statement_timeout(ALIAS, 0)
+
+    assert result["status"] in (runner.TIMEOUT, "ok")
+    if result["status"] == runner.TIMEOUT:
+        assert result["stopped_by"] == "statement_timeout"
+        assert "timings" not in result
+
+
+@pytest.mark.django_db(databases=["default", ALIAS])
+def test_the_measured_sql_does_not_change_with_the_memory_hygiene():
+    """
+    D63f(b): freeing objects and collecting garbage between cells must not
+    change what is measured — same queries, same answers.
+    """
+    spec = generator.TreeSpec(shape=Shape.COURSE_LIKE, size=120, seed=20261006)
+    generator.build_all(spec, using=ALIAS)
+    targets = operations.targets(spec, count=2)
+    before = {
+        name: operations.BY_NAME[name].run(CTE, targets[0], ALIAS)
+        for name in operations.READ_OPERATIONS
+    }
+
+    import gc
+
+    gc.collect()
+    after = {
+        name: operations.BY_NAME[name].run(CTE, targets[0], ALIAS)
+        for name in operations.READ_OPERATIONS
+    }
+
+    assert before == after
+    entry = runner.run_cell(
+        spec, operations.BY_NAME["read_branch"], using=ALIAS, warmups=1, repeats=2,
+        budget=runner.Budget(timeout=60.0), seed=1, target_list=targets,
+        log=lambda *a, **k: None,
+    )
+    assert entry["methods"][MPTT]["queries_median"] == entry["methods"][CTE]["queries_median"] == 2

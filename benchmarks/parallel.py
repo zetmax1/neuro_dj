@@ -58,13 +58,14 @@ class WorkerResult:
 
 def _worker(payload: tuple) -> dict:
     """One process: write until the deadline, then report what it managed."""
-    method, using, worker, deadline, seed, node_count, locked = payload
+    method, using, worker, deadline, seed, node_count, locked, statement_timeout = payload
 
     from django.db import connections, transaction
 
-    from benchmarks import operations
+    from benchmarks import operations, runner
 
     connections.close_all()
+    runner.apply_statement_timeout(using, statement_timeout)
     model = MODELS[method]
     rng = random.Random(seed + worker)
     result = WorkerResult(worker=worker)
@@ -134,17 +135,23 @@ def run_phase(
     seed: int,
     node_count: int,
     locked: bool = False,
+    statement_timeout: int = 0,
 ) -> dict:
     """
     One (method, worker count) phase. The parent closes its own connections
     before forking so no child inherits a live socket.
     """
+    import gc
+
     from django.db import connections
 
+    # D63f: the children copy the parent's heap as they write to it, so the
+    # parent gives back what it can before forking.
     connections.close_all()
+    gc.collect()
     deadline = time.monotonic() + seconds
     payloads = [
-        (method, using, worker, deadline, seed, node_count, locked)
+        (method, using, worker, deadline, seed, node_count, locked, statement_timeout)
         for worker in range(workers)
     ]
     started = time.perf_counter()
