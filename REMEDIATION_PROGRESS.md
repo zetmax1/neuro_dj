@@ -2280,6 +2280,56 @@ tartibga bog‘liq versiyasi bilan o‘lchangan” deb belgilanadi.
 
 ---
 
+### D63h — qayta o‘lchash tanlab: faqat bosimdagi blok va parallel bosqichlar (2026-10-19, bajarish Junyi'dan keyin)
+
+**Qaror (foydalanuvchi).** Avval Junyi (B qismi), H4 ning qayta o‘lchashi
+keyin va **faqat tanlab**. To‘liq pass (≈ 6 soat) takrorlanmaydi.
+
+**Nima qayta o‘lchanadi.**
+
+- **(a) `deep_chain/100000` bloki** — butunligicha. `20261016-093916` da D63c
+  bayrog‘i olgan **yagona** blok (eng past `MemAvailable` 2,64 GB,
+  `SwapFree` 1 MB).
+- **(b) barcha to‘qqiz blokning parallel bosqichi** — qulfsiz (2/4/8) va
+  qulfli (8), D63g da tuzatilgan yaxlitlik tekshiruvi bilan. Parallel yozishdan
+  keyingi daraxt saqlanmagan, shuning uchun tekshiruvni qayta ishlatib
+  bo‘lmaydi — bosqichning o‘zi qayta o‘tkaziladi.
+
+**Nima qayta o‘lchanmaydi.** Qolgan hamma katak — sakkiz blokning oltita
+amali (ρ, mediana, p95, SQL soni, o‘zgargan qatorlar) — `20261016-093916`
+natijasidan olinadi. Ular bosimsiz o‘lchangan va D63g ularga tegmaydi
+(tuzatish faqat yaxlitlik tekshiruvida).
+
+**Asosiy jadvalda nima turadi.**
+
+- (a) uchun: **qayta o‘lchangan son** asosiy, birinchisi yonida (“bosim
+  ostida”), ikkalasi orasidagi farq yoziladi (D63c).
+- (b) uchun: **qayta tekshirilgan yaxlitlik** asosiy. O‘tkazuvchanlik (op/s)
+  uchun esa birinchi pass'ning soni asosiy qoladi — D63g tekshiruvi bosqich
+  **tugagandan keyin** ishlaydi, ya’ni o‘lchangan op/s ga ta’sir qilmagan;
+  qayta o‘tkazilgan bosqichning op/s i yonida, solishtirish uchun beriladi.
+  Istisno — `deep_chain/100000`: u (a) bo‘yicha butunligicha qayta
+  o‘lchangani uchun uning op/s i ham yangi pass'dan olinadi.
+
+**Kutiladigan natija (oldindan aytiladi, natijani o‘zgartirish uchun emas).**
+`deep_chain/100000` dagi bosimni benchmark'ning o‘zi — CTE ning chuqur
+zanjirdagi o‘qishi — yaratgan (D63f). Qayta o‘lchashda o‘sha kataklar yana
+`statement_timeout` yoki xotira chegarasiga urilishi kutiladi va bu
+“ishga tushirilmadi — xotira” / “timeout” bo‘lib qoladi; bu D63 qoidasini
+o‘zgartirishga sabab emas.
+
+**Kod.** Runner'da shakl va hajm filtri bor (`--shapes deep_chain --sizes
+100000`) — (a) uchun yetadi. **Faqat parallel bosqichni** ishga tushiradigan
+filtr yo‘q: u (b) dan oldin `--only-parallel` bayrog‘i sifatida qo‘shiladi
+(amallar o‘tkazib yuboriladi, daraxt quriladi, parallel bosqich va yaxlitlik
+tekshiruvi bajariladi) va test bilan qotiriladi. Kod o‘zgargani uchun
+checkpoint kaliti yangilanadi — bu kutilgan.
+
+**Boshlanish sharti** D63c dagidek (`MemAvailable ≥ 6 GB`, swap `< 200 MB`).
+
+
+---
+
 ## 9-bosqich kodi — `benchmarks` app'i va H4 (2026-10-12, natijadan oldin)
 
 D63 va D63a bo‘yicha yozildi. **Dissertatsiya natijasi yo‘q**: to‘liq run hali
