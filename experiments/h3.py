@@ -452,6 +452,9 @@ def analyse(pooled: dict, arm_list: list[dict], *, replicates: int, seed: int, k
     out["contrasts"] = contrasts(
         out, scores, labels, learners, families, replicates=replicates, seed=seed,
     )
+    out["original_vs_random_max"] = original_vs_random_max(
+        out, scores, labels, learners, families, replicates=replicates, seed=seed,
+    )
     out["reading"] = reading(out["contrasts"])
     return out
 
@@ -526,6 +529,66 @@ def contrasts(
     return out
 
 
+def original_vs_random_max(
+    analysis: dict,
+    scores: dict[str, list[float]],
+    labels: list[int],
+    learners: list[str],
+    families: dict[str, list[str]],
+    *,
+    replicates: int,
+    seed: int,
+) -> dict:
+    """
+    D62a(b), descriptive: is the real graph's AUC above the **best** of the
+    random graphs — on the data, and in what share of bootstrap replicates?
+
+    The main contrast compares with the random graphs' mean; this asks the
+    harder question, whether any of them did as well. It is not part of the
+    reading rule (D61).
+    """
+    from experiments import stats
+
+    random_names = families.get(RANDOM, [])
+    original = families.get(ORIGINAL, [])
+    if not random_names or not original:
+        return {"status": "unavailable", "reason": "tasodifiy yoki asl arm ishlamadi"}
+    original_auc = analysis["arms"][original[0]]["scores"]["auc"]
+    random_aucs = [analysis["arms"][name]["scores"]["auc"] for name in random_names]
+    best = max((value for value in random_aucs if value is not None), default=None)
+
+    import numpy as np
+
+    label_array = np.asarray(labels, dtype=int)
+    arrays = {name: np.asarray(scores[name], dtype=float) for name in [original[0], *random_names]}
+
+    def above(indices):
+        from experiments.stats import _auc
+
+        drawn = label_array[indices]
+        left = _auc(drawn, arrays[original[0]][indices])
+        rights = [_auc(drawn, arrays[name][indices]) for name in random_names]
+        rights = [value for value in rights if value is not None]
+        if left is None or not rights:
+            return None
+        return 1.0 if left > max(rights) else 0.0
+
+    share = stats.bootstrap_statistic(
+        above, learners, replicates=replicates, seed=seed, draws_mean=True,
+    )
+    return {
+        "status": "ok",
+        "random_arms": len(random_names),
+        "original_auc": original_auc,
+        "random_max_auc": best,
+        "original_above_max": (
+            None if original_auc is None or best is None else bool(original_auc > best)
+        ),
+        "share_of_replicates_above_max": share.payload().get("draws_mean"),
+        "replicates": share.replicates,
+    }
+
+
 def _mean_auc_difference(labels, scores, left_names, right_names):
     """AUC of the left arm minus the mean AUC of the right family's arms."""
     import numpy as np
@@ -587,6 +650,13 @@ def reading(entries: list[dict]) -> dict:
             "bilim xaritasi, bitta birlashtirilgan sikl va prerekvizitsiz "
             "mashqlar bilan (D61)"
         ),
+        "limitation": (
+            "cheklov: Junyi platformasi mashqni uning prerekvizitlari o‘zlashtirilgach "
+            "tavsiya qiladi (suggested), shuning uchun ta’sirning bir qismi grafning "
+            "o‘zidan emas, platformaning shu graf bo‘yicha yo‘naltirishidan kelishi "
+            "mumkin (D62a)"
+        ),
+        "holm_family": "H3: uch kontrast, har k uchun alohida oila (D62a)",
         "per_contrast": verdicts,
     }
 

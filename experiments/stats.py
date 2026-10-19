@@ -47,21 +47,34 @@ CONFIDENCE = 0.95
 
 @dataclass(frozen=True)
 class Interval:
-    """A point estimate with a percentile bootstrap interval."""
+    """
+    A point estimate with a percentile bootstrap interval.
+
+    ``p_two_sided`` and ``draws_mean`` are filled only when a caller asks for
+    them (``bootstrap_statistic``), and only then appear in the payload, so
+    every result written before them keeps its shape.
+    """
     estimate: float | None
     low: float | None
     high: float | None
     replicates: int
     by_learner: bool
+    p_two_sided: float | None = None
+    draws_mean: float | None = None
 
     def payload(self) -> dict:
-        return {
+        out = {
             "estimate": _round(self.estimate),
             "ci_low": _round(self.low),
             "ci_high": _round(self.high),
             "replicates": self.replicates,
             "clustered_by_learner": self.by_learner,
         }
+        if self.p_two_sided is not None:
+            out["p_two_sided"] = _round(self.p_two_sided, 8)
+        if self.draws_mean is not None:
+            out["draws_mean"] = _round(self.draws_mean)
+        return out
 
 
 @dataclass(frozen=True)
@@ -339,6 +352,8 @@ def bootstrap_statistic(
     replicates: int = DEFAULT_REPLICATES,
     seed: int = DEFAULT_SEED,
     confidence: float = CONFIDENCE,
+    two_sided_p: bool = False,
+    draws_mean: bool = False,
 ) -> Interval:
     """
     A clustered percentile interval for any statistic of the rows.
@@ -352,6 +367,12 @@ def bootstrap_statistic(
     decision events, not an AUC, and the unit of resampling is still the
     learner — one learner contributes several events and they are not
     independent.
+
+    ``two_sided_p`` adds the percentile-bootstrap p of "the statistic is
+    zero": 2 · min(share of draws ≤ 0, share of draws ≥ 0), capped at 1
+    (D62a, H1's Holm family). ``draws_mean`` adds the mean of the draws —
+    for a 0/1 statistic, the share of replicates in which it held (D62a,
+    H3's "real graph above the best random one").
     """
     rows = len(learners)
     if rows == 0:
@@ -371,7 +392,30 @@ def bootstrap_statistic(
         return Interval(point, None, None, 0, True)
     alpha = (1.0 - confidence) / 2.0
     low, high = np.quantile(draws, [alpha, 1.0 - alpha])
-    return Interval(point, float(low), float(high), len(draws), True)
+    p_value = None
+    if two_sided_p:
+        below = sum(1 for value in draws if value <= 0.0) / len(draws)
+        above = sum(1 for value in draws if value >= 0.0) / len(draws)
+        p_value = min(1.0, 2.0 * min(below, above))
+    mean = float(np.mean(draws)) if draws_mean else None
+    return Interval(point, float(low), float(high), len(draws), True, p_value, mean)
+
+
+def holm_adjust(p_values: Sequence[float]) -> list[float]:
+    """
+    Holm's step-down adjustment of plain p values, in the order given.
+
+    The same rule as :func:`holm` — sorted ascending, the i-th multiplied by
+    (k − i), a running maximum, capped at 1 — for a family that is not a set
+    of DeLong comparisons (H1's two differences of error shares, D62a).
+    """
+    order = sorted(range(len(p_values)), key=lambda index: p_values[index])
+    adjusted = [0.0] * len(p_values)
+    running = 0.0
+    for position, index in enumerate(order):
+        running = max(running, min(1.0, (len(p_values) - position) * p_values[index]))
+        adjusted[index] = running
+    return adjusted
 
 
 def _bootstrap_flat(

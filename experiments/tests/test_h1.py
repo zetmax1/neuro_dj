@@ -324,3 +324,71 @@ def test_the_pipeline_writes_a_table_that_verifies_cell_by_cell(junyi_small, tmp
 
 def test_a_missing_dataset_is_a_sentence_not_a_crash(tmp_path):
     assert h1.main(["--quick", "--data", str(tmp_path / "nowhere")]) == 2
+
+
+# ---------------------------------------------------------------------------
+# D62a
+# ---------------------------------------------------------------------------
+
+def test_proficiency_is_read_only_from_rows_strictly_before_the_event():
+    """
+    D62a(c): a prerequisite's ``earned_proficiency`` counts only if it was
+    earned on a row before the learner's first attempt at w. The flag on a
+    later row — even the very next one — must not reach back.
+    """
+    later = [
+        answer("1", "a", True, order=0),
+        answer("1", "b", True, order=1),                     # the event
+        answer("1", "a", True, order=2, proficiency=True),   # earned afterwards
+    ]
+    earlier = [
+        answer("1", "a", True, order=0, proficiency=True),   # earned before
+        answer("1", "b", True, order=1),                     # the event
+    ]
+
+    assert events_of(later, CHAIN)[0].proficient_prerequisites == 0
+    assert events_of(later, CHAIN)[0].flags(tau=0.95, delta=0.1)[h1.PROFICIENCY] is False
+    assert events_of(earlier, CHAIN)[0].proficient_prerequisites == 1
+
+
+def test_the_event_rows_own_flag_is_not_a_prerequisites_proficiency():
+    rows = [
+        answer("1", "a", True, order=0),
+        answer("1", "b", True, order=1, proficiency=True),   # w itself, not Pre(w)
+    ]
+
+    assert events_of(rows, CHAIN)[0].proficient_prerequisites == 0
+
+
+def test_the_complete_window_column_keeps_only_events_with_k_answers():
+    """D62a(d): sensitivity only — the main rule still scores short windows."""
+    short = _event(0.9, failed=True)
+    short.correct_after = (0,)                         # one answer
+    full = _event(0.9, failed=False)                   # three answers
+    events = [short, full]
+    flags = [event.flags(tau=0.5, delta=0.1) for event in events]
+
+    main = h1.rule_scores(events, flags, h1.PROBABILISTIC, 3)
+    complete = h1.rule_scores(events, flags, h1.PROBABILISTIC, 3, complete_only=True)
+
+    assert main["events"] == 2 and main["failed"] == 1
+    assert complete["events"] == 1 and complete["failed"] == 0
+
+
+def test_the_two_comparisons_are_one_holm_family(junyi_small, tmp_path):
+    """D62a(e): H1's two differences carry a bootstrap p and a Holm p."""
+    import json
+
+    out = tmp_path / "h1"
+    h1.main(["--quick", "--no-verify", "--data", str(junyi_small), "--learners", "30",
+             "--replicates", "40", "--workers", "1", "--out", str(out)])
+    document = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+
+    entries = document["equal_coverage"][str(h1.MAIN_K)]
+    assert {entry["rule"] for entry in entries} == set(h1.COMPARED_WITH)
+    for entry in entries:
+        assert "p_two_sided" in entry["difference"]
+        assert entry["difference"]["p_holm"] >= entry["difference"]["p_two_sided"]
+        assert "complete_window" in entry
+    assert "suggested" in document["reading"]["limitation"]
+    assert "suggested_share" in document["log"]

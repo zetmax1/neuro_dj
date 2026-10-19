@@ -740,6 +740,11 @@ class JunyiLog:
             "counts": self.counts(),
             "dropped": dict(self.dropped),
             "flags": dict(self.flags),
+            # D62a(f): how much of the sample the platform itself routed —
+            # it suggests an exercise once its prerequisites are mastered.
+            "suggested_share": (
+                round(self.flags.get("suggested", 0) / len(self.rows), 6) if self.rows else None
+            ),
         }
 
 

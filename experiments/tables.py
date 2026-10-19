@@ -1617,12 +1617,17 @@ def _h1_rows(metrics: dict) -> dict[str, list[list[str]]]:
         probabilistic = entry.get("probabilistic") or {}
         compared = entry.get("compared") or {}
         difference = entry.get("difference") or {}
+        complete = entry.get("complete_window") or {}
         rows["2"].append([
             labels.get(entry.get("rule", ""), entry.get("rule", "")),
             ", ".join(fmt(value) for value in entry.get("tau_per_fold", [])) or "—",
             _cell(probabilistic.get("coverage")), _cell(compared.get("coverage")),
             _cell(probabilistic.get("error_share")), _cell(compared.get("error_share")),
             _interval_cell(difference.get("estimate"), difference),
+            _p(difference.get("p_two_sided")), _p(difference.get("p_holm")),
+            _cell((complete.get("probabilistic") or {}).get("error_share")),
+            _cell((complete.get("compared") or {}).get("error_share")),
+            _cell((complete.get("probabilistic") or {}).get("events")),
         ])
 
     for item in (metrics.get("reading") or {}).get("per_rule", []):
@@ -1785,9 +1790,14 @@ def render_h1_report(metrics: dict) -> str:
         f"{_cell(metrics.get('replicates'))} replika, "
         f"{_cell(metrics.get('confidence_percent'))} %.",
         "",
+        "Oxirgi uch ustun — sezgirlik (D62a): faqat mashqda kamida k ta javobi",
+        "bor voqealar. p — bootstrap'dan, ikki tomonlama; Holm — ehtimoliy",
+        "qoidaning ikki taqqoslashi bitta oila. O‘qish qoidasi CI ga qaraydi.",
+        "",
         "| Qoida | τ (fold'lar bo‘yicha) | Ehtimoliy qamrov | Qoida qamrovi | "
-        "Ehtimoliy xato ulushi | Qoida xato ulushi | Farq [CI] |",
-        "|---|---|---|---|---|---|---|",
+        "Ehtimoliy xato ulushi | Qoida xato ulushi | Farq [CI] | p | Holm p | "
+        "To‘liq oyna: ehtimoliy | To‘liq oyna: qoida | To‘liq oyna: voqea |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     lines += ["| " + " | ".join(row) + " |" for row in rows["2"]]
     lines += [
@@ -1797,6 +1807,9 @@ def render_h1_report(metrics: dict) -> str:
         f"{reading.get('rule', '—')}",
         "",
         f"**Xulosa: {reading.get('status', '—')}.**",
+        "",
+        f"{reading.get('limitation', '—')}. Tanlangan namunada `suggested` "
+        f"ulushi: {_cell((metrics.get('log') or {}).get('suggested_share'))}.",
         "",
         "| Taqqoslash | Farq | CI | Xulosa |",
         "|---|---|---|---|",
@@ -2028,6 +2041,23 @@ def render_h3_report(metrics: dict) -> str:
         "",
         f"{reading.get('scope', '—')}",
         "",
+        f"{reading.get('limitation', '—')}. Tanlangan namunada `suggested` "
+        f"ulushi: {_cell((metrics.get('log') or {}).get('suggested_share'))}.",
+        "",
+        f"Holm oilasi: {reading.get('holm_family', '—')}.",
+        "",
+    ]
+    best = pooled.get("original_vs_random_max") or {}
+    if best.get("status") == "ok":
+        lines += [
+            f"Qo‘shimcha (tavsifiy, D62a): asl grafning AUC'i "
+            f"{_cell(best.get('original_auc'))}, tasodifiy graflarning eng yuqorisi "
+            f"{_cell(best.get('random_max_auc'))} — asl yuqorimi: "
+            f"{_cell(best.get('original_above_max'))}; bootstrap replikatlarining "
+            f"{_cell(best.get('share_of_replicates_above_max'))} ulushida yuqori.",
+            "",
+        ]
+    lines += [
         f"**Xulosa: {reading.get('status', '—')}.**",
         "",
         "| Taqqoslash | Farq | CI | Xulosa |",

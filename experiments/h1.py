@@ -104,6 +104,15 @@ COMPARED_WITH: tuple[str, ...] = (COMPLETENESS, PASS_MARK_RULE)
 QUICK_LEARNERS = 200
 FULL_LEARNERS = 2000
 
+# D62a(f): the platform suggests an exercise once its prerequisites are
+# mastered, so learners often reach w because the platform sent them there.
+LIMITATION = (
+    "cheklov: Junyi platformasi mashqni uning prerekvizitlari o‘zlashtirilgach "
+    "tavsiya qiladi (suggested), shuning uchun ta’sirning bir qismi grafning "
+    "o‘zidan emas, platformaning shu graf bo‘yicha yo‘naltirishidan kelishi "
+    "mumkin (D62a)"
+)
+
 SUPPORTED = "qo‘llab-quvvatlandi"
 NOT_SUPPORTED = "qo‘llab-quvvatlanmadi"
 UNDETERMINED = "aniqlanmadi"
@@ -286,14 +295,25 @@ def tau_for_coverage(events: list[Event], target: float) -> float:
     return round(best, 6)
 
 
-def rule_scores(events: list[Event], flags: list[dict[str, bool]], rule: str, k: int) -> dict:
-    """Coverage and error share of one rule over the pooled events."""
-    flagged = [
-        event for event, decision in zip(events, flags)
-        if decision[rule] and event.failed(k) is not None
+def rule_scores(
+    events: list[Event], flags: list[dict[str, bool]], rule: str, k: int,
+    *, complete_only: bool = False,
+) -> dict:
+    """
+    Coverage and error share of one rule over the pooled events.
+
+    ``complete_only`` keeps only the events with at least ``k`` answers at w —
+    D62a's sensitivity column. The main rule (D62-6) scores an event on the
+    answers it has, so an event with one answer counts there and not here.
+    """
+    keep = [
+        index for index, event in enumerate(events)
+        if event.failed(k) is not None
+        and (not complete_only or len(event.correct_after) >= k)
     ]
+    flagged = [events[index] for index in keep if flags[index][rule]]
     failed = sum(1 for event in flagged if event.failed(k))
-    scored = [event for event in events if event.failed(k) is not None]
+    scored = [events[index] for index in keep]
     return {
         "events": len(scored),
         "flagged": len(flagged),
@@ -377,6 +397,7 @@ def equal_coverage(
             [event.user_id for event in pooled],
             replicates=replicates,
             seed=seed,
+            two_sided_p=True,
         )
         entries.append({
             "rule": rule,
@@ -389,7 +410,21 @@ def equal_coverage(
                 else round(probabilistic["coverage"] - compared["coverage"], 6)
             ),
             "difference": difference.payload(),
+            # D62a(d): the same comparison over events with at least k
+            # answers at w only. A sensitivity column; D62-6 stays the rule.
+            "complete_window": {
+                "probabilistic": rule_scores(
+                    pooled, rule_flags, PROBABILISTIC, k, complete_only=True,
+                ),
+                "compared": rule_scores(pooled, rule_flags, rule, k, complete_only=True),
+            },
         })
+    # D62a(e): the probabilistic rule's two comparisons are one Holm family.
+    p_values = [entry["difference"].get("p_two_sided") for entry in entries]
+    if p_values and all(value is not None for value in p_values):
+        for entry, adjusted in zip(entries, stats.holm_adjust(p_values)):
+            entry["difference"]["p_holm"] = round(adjusted, 8)
+            entry["holm_family"] = "H1: ehtimoliy qoida — bajarilganlik va o‘tish bali"
     return entries, {rule: values[0] for rule, values in taus.items()}, pooled, flags
 
 
@@ -508,6 +543,7 @@ def reading(entries: list[dict]) -> dict:
             "bali qoidalaridan past bo‘lsa va farqlarning 95 % CI si nolni kesib "
             "o‘tmasa — qo‘llab-quvvatlandi (D61)"
         ),
+        "limitation": LIMITATION,
         "per_rule": verdicts,
     }
 

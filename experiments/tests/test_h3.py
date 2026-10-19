@@ -300,3 +300,38 @@ def test_the_pipeline_writes_a_table_that_verifies_cell_by_cell(junyi_small, tmp
 
 def test_a_missing_dataset_is_a_sentence_not_a_crash(tmp_path):
     assert h3.main(["--quick", "--data", str(tmp_path / "nowhere")]) == 2
+
+
+# ---------------------------------------------------------------------------
+# D62a
+# ---------------------------------------------------------------------------
+
+def test_the_real_graph_is_compared_with_the_best_random_graph(junyi_small, tmp_path):
+    """
+    D62a(b): the main contrast is against the random graphs' mean; the
+    descriptive extra asks whether the real graph beats the best of them.
+    And (e): the three contrasts are a Holm family per k.
+    """
+    out = tmp_path / "h3"
+    h3.main([
+        "--quick", "--no-verify", "--data", str(junyi_small), "--learners", "30",
+        "--random-graphs", "2", "--replicates", "20", "--workers", "1", "--out", str(out),
+    ])
+    document = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+
+    for k in ("3", "5"):
+        pooled = document["pooled"][k]
+        best = pooled["original_vs_random_max"]
+        assert best["status"] == "ok"
+        assert best["random_arms"] == 2
+        assert best["original_above_max"] == (best["original_auc"] > best["random_max_auc"])
+        assert 0.0 <= best["share_of_replicates_above_max"] <= 1.0
+        # One family per k: Holm sees exactly the three contrasts of this k.
+        contrasts = [entry for entry in pooled["contrasts"] if entry.get("status") == "ok"]
+        assert len(contrasts) == 3
+        # p and Holm p are both stored rounded to 8 decimals, so they are
+        # compared within that rounding unit.
+        for entry in contrasts:
+            assert entry["p_holm"] <= min(1.0, 3 * entry["delong_p"]) + 2e-8
+            assert entry["p_holm"] >= entry["delong_p"] - 2e-8
+    assert "suggested" in document["pooled"]["3"]["reading"]["limitation"]

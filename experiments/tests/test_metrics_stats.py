@@ -439,3 +439,33 @@ def test_a_statistic_that_cannot_be_scored_leaves_no_interval():
     assert interval.payload()["ci_low"] is None
     assert interval.replicates == 0
     assert stats.bootstrap_statistic(lambda rows: 1.0, [], replicates=10).estimate is None
+
+
+def test_the_bootstrap_p_and_the_share_of_draws():
+    """D62a: H1's Holm family needs a p; H3's extra needs a share of replicates."""
+    import numpy as np
+
+    from experiments import stats
+
+    learners = [str(index // 2) for index in range(60)]
+    shifted = np.array([1.0] * 60)
+
+    away = stats.bootstrap_statistic(
+        lambda rows: float(shifted[rows].mean()), learners, replicates=100, seed=1,
+        two_sided_p=True, draws_mean=True,
+    )
+    assert away.p_two_sided == 0.0
+    assert away.draws_mean == pytest.approx(1.0)
+    assert "p_two_sided" in away.payload() and "draws_mean" in away.payload()
+
+    plain = stats.bootstrap_statistic(lambda rows: 0.5, learners, replicates=20, seed=1)
+    assert "p_two_sided" not in plain.payload()
+
+
+def test_holm_adjust_matches_the_comparison_version():
+    from experiments import stats
+
+    adjusted = stats.holm_adjust([0.04, 0.01, 0.03])
+
+    assert adjusted == pytest.approx([0.06, 0.03, 0.06])
+    assert stats.holm_adjust([]) == []
