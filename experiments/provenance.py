@@ -94,22 +94,54 @@ def git_changes(root: Path | None = None) -> list[str] | None:
     return [line for line in result.stdout.splitlines() if line.strip()]
 
 
+# D64: untracked entries under this prefix are results a run has written and
+# nobody has committed yet — not code. They are recorded, not counted as dirty.
+RESULTS_PREFIX = "experiments/results/"
+
+
+def split_changes(lines: list[str]) -> tuple[list[str], list[str]]:
+    """
+    ``git status --porcelain`` lines as (code changes, untracked results).
+
+    Only an **untracked** (``??``) entry under ``experiments/results/`` is set
+    aside: it is a result folder a run wrote — as the first stage of a chain
+    does before the second starts. A *modified* committed result (`` M``)
+    stays a change, because editing a result is what D48 guards against.
+    """
+    code: list[str] = []
+    results: list[str] = []
+    for line in lines:
+        status, path = line[:2], line[3:].strip().strip('"')
+        if status == "??" and path.startswith(RESULTS_PREFIX):
+            results.append(line)
+        else:
+            code.append(line)
+    return code, results
+
+
 @dataclass(frozen=True)
 class GitState:
-    """The checkout at one moment: commit, and what was uncommitted (D54)."""
+    """
+    The checkout at one moment: commit, what was uncommitted (D54), and —
+    apart from that — which result folders were written but not committed
+    (D64).
+    """
     commit: str | None
     dirty: bool | None
     changes: tuple[str, ...] = ()
     at: str = ""
+    untracked_results: tuple[str, ...] = ()
 
     @classmethod
     def capture(cls, root: Path | None = None) -> GitState:
-        changes = git_changes(root)
+        lines = git_changes(root)
+        changes, results = split_changes(lines) if lines is not None else ([], [])
         return cls(
             commit=git_commit(root),
-            dirty=None if changes is None else bool(changes),
-            changes=tuple(changes or ()),
+            dirty=None if lines is None else bool(changes),
+            changes=tuple(changes),
             at=datetime.now(timezone.utc).isoformat(),
+            untracked_results=tuple(results),
         )
 
     def same_tree(self, other: GitState) -> bool:
@@ -121,6 +153,7 @@ class GitState:
             "dirty": self.dirty,
             "changes": list(self.changes),
             "at": self.at,
+            "untracked_results": list(self.untracked_results),
         }
 
 
@@ -258,6 +291,8 @@ class Provenance:
                 + (" (dirty)" if state.dirty else " (clean)")
             )
             lines += [f"  {change}" for change in state.changes]
+            lines += [f"  (untracked result, not code — D64) {entry}"
+                      for entry in state.untracked_results]
         for warning in self.tree_warnings():
             lines.append(f"WARNING      {warning}")
         if self.seeds:

@@ -499,3 +499,69 @@ def test_the_frozen_modes_run_the_d60_module_with_its_reference(tmp_path):
     assert f"args: -u -W ignore {base} --quick {reference}" in quick
     assert f"args: -u -W ignore {base} {reference}" in full
     assert "finished frozen-full (exit 0)" in full
+
+
+# ---------------------------------------------------------------------------
+# D64 — untracked result folders are not code
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def repo_with_results(repo) -> Path:
+    """A repository whose experiments/results/ already holds a committed result."""
+    old = repo / "experiments" / "results" / "old" / "1"
+    old.mkdir(parents=True)
+    (old / "metrics.json").write_text("{}\n")
+    _git(repo, "add", "experiments")
+    _git(repo, "commit", "-q", "-m", "a result")
+    return repo
+
+
+@needs_git
+def test_an_untracked_result_folder_is_recorded_but_not_dirty(repo_with_results):
+    """The junyi-full chain: H1 has written its folder when H3 starts (D64)."""
+    new = repo_with_results / "experiments" / "results" / "junyi-h1" / "2"
+    new.mkdir(parents=True)
+    (new / "metrics.json").write_text("{}\n")
+
+    state = GitState.capture(repo_with_results)
+
+    assert state.dirty is False
+    assert state.changes == ()
+    assert state.untracked_results == ("?? experiments/results/junyi-h1/",)
+    assert state.payload()["untracked_results"] == ["?? experiments/results/junyi-h1/"]
+
+
+@needs_git
+def test_an_edited_committed_result_is_still_dirty(repo_with_results):
+    """Editing a result is what D48 guards against, so it stays a change."""
+    (repo_with_results / "experiments" / "results" / "old" / "1" / "metrics.json").write_text('{"x": 1}\n')
+
+    state = GitState.capture(repo_with_results)
+
+    assert state.dirty is True
+    assert state.changes == (" M experiments/results/old/1/metrics.json",)
+    assert state.untracked_results == ()
+
+
+@needs_git
+def test_anything_else_untracked_is_still_dirty(repo_with_results):
+    (repo_with_results / "experiments" / "scratch.py").write_text("x\n")
+    (repo_with_results / "experiments" / "results" / "new").mkdir()
+    (repo_with_results / "experiments" / "results" / "new" / "a.json").write_text("{}\n")
+
+    state = GitState.capture(repo_with_results)
+
+    assert state.dirty is True
+    assert state.changes == ("?? experiments/scratch.py",)
+    assert state.untracked_results == ("?? experiments/results/new/",)
+
+
+@needs_git
+def test_an_untracked_result_does_not_change_the_tree_between_start_and_end(repo_with_results):
+    start = GitState.capture(repo_with_results)
+    (repo_with_results / "experiments" / "results" / "late").mkdir()
+    (repo_with_results / "experiments" / "results" / "late" / "a.json").write_text("{}\n")
+    end = GitState.capture(repo_with_results)
+
+    assert start.same_tree(end)
+    assert end.untracked_results == ("?? experiments/results/late/",)
