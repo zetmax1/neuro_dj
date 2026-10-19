@@ -2536,6 +2536,97 @@ mustaqil, shuning uchun yuqoridagi ρ jadvali katta o‘zgarishga uchramaydi
 deb kutiladi, lekin asosiy son yangi pass'dan olinadi.
 
 
+## D61a / D62a — Junyi log'i, N va H1/H3 ning qolgan qarorlari (2026-10-19, kod va natijadan oldin)
+
+### D61a — log va N
+
+**Arxiv va ajratish.** `experiments/data/junyi.rar` — 1 295 551 222 bayt
+(D61 dagi hajm), RAR5, sha256 `7335386710db473a475ac47f6049ab8f1031bb703e6937f2d5529b46293ff35e`.
+`bsdtar 3.8.5` (libarchive 3.8.5) bilan **faqat**
+`junyi_ProblemLog_original.csv` ajratildi (16 s): 2 668 566 436 bayt,
+sha256 `a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25`.
+`junyi_ProblemLog_for_PSLC.txt` (9 728 744 960 bayt) **ochilmadi**.
+
+**Inventarizatsiya (loyihaning o‘z yuklovchisi bilan o‘lchangan,
+`junyi.inventory`, `verify=True`).**
+
+| Ko‘rsatkich | Qiymat |
+|---|---|
+| qatorlar | **25 925 992** (hujjat: 25 925 992 — mos) |
+| talabalar | **247 606** (hujjat: 247 606 — mos) |
+| graf mashqlariga tegishli qatorlar | 25 925 992 — **100 %** (javob berilgan 722 mashqning hammasi mashqlar jadvalida; 835 tadan 113 tasiga javob yo‘q) |
+| talaba boshiga javoblar | min 1, kvartillar 3 / 10 / 50, p90 220, p99 1 671, max 22 067, o‘rtacha 104,7 |
+| mashq boshiga javoblar | min 1, kvartillar 2 122,5 / 8 474,5 / 34 558,3, p90 97 733, p99 396 478, max 895 736, o‘rtacha 35 908,6 |
+| to‘g‘ri javoblar | 82,79 % |
+| `live=FALSE` mashqlarga javoblar | 338 987 — **1,31 %** |
+| `suggested` (platforma tavsiya qilgan) | 5 327 335 — **20,55 %** |
+| `topic_mode` | 6 458 171 — 24,91 % |
+| `review_mode` | 554 570 — 2,14 % |
+| `earned_proficiency=true` qatorlar | 1 194 299 — 4,61 % |
+
+**N jadvali** (seed `20261006`, talaba darajasida tanlov — run'ning o‘z
+`select_learners` i bilan; H1 voqeasi — D62-5; H3 voqeasi — mashqning
+dastlabki 3 urinishi, birinchi urinishdan oldin kamida bitta prerekvizit
+ishlangan):
+
+| N | javoblar | moslash to‘plami (0,8×) | H1 voqealari | H3 voqealari (javob) | fold fit bahosi |
+|---|---|---|---|---|---|
+| **2 000** | 252 737 | 202 190 | **9 664** | 26 938 | ≈ 37 daq |
+| 5 000 | 524 196 | 419 357 | 19 525 | 54 200 | ≈ 76 daq |
+| 8 000 | 798 988 | 639 190 | 29 713 | 82 249 | ≈ 116 daq |
+
+Fit bahosi D61 dagi o‘lchovdan: 2,3 µs × javob × 4 752 nomzod.
+
+**Qoida va tanlov.** H1 voqealari ≥ 5 000 bo‘lib, hisob vaqti (D61: moslash
+to‘plami 270 000 ± 30 %, ya’ni fold fit ≈ 50 daqiqa atrofida) va xotira
+chegarasida qoladigan **eng kichik N, 2 000 dan boshlab**. N = 2 000: H1
+voqealari 9 664 ≥ 5 000 va moslash to‘plami 202 190 — oraliq ichida (−25 %).
+Demak **N = 2 000** — D61 dagi qiymat o‘zgarmaydi. (D61 namunadan 336 000
+javob kutgan edi; haqiqiy 252 737 — tanlovdagi talabalar o‘rtacha 126 ta
+javob bergan, butun log bo‘yicha 104,7.)
+
+### D62a — H1/H3 ning qolgan qarorlari
+
+**(b) H3 ning tasodifiy arm'i.** Kontrast “asl − tasodifiy” statistikasi: har
+bootstrap replikatida **20 seed'ning har biri uchun AUC** shu replikatdagi
+javoblarda hisoblanadi va **o‘rtachalanadi**; bashoratlar o‘rtachalanmaydi.
+Qo‘shimcha (o‘qish qoidasiga kirmaydi, tavsifiy): (i) asl grafning nuqtaviy
+AUC'i 20 seed'ning **maksimumidan** yuqorimi (ha/yo‘q); (ii) bootstrap
+replikatlarining qancha ulushida asl AUC 20 seed maksimumidan yuqori.
+
+**(c) H1 ning `earned_proficiency` qoidasi** faqat voqeadan **qat’iy oldingi**
+qatorlardan olinadi (talabaning oqimi tartibida: `time_done`, keyin
+`problem_number`, keyin fayl tartibi). Voqea qatorining o‘z bayrog‘i va
+undan keyingi qatorlar hech qachon ishlatilmaydi. Test bilan qotiriladi.
+
+**(d) H1 sezgirligi.** Qo‘shimcha ustun: faqat w da **kamida k ta javobi
+bor** voqealar bo‘yicha xato ulushi va qamrov (k = 3 va 5). Asosiy qoida
+(D62-6: k tadan kam javobli voqea mavjud javoblari bo‘yicha baholanadi)
+o‘zgarmaydi.
+
+**(e) Holm oilalari.** H1 — ehtimoliy qoidaning ikki taqqoslashi
+(bajarilganlik va o‘tish bali bilan) **bitta oila**; p qiymat bootstrap
+taqsimotidan, ikki tomonlama: p = 2 · min(P(Δ* ≤ 0), P(Δ* ≥ 0)). H3 — uch
+kontrast (teskari, tasodifiy, grafsiz) **har k uchun alohida oila** (k = 3 va
+k = 5). Holm tuzatilgan p jadvalda beriladi; **D61 ning o‘qish qoidasi
+(95 % CI nolni kesmasligi) o‘zgarmaydi**.
+
+**(f) Cheklov.** Junyi platformasi mashqni uning prerekvizitlari
+o‘zlashtirilgach **tavsiya qiladi** (`suggested`, butun log'ning 20,55 %):
+talabalar w ga ko‘pincha platforma ularni yuborgani uchun keladi. Shuning
+uchun H1 va H3 dagi ta’sirning bir qismi grafning “o‘zidan” emas,
+platformaning shu graf bo‘yicha **yo‘naltirishidan** kelishi mumkin. Bu
+cheklov H1/H3 natijalarining metadata'siga va o‘qish qoidasining “scope”
+matniga yoziladi; tanlangan namunadagi `suggested` ulushi ham metadata'da
+turadi.
+
+**Kod nimani o‘zgartiradi (bu qarorlar asosida).** (b) “asl > 20 seed
+maksimumi” qo‘shiladi (asosiy statistika allaqachon shunday hisoblanadi);
+(c) kod allaqachon shunday, test qo‘shiladi; (d) yangi ustun; (e) H1 ga
+bootstrap p va Holm qo‘shiladi, H3 da oila allaqachon har k uchun — test
+bilan tasdiqlanadi; (f) metadata va scope matni.
+
+
 ---
 
 ## Savollar va qarorlar
