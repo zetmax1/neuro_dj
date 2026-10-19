@@ -2627,6 +2627,38 @@ bootstrap p va Holm qo‘shiladi, H3 da oila allaqachon har k uchun — test
 bilan tasdiqlanadi; (f) metadata va scope matni.
 
 
+### D64 — H3 ning D54 ogohlantirishi qabul qilinadi; untracked natija papkalari kod o‘zgarishi emas (2026-10-19)
+
+**Holat.** To‘liq H3 natijasi (`experiments/results/junyi-h3/20261019-122423/`)
+D54 ogohlantirishi bilan yozilgan: “ishchi daraxt ishga tushirish boshida
+toza emas edi”. Provenance'da: `git_start` va `git_end` commit'i bir xil
+(`2500c77`), ikkala uchidagi **yagona** o‘zgarish —
+`?? experiments/results/junyi-h1/`, ya’ni `junyi-full` zanjirining birinchi
+bosqichi yozgan, hali commit qilinmagan H1 natija papkasi.
+
+**H3 uni o‘qimaydi (koddan).** `h3.py` da natijalarga yagona murojaat —
+`results_dir(...)` (h3.py:828), u yoziladigan yo‘lni hisoblaydi; kirish
+fayllari faqat mashqlar jadvali va log (h3.py:771–772; junyi.py:314, 915);
+parametr fit yo‘li `h2.fit_parameters` → `h2_bounds.fit_all` → `_fit_task`
+→ `fit_skill_params` (h2.py:149–151, h2_bounds.py:296–302) fayl o‘qimaydi,
+`load_reference` (h2_bounds.py:360) faqat `h2_bounds.run` dan chaqiriladi
+(:566); launcher H3 ga faqat `--workers` uzatadi (run_h2.sh:191).
+
+**Qaror (foydalanuvchi, (a)).** H3 natijasi **qayta ishga tushirilmaydi va
+qabul qilinadi**. Ogohlantirish natijaning metadata'sida **o‘zgarmasdan**
+qoladi; bu yozuv uning sababini va nega natijaga ta’sir qilmaganini aytadi.
+H1 natijasi (`20261019-102526`) ikkala uchida toza.
+
+**Kelajak uchun.** Provenance `git status --porcelain` qatorlaridan
+**`experiments/results/` ostidagi untracked (`??`) papka va fayllarni** kod
+o‘zgarishi deb hisoblamaydi: ular alohida `untracked_results` ro‘yxatiga
+yoziladi va `dirty`, `same_tree` va checkpoint'ning yoqilishiga ta’sir
+qilmaydi. **Boshqa har qanday o‘zgarish avvalgidek dirty**, jumladan
+commit qilingan natija faylining o‘zgarishi (`M experiments/results/...`) —
+u natijani tahrirlash, D48 ning aynan qo‘riqlaydigan narsasi. Test bilan
+qotiriladi. **Eski natijalarning metadata'si o‘zgartirilmaydi.**
+
+
 ---
 
 ## Savollar va qarorlar
