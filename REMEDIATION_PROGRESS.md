@@ -33,7 +33,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8b — Eksperimentlar quvuri (ochiq ma’lumotlar birinchi) | Qisman | — | — |
 | 8b-1 — Yuklovchilar (D49–D51) va graf tahlili (D52) | **Bajarildi** | `c1a683b` | — |
 | 8b-2 — H2: ASSISTments 2009 (D53, D56, D57) | **Bajarildi** — to‘liq natija `experiments/results/assist09/20261009-055443/` (D57); D55 D57 bilan hali ishga tushirilmagan | `7ff7ae2` … `e97621c`, natija `abb1fe4` | — |
-| 8b-3 — H1/H3 kodi, Junyi yuklovchisi, graf nazoratlari, `run_all.py` | **Kod bajarildi** — natijalar log yuklanishini kutadi (D61); DBE-KT22 yuklovchisi va annotatsiya vositasi kechiktirildi (D62) | `056f17d` … | — |
+| 8b-3 — H1/H3 kodi, Junyi yuklovchisi, graf nazoratlari, `run_all.py` | **Bajarildi** — H1 `junyi-h1/20261019-102526` (qo‘llab-quvvatlanmadi), H3 `junyi-h3/20261019-122423` (k=3 aniqlanmadi, k=5 qo‘llab-quvvatlanmadi); DBE-KT22 yuklovchisi va annotatsiya vositasi kechiktirildi (D62) | `056f17d` … `ac632d3` | — |
 | 9 — Saqlash usullari benchmarki (H4, D63) | **Ishga tushirildi** — birinchi to‘liq pass `20261016-093916` (H4 qo‘llab-quvvatlanmadi); D63c/D63g bo‘yicha qayta o‘lchanadi | `68acf4e` … `cb7aec4` | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
 
@@ -2657,6 +2657,99 @@ qilmaydi. **Boshqa har qanday o‘zgarish avvalgidek dirty**, jumladan
 commit qilingan natija faylining o‘zgarishi (`M experiments/results/...`) —
 u natijani tahrirlash, D48 ning aynan qo‘riqlaydigan narsasi. Test bilan
 qotiriladi. **Eski natijalarning metadata'si o‘zgartirilmaydi.**
+
+
+## QADAM 10 — H1 va H3 Junyi'da (2026-10-19)
+
+### Ishga tushirish
+
+| | |
+|---|---|
+| Unit | `neurolearn-h2-junyi-full-20261019-144748` (`junyi-full`: avval H1, keyin H3), 5 worker |
+| Commit | `2500c77` (ikkala bosqich) |
+| H1 | 14:47:48 → 15:25:26, `exit 0`; `experiments/results/junyi-h1/20261019-102526/` (`abc8c5a`); provenance ikkala uchida **toza** |
+| H3 | 15:25:26 → 17:24:23, `exit 0`; `experiments/results/junyi-h3/20261019-122423/` (`ac632d3`); D54 ogohlantirishi bilan — **D64** bo‘yicha qabul qilingan |
+| Tekshiruvlar | ikkalasida `tables.verify` = [] va pozitsion tekshiruv = [] |
+| Ma’lumot | 2 000 talaba (seed `20261006`), 252 737 javob; `suggested` ulushi namunada 0,2175 |
+
+### H1 (τ = 0,95, δ = 0,10, `pass_mark` = 0,60, k = 3)
+
+Voqealar: **9 664** (695 talaba, 504 mashq; 7 136 tasida barcha
+prerekvizitlar ishlangan; o‘rtacha 1,581 prerekvizit).
+
+| Qoida | Belgilangan | Qamrov | Xato ulushi |
+|---|---|---|---|
+| ehtimoliy (r ≥ τ) | 6 795 | 0,7031 | 0,1506 |
+| II bob R (M, δ) | 6 803 | 0,7040 | 0,1510 |
+| bajarilganlik | 7 136 | 0,7384 | 0,1666 |
+| o‘tish bali | 9 239 | 0,9560 | 0,1527 |
+| earned_proficiency (qo‘shimcha) | 6 532 | 0,6759 | 0,1464 |
+
+Teng qamrov (τ validatsiyada; farq = ehtimoliy − qoida):
+
+| Taqqoslash | τ (fold'lar) | Qamrov (ehtim. / qoida) | Farq [95 % CI] | p | Holm p | ≥ k javob: xato (ehtim. / qoida), voqea |
+|---|---|---|---|---|---|---|
+| bajarilganlik, k=3 | 0,028 / 0,007 / 0,006 / 0,009 / 0,017 | 0,7379 / 0,7384 | −0,000023 [−0,000336; 0,000193] | 0,92 | 0,92 | 0,1303 / 0,1303, 8 384 |
+| o‘tish bali, k=3 | 0 / 0 / 0 / 0 / 0 | 1,0000 / 0,9560 | **+0,016669** [0,011738; 0,021936] | 0,000 | 0,000 | 0,1308 / 0,1207, 8 384 |
+| bajarilganlik, k=5 | (o‘sha) | 0,7379 / 0,7384 | −0,000042 [−0,000353; 0,000162] | 0,832 | 0,832 | 0,0890 / 0,0891, 8 005 |
+| o‘tish bali, k=5 | (o‘sha) | 1,0000 / 0,9560 | **+0,016449** [0,011813; 0,021625] | 0,000 | 0,000 | 0,0874 / 0,0783, 8 005 |
+
+r_s(w) AUC: k = 3 — **0,5195** [0,5012; 0,5372] (1 637 muvaffaqiyatsiz);
+k = 5 — 0,5232 [0,5038; 0,5421].
+
+τ × δ (II bob R, k = 3): qamrov 0,7037–0,7093, xato ulushi 0,1510–0,1520
+butun to‘rda; r ≥ τ qamrovi 0,7031–0,7085, xato ulushi 0,1506–0,1519.
+
+**O‘qish qoidasi: qo‘llab-quvvatlanmadi.** Belgilagan shart — o‘tish bali
+bilan taqqoslash: CI [0,011738; 0,021936] **nolning musbat tomonida**
+(ehtimoliy qoida ko‘proq xato qiladi). Bajarilganlik bilan — aniqlanmadi
+(CI nolni kesadi).
+
+### H3 (BKT+IRT+Pre, 4 graf; 20 tasodifiy graf, hammasi qayta ulangan)
+
+| k | asl | teskari | tasodifiy (20): o‘rtacha / min / max | grafsiz |
+|---|---|---|---|---|
+| 3 | 0,7824 [0,7755; 0,7891] | 0,7816 [0,7741; 0,7886] | 0,7772 / 0,7757 / 0,7785 (1-seed CI [0,7682; 0,7827]) | 0,7836 [0,7765; 0,7905] |
+| 5 | 0,7924 [0,7859; 0,7986] | 0,7917 [0,7851; 0,7980] | 0,7881 / 0,7869 / 0,7894 (1-seed CI [0,7802; 0,7932]) | 0,7936 [0,7869; 0,7998] |
+
+Butun to‘plam AUC: asl 0,7716, teskari 0,7704, tasodifiy-1 0,7675, grafsiz
+0,7724. Javoblar: k = 3 — 54 798, k = 5 — 84 143.
+
+| k | Kontrast | Farq [95 % CI] | DeLong p | Holm p |
+|---|---|---|---|---|
+| 3 | asl − teskari | +0,000806 [−0,000238; 0,001980] | 0,0749 | 0,0749 |
+| 3 | asl − tasodifiy | **+0,005244** [0,004439; 0,006126] | 0,0000 | 0,0000 |
+| 3 | asl − grafsiz | −0,001210 [−0,002459; 0,000106] | 0,0073 | 0,0146 |
+| 5 | asl − teskari | +0,000719 [−0,000005; 0,001533] | 0,0198 | 0,0198 |
+| 5 | asl − tasodifiy | **+0,004366** [0,003807; 0,005004] | 0,0000 | 0,0000 |
+| 5 | asl − grafsiz | **−0,001166** [−0,002042; −0,000228] | 0,0002 | 0,0005 |
+
+(DeLong tasodifiy oila uchun medianasi bo‘lgan arm — `tasodifiy-13` — ga qarshi.)
+
+Asl > eng yaxshi tasodifiy: ikkala k da **ha**, replikatlarning **1,000**
+ulushida. λ (validatsiyada): **0,25** — har fold'da va asl, teskari,
+tasodifiy-1 arm'larida (gridning eng past qiymati).
+
+**O‘qish qoidasi: k = 3 — aniqlanmadi, k = 5 — qo‘llab-quvvatlanmadi.**
+Belgilagan kontrast: k = 5 da asl − grafsiz, CI [−0,002042; −0,000228]
+nolning **manfiy** tomonida. Asl − tasodifiy ikkala k da qo‘llab-quvvatlaydi,
+asl − teskari ikkala k da aniqlanmadi.
+
+### Ikkalasi uchun (post-hoc, natija metadata'sida yo‘q)
+
+Quyidagi ikki son run'ning o‘z yuklovchisi, seed'i va bo‘linishi bilan
+keyin hisoblangan (fold parametrlari modelga tayyor holda uzatilgani uchun
+standart parametr soni `metrics.json` ga yozilmagan; `suggested` bayrog‘i
+`Answer` da yo‘q). Hisobning izchilligi: H1 voqealari soni 9 664 — run bilan
+aynan mos.
+
+- **Standart parametrda qolgan mashqlar** (moslash to‘plamida < 50 javob):
+  fold'lar bo‘yicha 201 / 203 / 191 / 196 / 208 (javob berilgan 604–615
+  mashqdan); test javoblarining shu mashqlarga tushgan ulushi 4,56 / 4,80 /
+  1,85 / 2,37 / 4,13 %, pooled **3,63 %**. (Grid qidiruv `None` qaytargan
+  kamdan-kam hol bu sanoqqa kirmaydi.)
+- **H1 voqealarida `suggested` ulushi:** 3 093 / 9 664 = **0,3201**
+  (butun namunada 0,2175).
 
 
 ---
