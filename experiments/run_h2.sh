@@ -19,6 +19,8 @@
 #   experiments/run_h2.sh junyi-quick | junyi-full | junyi-both
 #                                   # both hypotheses of D61, h1 then h3
 #   experiments/run_h2.sh bench-reselect
+#   experiments/run_h2.sh bench-reselect-parallel | bench-reselect-block
+#                                   # the same two parts of D63h, one at a time
 #                                   # D63h: deep_chain/100000 whole, then the
 #                                   # parallel phase of the other eight blocks
 #   experiments/run_h2.sh bench-quick | bench-full | bench-both
@@ -194,6 +196,19 @@ case "$MODE" in
     junyi-full)  CHAIN="run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
     junyi-both)  CHAIN="run h1-quick $H1 --quick $POOL && run h3-quick $H3 --quick $POOL \
                         && run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
+    bench-reselect-parallel|bench-reselect-block)
+        # D63h in two sittings: the eight parallel-only blocks (≈ 80 min) and
+        # the deep_chain/100000 block (≈ 3.8 h). A block is checkpointed only
+        # when it finishes, so the long one is run on its own rather than cut.
+        PY="${H4_PY:-venv/bin/python}"
+        WRAP="${H4_WRAP:-$PWD/scripts/dj5433.sh}"
+        if [[ "$MODE" == bench-reselect-parallel ]]; then
+            CHAIN="run bench-reselect-parallel $BENCH run_tree_benchmark --only-parallel --shapes course_like,random \
+                   && run bench-reselect-deep $BENCH run_tree_benchmark --only-parallel --shapes deep_chain --sizes 1000,10000"
+        else
+            CHAIN="run bench-reselect-block $BENCH run_tree_benchmark --shapes deep_chain --sizes 100000"
+        fi
+        ;;
     bench-reselect)
         # D63h: (a) the deep_chain/100000 block whole, then (b) the parallel
         # phase of the other eight blocks only — split in two calls so that
@@ -215,7 +230,7 @@ case "$MODE" in
                                 && run bench-full $BENCH run_tree_benchmark" ;;
         esac
         ;;
-    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both|bench-quick|bench-full|bench-both|bench-reselect}" >&2; exit 2 ;;
+    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both|bench-quick|bench-full|bench-both|bench-reselect|bench-reselect-parallel|bench-reselect-block}" >&2; exit 2 ;;
 esac
 
 LAUNCHER="${H2_LAUNCHER:-}"
