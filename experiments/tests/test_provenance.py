@@ -346,6 +346,26 @@ def test_the_bench_modes_run_the_django_command_as_a_script(tmp_path):
     assert "finished bench-quick (exit 0)" in log
 
 
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_reselect_mode_runs_the_three_calls_of_d63h(tmp_path):
+    """
+    D63h: deep_chain/100000 whole, then the parallel phase of the other eight
+    blocks in two calls, so that block's parallel phase is not run twice.
+    """
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "bench-reselect", fake, H4_PY=str(fake), H4_WRAP="")
+
+    logs = tmp_path / "logs"
+    block = (logs / "h2-bench-reselect-block.log").read_text()
+    rest = (logs / "h2-bench-reselect-parallel.log").read_text()
+    deep = (logs / "h2-bench-reselect-deep.log").read_text()
+    assert "run_tree_benchmark --shapes deep_chain --sizes 100000" in block
+    assert "--only-parallel" not in block
+    assert "--only-parallel --shapes course_like,random" in rest
+    assert "--only-parallel --shapes deep_chain --sizes 1000,10000" in deep
+    assert "finished bench-reselect-deep (exit 0)" in deep
+
+
 def test_the_bench_mode_uses_the_django_venv_and_the_wrapper():
     script = RUN_H2.read_text()
 

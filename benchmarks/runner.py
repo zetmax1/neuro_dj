@@ -720,9 +720,17 @@ def run(
     checkpoint: Checkpoint,
     quick: bool,
     statement_timeout: int = 0,
+    only_parallel: bool = False,
     log=print,
 ) -> dict:
-    """Every cell, the parallel phase, and the verdict."""
+    """
+    Every cell, the parallel phase, and the verdict.
+
+    ``only_parallel`` (D63h) skips the six measured operations and runs only
+    the parallel phase and its integrity checks — the part D63g's corrected
+    checker has to read again. The trees are still built and recorded, so the
+    block says what it ran on; the reading then has no cells and says so.
+    """
     budget = Budget(timeout=timeout)
     apply_statement_timeout(using, statement_timeout)
     cells: list[dict] = []
@@ -748,7 +756,7 @@ def run(
                 log(f"  {shape}/{size}: no usable target, skipped")
                 continue
 
-            block_cells = [
+            block_cells = [] if only_parallel else [
                 run_cell(
                     spec, operation, using=using, warmups=warmups, repeats=repeats,
                     budget=budget, seed=seed, target_list=target_list, log=log,
@@ -790,6 +798,7 @@ def run(
             "seed": seed,
             "read_tolerance": READ_TOLERANCE,
             "quick": quick,
+            "only_parallel": only_parallel,
             "rebuild_limit": integrity.REBUILD_LIMIT,
             "deep_recursion_limit": operations.DEEP_RECURSION_LIMIT,
             "worker_budget_kb": WORKER_BUDGET_KB,

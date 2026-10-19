@@ -18,6 +18,9 @@
 #                                   # D61, Junyi: experiments.h1 / experiments.h3
 #   experiments/run_h2.sh junyi-quick | junyi-full | junyi-both
 #                                   # both hypotheses of D61, h1 then h3
+#   experiments/run_h2.sh bench-reselect
+#                                   # D63h: deep_chain/100000 whole, then the
+#                                   # parallel phase of the other eight blocks
 #   experiments/run_h2.sh bench-quick | bench-full | bench-both
 #                                   # H4, stage 9 (D63): manage.py
 #                                   # run_tree_benchmark. A Django command, so
@@ -191,6 +194,16 @@ case "$MODE" in
     junyi-full)  CHAIN="run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
     junyi-both)  CHAIN="run h1-quick $H1 --quick $POOL && run h3-quick $H3 --quick $POOL \
                         && run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
+    bench-reselect)
+        # D63h: (a) the deep_chain/100000 block whole, then (b) the parallel
+        # phase of the other eight blocks only — split in two calls so that
+        # deep_chain/100000's parallel phase is not measured twice.
+        PY="${H4_PY:-venv/bin/python}"
+        WRAP="${H4_WRAP:-$PWD/scripts/dj5433.sh}"
+        CHAIN="run bench-reselect-block $BENCH run_tree_benchmark --shapes deep_chain --sizes 100000 \
+               && run bench-reselect-parallel $BENCH run_tree_benchmark --only-parallel --shapes course_like,random \
+               && run bench-reselect-deep $BENCH run_tree_benchmark --only-parallel --shapes deep_chain --sizes 1000,10000"
+        ;;
     bench-quick|bench-full|bench-both)
         # A Django command: the Django venv, through the 5433 wrapper (D63).
         PY="${H4_PY:-venv/bin/python}"
@@ -202,7 +215,7 @@ case "$MODE" in
                                 && run bench-full $BENCH run_tree_benchmark" ;;
         esac
         ;;
-    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both|bench-quick|bench-full|bench-both}" >&2; exit 2 ;;
+    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both|bench-quick|bench-full|bench-both|bench-reselect}" >&2; exit 2 ;;
 esac
 
 LAUNCHER="${H2_LAUNCHER:-}"

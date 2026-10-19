@@ -117,3 +117,32 @@ def test_the_development_tables_are_untouched_by_a_run(tmp_path):
     )
 
     assert Topic.objects.count() == before
+
+
+@pytest.mark.django_db(transaction=True, databases=["default", ALIAS])
+def test_only_parallel_runs_the_parallel_phase_and_nothing_else(tmp_path):
+    """
+    D63h: the selective re-measurement reads the parallel phases again with
+    D63g's checker, so the flag must skip the six operations, still run both
+    parallel variants and their checks, and leave a table that verifies.
+    """
+    from experiments import tables
+
+    out = tmp_path / "bench"
+    call_command(
+        "run_tree_benchmark", "--quick", "--no-checkpoint", "--only-parallel",
+        "--shapes", Shape.COURSE_LIKE, "--sizes", "100", "--parallel-workers", "2",
+        "--parallel-seconds", "1", "--parallel-repeats", "1", "--out", str(out),
+    )
+    document = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+    markdown = (out / "tables.md").read_text(encoding="utf-8")
+
+    assert document["cells"] == []
+    assert document["settings"]["only_parallel"] is True
+    assert {row["variant"] for row in document["parallel"]} == {"unlocked", "locked"}
+    assert all(row["integrity"] for row in document["parallel"] if row["status"] == "ok")
+    assert len(document["trees"]) == 2
+    assert document["reading"]["status"] == runner.NOT_COMPUTED
+    assert "--only-parallel" in document["provenance"]["command"]
+    assert tables.verify(markdown, document) == []
+    assert tables.verify_tree_benchmark_positions(markdown, document) == []

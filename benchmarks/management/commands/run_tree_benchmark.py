@@ -73,6 +73,13 @@ class Command(BaseCommand):
         parser.add_argument("--parallel-seconds", type=float, default=None)
         parser.add_argument("--parallel-repeats", type=int, default=3)
         parser.add_argument("--seed", type=int, default=20261006)
+        parser.add_argument(
+            "--only-parallel", action="store_true",
+            help=(
+                "Run only the parallel phase and its integrity checks (D63h): the "
+                "six measured operations are skipped, the trees are still built."
+            ),
+        )
         parser.add_argument("--checkpoint-dir", default=CHECKPOINTS)
         parser.add_argument("--no-checkpoint", action="store_true")
         parser.add_argument("--out", default=None)
@@ -129,6 +136,7 @@ class Command(BaseCommand):
                 "parallel_seconds": parallel_seconds,
                 "parallel_repeats": parallel_repeats,
                 "quick": bool(quick),
+                "only_parallel": bool(options["only_parallel"]),
             },
             enabled=bool(git_start.dirty is False and not options["no_checkpoint"]),
             log=self.stdout.write,
@@ -151,6 +159,7 @@ class Command(BaseCommand):
             checkpoint=checkpoint,
             quick=bool(quick),
             statement_timeout=statement_timeout,
+            only_parallel=bool(options["only_parallel"]),
             log=self.stdout.write,
         )
 
@@ -265,6 +274,8 @@ def _argv(options: dict) -> list[str]:
     out: list[str] = []
     if options["quick"]:
         out.append("--quick")
+    if options.get("only_parallel"):
+        out.append("--only-parallel")
     for name in ("database", "shapes", "sizes", "parallel_workers", "warmups",
                  "repeats", "timeout", "parallel_seconds", "parallel_repeats", "seed",
                  "memory_limit_gb", "statement_timeout"):
