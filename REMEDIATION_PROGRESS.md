@@ -3305,6 +3305,50 @@ Testlar: `test_the_posterior_is_clamped_once_p_l_has_rounded_to_one`
 tekshiriladi. `neuro_model` + 4-bo‘lim etalonlari + Django machine: 555 passed.
 
 
+## D66a — `submit_answer` ≤ 12: birlashtirishlar va darvozalar (foydalanuvchi qarori, 2026-10-20, koddan oldin)
+
+Faqat qulflar tartibi, tranzaksiya chegarasi va natijalarni o‘zgartirmaydigan
+birlashtirishlar. Kutilgan sonlar: oddiy javob 19 → 12, M o‘zgarishi
+20 → 12, `review_repeat` 11 → 8.
+
+| # | Birlashtirish | Turi | −SQL |
+|---|---|---|---|
+| 1 | choice + savol + mavzu va KB versiyasi bitta SELECT'da (versiya — skalyar subquery) | o‘qish | 1 |
+| 2 | D25 oynasi, `TopicModelParams`, ledger'dagi P(L) va `max(attempt_no)` — advisory lock'dan keyin, hech qanday yozuvdan oldin bitta SELECT'da (mavzu + Pre(w) bo‘yicha korrelyatsiyalangan subquery'lar) | o‘qish | 3 (review: 1) |
+| 3 | keyingi savol va uning variantlari bitta SELECT'da (variantlar JSON massiv subquery) | o‘qish | 1 |
+| 4 | θ va b_q yozuvlari bitta buyruqda (ma’lumot o‘zgartiruvchi CTE); ikkala qator oldin `FOR UPDATE` bilan qulflangan | yozuv | 1 |
+| 5 | ledger va history qatorlari bitta buyruqda (CTE, `ledger.py` ichida — yagona yozuvchi) | yozuv | 1 |
+| 6 | M o‘zgarganda javob berilgan holat qatori va vorislar bitta `UPDATE … CASE` da; vorislarning boshqa ustunlari joriy DB qiymatini saqlaydi (`ELSE <ustun>`), ya’ni eski qiymat yozilmaydi | yozuv | 1 (faqat M o‘zgarishida) |
+
+Ta’sirlangan jadvallar: `assessments_choice`/`question`/`curriculum_topic`
+(o‘qish), `curriculum_knowledgebaseversion` (o‘qish), `assessments_topicmodelparams`
+(o‘qish), `assessments_assessmentattempt` (o‘qish, INSERT), `assessments_userknowledgehistory`
+(INSERT), `assessments_userability` va `assessments_question` (UPDATE, avvalgidek
+`QuerySet.update` darajasida — model `save()` i ilgari ham chaqirilmas edi),
+`assessments_studenttopicstate` (UPDATE). Topic/KB tuzilmasiga yozilmaydi, KB
+guard'lari (`kb_write`) ishtirok etmaydi. `AssessmentAttempt.save()` faqat
+yangilashni taqiqlaydi; INSERT dagi cheklovlar (CHECK, FK) DB'da — xom
+INSERT'ga ham amal qiladi. Xom SQL faqat parametrlangan, har birida nega ORM
+emasligi izohi; ledger skan testiga xom `INSERT INTO assessments_assessmentattempt`
+qidiruvi qo‘shiladi.
+
+**Darvozalar** (birortasi o‘tmasa — o‘zgarish ishchi daraxtda bekor qilinadi,
+son 19 qoladi, sababi yoziladi):
+
+1. Oltin solishtirish: o‘zgarishdan **oldin** seed bilan stsenariy (≥ 200
+   javob: oddiy, M o‘zgaradigan, `review_repeat`, yopiq mavzuga 403, test
+   sessiyasi) ledger, history, holat va hisoblagichlar, θ, b_q va n_q, KB
+   versiyasi, test sessiyasi va har javobning DTO'sini eksport qiladi
+   (`assessments/tests/golden/answer_path.json`, commit qilinadi); o‘zgarishdan
+   keyin xuddi shu stsenariy maydonma-maydon teng (id va vaqt tamg‘alari
+   tartib raqami bilan almashtirilgan).
+2. 4-bo‘lim etalon testlari, Hypothesis machine'lari, parallel javob testlari,
+   `accounts`, butun backend suite.
+3. `verification/` faqat ishga tushiriladi: natija o‘zgarishdan oldingi bilan
+   bir xil.
+4. So‘rovlar soni testda qotiriladi (≤ 12).
+
+
 ## D69 — D48 ga zid birinchi Locust papkalari olib tashlanadi (2026-10-20)
 
 Foydalanuvchi qarori (10-bosqich, 2-qism, A1). `experiments/results/locust/20261020-070525`
