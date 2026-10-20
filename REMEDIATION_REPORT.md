@@ -588,7 +588,19 @@ Junyi (H1, H3): per-skill parametrlar `metrics.json` da saqlanmagan (`folds[].pa
 
 ## 7. Tugallanganlik mezoni (spetsifikatsiya 6-bo‘lim)
 
-<!-- completion -->
+| Mezon | Bajarildimi | Dalil |
+|---|---|---|
+| 4-bo‘limdagi barcha etalon testlar o‘tadi | **ha** | `neuro_model/tests`, `assessments/tests/test_student_model.py`, `test_readiness.py`, `test_trajectory.py` — backend suite'ida (CI ekvivalenti: 1 262 passed, 0 failed; asosiy repoda 1 273 passed) |
+| Toza muhit: lock fayllardan yangi venv'lar, yangi test bazasi | **ha** | Scratchpad'da `git clone` (`c7a6037`), uv'ning Python 3.12.3 i bilan `venv` (`requirements.lock`) va `experiments/.venv` (`experiments/requirements.lock`, CPU torch) — ikkalasida `pip check`: “No broken requirements”; yangi bazalar `neurolearn_clean`, `neurolearn_clean_bench` (migratsiya), `neurolearn_ci` (test bazasi `test_neurolearn_ci`) |
+| `experiments/run_all.py --quick` xatosiz | **ha** | rc=0 (assist09, 24 daq) va `--dataset junyi --quick` rc=0 (18 daq); natijalar toza klonda, provenance toza, D54 ogohlantirishi yo‘q. Ma’lumot `NEUROLEARN_DATA` orqali (repoda yo‘q, D49) |
+| `manage.py run_tree_benchmark --quick` xatosiz | **ha** | rc=0 (3,5 daq), `neurolearn_clean_bench` da |
+| CI ikkala repoda yashil | **lokal ekvivalent yashil; masofada ishga tushirilmadi** (push yo‘q) | Backend (`.github/workflows/ci.yml` qadamlari, `f7626ae` ning toza kloni, CI muhit o‘zgaruvchilari): `check` toza, `makemigrations --check` — “No changes detected”, `coverage run -m pytest`: 1 262 passed, 67 skipped (ma’lumot fayllari yo‘q — CI'dagi kabi), coverage umumiy 90 % (≥ 80), `neuro_model` 99 % (≥ 95), servislar 97 % (≥ 85). Frontend (`ci.yml`: `npm ci`, lint, `tsc --noEmit -p tsconfig.app.json`, `vitest run`, build; `5251c45` ning toza kloni): hammasi rc=0 — lint 0 error (8 ogohlantirish), tsc 0, vitest 90/90, build (> 500 kB chunk ogohlantirishi). Farq: lokal Node 22.22.1, CI'da 20 |
+| “Kechiktirildi” qatorlarining hammasida sabab bor | **ha** | 4 qator (DBE-KT22, annotatsiya — D61; D26 va LLM dizayni — D26), har birida sabab; 9 ta “Qisman” ham sababi bilan (2.1) |
+
+`run_all`/`run_tree_benchmark` yugurishlari `c7a6037` dan; undan keyingi
+commit'lar faqat hujjatlar, `experiments/report_values.py` va testlar — bu
+ikki buyruq ishlatadigan kodga tegmaydi.
+
 
 ---
 

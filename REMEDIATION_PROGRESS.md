@@ -3432,6 +3432,111 @@ sonlari QADAM 12 da saqlanib qolgan.
 
 ---
 
+## QADAM 13 — 10-bosqich, 2-qism: D65a, D66a, D68a, D69, yakuniy hisobot (2026-10-20)
+
+Har bir qaror natijadan oldin alohida commit'da (yuqoridagi D65a, D66a, D68a,
+D69 bo‘limlari). Ish bir marta to‘xtatildi: D65a sanog‘i 0 emas edi (1 177 /
+370), foydalanuvchi clamp'ni qabul qildi va davom ettirildi.
+
+### Commit'lar
+
+| Commit | Nima |
+|---|---|
+| `998a1b0`, `6b6ee3a` | D65a protokoli va birinchi sanash (to‘xtash) |
+| `dda822b` | D69: `locust/20261020-070525`, `…070827` `git rm` |
+| `5a2d865`, `949febb` | D65a qarori; `bkt.posterior` clamp + bit-aniq tekshiruv |
+| `50624d2` | D66a rejasi va darvozalari |
+| `206dad2` | Oltin eksport (o‘zgarishdan oldin) |
+| `eae1025` | D66a: 12 / 12 / 8 SQL |
+| `8f58a42` | D68a: gunicorn, W = 8, tinch mashina sharti |
+| `c7a6037` | Locust asosiy natija (gunicorn) |
+| `9086d4f` | `docs/THESIS_MAPPING.md` yakuni (C) |
+| `f7626ae` | `REMEDIATION_REPORT.md`, `report_values.py`, matritsa (B) |
+
+### A — qarorlar va natijalar
+
+- **D69.** Ikki papka olib tashlandi; tarixda `f41bfb0`, `98f7b5f`.
+- **D65a.** Clamp qo‘llandi. H2 (D55 checkpoint parametrlari, fit'siz): BKT
+  1 177, BKT+IRT 370 marta ishlaydi; 338 001 × 2 bashorat va 1 744 901 × 2
+  P(L)′ eski kod bilan bit-aniq teng (`assert`); manfiy posterior 0, max
+  |ΔP(L)′| = 0. Junyi — analitik chegara, qayta ishga tushirish shart emas. F6.
+- **D66a.** Oddiy javob 19 → **12**, M o‘zgarishi 20 → **12**,
+  `review_repeat` 11 → **8** (byudjet testda qat’iy). Darvozalar: oltin
+  eksport (241 javob) maydonma-maydon teng; backend 1 273 passed;
+  verification 826 / 5 — o‘zgarishdan oldingi bilan aynan bir xil; xom SQL
+  ikkita, literal va parametrlangan, modelga qarshi test bilan.
+- **D68a.** `gunicorn==26.2.0`. W = min(8, ⌊(6 GB − 2 GB)/124 MB⌋) = 8.
+  Shartlar: MemAvailable 7 526 MB, swap 0 MB ishlatilgan, 2 s `top` namunasida
+  ≥ 10 % CPU jarayon yo‘q (`busy_before = []`).
+
+| Endpoint | So‘rovlar | Xato ulushi | p50, ms | p95, ms | RPS |
+|---|---|---|---|---|---|
+| next_question | 3 902 | 0 | 120 | 190 | 32,689 |
+| submit_answer | 3 868 | 0 | 140 | 210 | 32,404 |
+| trajectory | 3 942 | 0 | 190 | 280 | 33,024 |
+| jami | 11 812 | 0 | 150 | 250 | 98,954 |
+
+V-F2 (p95 < 300 ms) bajarildi. Qo‘shimcha (runserver): 50 foydalanuvchida
+p95 (jami) 6 300 ms, 13,902 RPS; 5 foydalanuvchida 300 ms.
+
+### B — `REMEDIATION_REPORT.md`
+
+Bo‘limlar: holat, yakuniy matritsa (226 / 9 / 4, sabablari bilan), qayta hosil
+qilish (13 natija: commit, buyruq), qolgan xavflar (11), cheklovlar,
+dissertatsiya qiymatlari (H2, D55, D60, H1, H3, H4, Locust asosiy va
+qo‘shimcha, ASSISTments parametrlari taqsimoti; Junyi parametrlari
+saqlanmagan), tugallanganlik mezoni, verification xatolari.
+`report_values --check`: **177 son, 9 bo‘lim, 0 farq**; qo‘lda o‘zgartirilgan
+son ushlanadi (test).
+
+### C — `docs/THESIS_MAPPING.md`
+
+10.1: Algoritm 2.1–2.5, formulalar, 2.5-tasdiq, Y1–Y4, TY5/TY6, V-F1, V-F2 →
+fayl:funksiya → test. 2.1–2.4 va 2.6-tasdiqlar raqam bo‘yicha xaritalanmadi —
+II bob matni repoda yo‘q. 10.2: gipotezalar yakuniy holati. F1–F6.
+
+### D — tugallanganlik mezoni
+
+| Mezon | Bajarildimi | Dalil |
+|---|---|---|
+| 4-bo‘limdagi barcha etalon testlar o‘tadi | **ha** | `neuro_model/tests`, `assessments/tests/test_student_model.py`, `test_readiness.py`, `test_trajectory.py` — backend suite'ida (CI ekvivalenti: 1 262 passed, 0 failed; asosiy repoda 1 273 passed) |
+| Toza muhit: lock fayllardan yangi venv'lar, yangi test bazasi | **ha** | Scratchpad'da `git clone` (`c7a6037`), uv'ning Python 3.12.3 i bilan `venv` (`requirements.lock`) va `experiments/.venv` (`experiments/requirements.lock`, CPU torch) — ikkalasida `pip check`: “No broken requirements”; yangi bazalar `neurolearn_clean`, `neurolearn_clean_bench` (migratsiya), `neurolearn_ci` (test bazasi `test_neurolearn_ci`) |
+| `experiments/run_all.py --quick` xatosiz | **ha** | rc=0 (assist09, 24 daq) va `--dataset junyi --quick` rc=0 (18 daq); natijalar toza klonda, provenance toza, D54 ogohlantirishi yo‘q. Ma’lumot `NEUROLEARN_DATA` orqali (repoda yo‘q, D49) |
+| `manage.py run_tree_benchmark --quick` xatosiz | **ha** | rc=0 (3,5 daq), `neurolearn_clean_bench` da |
+| CI ikkala repoda yashil | **lokal ekvivalent yashil; masofada ishga tushirilmadi** (push yo‘q) | Backend (`.github/workflows/ci.yml` qadamlari, `f7626ae` ning toza kloni, CI muhit o‘zgaruvchilari): `check` toza, `makemigrations --check` — “No changes detected”, `coverage run -m pytest`: 1 262 passed, 67 skipped (ma’lumot fayllari yo‘q — CI'dagi kabi), coverage umumiy 90 % (≥ 80), `neuro_model` 99 % (≥ 95), servislar 97 % (≥ 85). Frontend (`ci.yml`: `npm ci`, lint, `tsc --noEmit -p tsconfig.app.json`, `vitest run`, build; `5251c45` ning toza kloni): hammasi rc=0 — lint 0 error (8 ogohlantirish), tsc 0, vitest 90/90, build (> 500 kB chunk ogohlantirishi). Farq: lokal Node 22.22.1, CI'da 20 |
+| “Kechiktirildi” qatorlarining hammasida sabab bor | **ha** | 4 qator (DBE-KT22, annotatsiya — D61; D26 va LLM dizayni — D26), har birida sabab; 9 ta “Qisman” ham sababi bilan (2.1) |
+
+`run_all`/`run_tree_benchmark` yugurishlari `c7a6037` dan; undan keyingi
+commit'lar faqat hujjatlar, `experiments/report_values.py` va testlar — bu
+ikki buyruq ishlatadigan kodga tegmaydi.
+
+### E — `verification/`
+
+825 passed, 6 failed (D66a darvozasidagi 826 / 5 dan farq — faqat 8-bosqich
+qatorining eskirgan “Kutilmoqda” dan tuzatilishi). Jadval —
+`REMEDIATION_REPORT.md` 8-bo‘lim: bitta mezon ziddiyati (generatsiya
+qilingan benchmark natijalarida `sources` yo‘q) va beshta N/A signali
+(8, 9, 10-bosqichlar, `run_all`, `run_tree_benchmark`). Hammasi tekshiruvchiniki.
+
+### Testlar
+
+| Suite | Natija |
+|---|---|
+| Backend, asosiy repo (D66a darvozasi, `eae1025`) | 1 273 passed, 51 skipped, 13 subtests, 0 failed |
+| Backend, CI ekvivalenti (`f7626ae`, toza klon, ma’lumotsiz) | 1 262 passed, 67 skipped, 13 subtests, 0 failed |
+| `experiments/.venv` — `experiments/tests` (ma’lumot bilan) | 409 passed, 2 skipped, 0 failed (QADAM 12 dagi 1 xato D69 bilan yo‘qoldi) |
+| `benchmarks/tests` | 90 (88 + 2: tinch mashina sharti, gunicorn buyrug‘i) — CI ekvivalenti ichida |
+| `verification/tests` | 825 passed, 6 failed (E) |
+| Frontend (CI ekvivalenti) | lint 0 error, tsc 0, vitest 90/90, build |
+| `manage.py check`, `makemigrations --check` | toza, “No changes detected” |
+
+Yangi testlar (QADAM 13): `test_answer_path_golden.py` (1), `test_ledger.py::test_raw_sql_names_the_models_columns_and_tables` (1),
+`test_student.py::test_the_posterior_is_clamped_once_p_l_has_rounded_to_one` (1),
+`test_load_test.py` (2), `experiments/tests/test_report_values.py` (3).
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
