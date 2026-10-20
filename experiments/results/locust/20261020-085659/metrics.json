@@ -1,0 +1,250 @@
+{
+  "run": {
+    "users": 5,
+    "spawn_rate": 5.0,
+    "duration_s": 120,
+    "wall_s": 120.4,
+    "locust_exit_code": 0,
+    "server": "django runserver (threaded, one process, --noreload)",
+    "debug": false,
+    "cache": "Redis (redis://127.0.0.1:6380/3)",
+    "db_conn_max_age": 0,
+    "login_throttle": "100000/minute",
+    "database": "neurolearn_locust",
+    "database_created_now": false,
+    "course": {
+      "course": 1,
+      "topics": 500,
+      "prerequisites": 1500,
+      "questions": 5000,
+      "learners": 5
+    },
+    "flow": "login → next_question → submit_answer → trajectory (benchmarks/locustfile.py)",
+    "correct_rate": 0.75
+  },
+  "endpoints": {
+    "csrf": {
+      "requests": 5,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 23.0,
+      "p95_ms": 29.0,
+      "mean_ms": 23.50017679998473,
+      "max_ms": 29.25774300001649,
+      "rps": 0.04200532070092878
+    },
+    "login": {
+      "requests": 5,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 620.0,
+      "p95_ms": 630.0,
+      "mean_ms": 620.9452087999921,
+      "max_ms": 634.51784800003,
+      "rps": 0.04200532070092878
+    },
+    "next_question": {
+      "requests": 387,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 120.0,
+      "p95_ms": 240.0,
+      "mean_ms": 129.67356768733995,
+      "max_ms": 364.04968699997653,
+      "rps": 3.2512118222518875
+    },
+    "submit_answer": {
+      "requests": 384,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 170.0,
+      "p95_ms": 310.0,
+      "mean_ms": 193.80539787499984,
+      "max_ms": 511.9935520000354,
+      "rps": 3.22600862983133
+    },
+    "trajectory": {
+      "requests": 392,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 170.0,
+      "p95_ms": 310.0,
+      "mean_ms": 192.85407968622187,
+      "max_ms": 1095.6918339999788,
+      "rps": 3.293217142952816
+    },
+    "Aggregated": {
+      "requests": 1173,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 150.0,
+      "p95_ms": 300.0,
+      "mean_ms": 173.42367403580556,
+      "max_ms": 1095.6918339999788,
+      "rps": 9.854448236437891
+    }
+  },
+  "v_f2_target_ms": 300,
+  "locust_rounding_above_ms": 100,
+  "v_f2": {
+    "submit_answer": "p95 310 ms — mo‘ljaldan yuqori",
+    "trajectory": "p95 310 ms — mo‘ljaldan yuqori",
+    "next_question": "p95 240 ms — mo‘ljal ichida"
+  },
+  "server_statuses": [
+    {
+      "status": 200,
+      "count": 1175
+    },
+    {
+      "status": 404,
+      "count": 3
+    }
+  ],
+  "environment": {
+    "postgres": {
+      "vendor": "postgresql",
+      "version": "16.15 (Debian 16.15-1.pgdg13+2)",
+      "shared_buffers": "128MB",
+      "fsync": "on",
+      "synchronous_commit": "on",
+      "max_connections": "100",
+      "database": "neurolearn"
+    },
+    "cpu": {
+      "model": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+      "logical_cores": 16,
+      "governors": [
+        "powersave"
+      ],
+      "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43"
+    },
+    "memory": {
+      "total_kb": 15615888,
+      "available_kb": 7818644
+    },
+    "load": {
+      "load_1m": 3.18,
+      "load_5m": 2.01,
+      "load_15m": 0.89
+    },
+    "busiest_processes": [
+      {
+        "cpu_percent": 255.0,
+        "command": "python"
+      },
+      {
+        "cpu_percent": 31.0,
+        "command": "chrome"
+      },
+      {
+        "cpu_percent": 20.9,
+        "command": "antigravity-ide"
+      },
+      {
+        "cpu_percent": 18.6,
+        "command": "gnome-shell"
+      },
+      {
+        "cpu_percent": 16.8,
+        "command": "chrome"
+      }
+    ],
+    "note": "vaqt o‘lchovlari mashinaga bog‘liq; nisbat (ρ) va uning oralig‘i mashinadan kam bog‘liq, shuning uchun da’vo ular ustiga qurilgan",
+    "memory_before": {
+      "MemTotal": 15249,
+      "MemAvailable": 7710,
+      "SwapTotal": 4095,
+      "SwapFree": 4095
+    },
+    "memory_at_load_start": {
+      "MemTotal": 15249,
+      "MemAvailable": 7634,
+      "SwapTotal": 4095,
+      "SwapFree": 4095
+    },
+    "memory_during": {
+      "samples": 25,
+      "min_mem_available_mb": 7561,
+      "min_swap_free_mb": 4095
+    },
+    "at_end": {
+      "memory": {
+        "total_kb": 15615888,
+        "available_kb": 8172676
+      },
+      "load": {
+        "load_1m": 2.1,
+        "load_5m": 1.94,
+        "load_15m": 1.0
+      },
+      "busiest_processes": [
+        {
+          "cpu_percent": 18.0,
+          "command": "antigravity-ide"
+        },
+        {
+          "cpu_percent": 17.1,
+          "command": "gnome-shell"
+        },
+        {
+          "cpu_percent": 13.7,
+          "command": "antigravity-ide"
+        },
+        {
+          "cpu_percent": 12.5,
+          "command": "chrome"
+        },
+        {
+          "cpu_percent": 10.9,
+          "command": "jetbrains-toolb"
+        }
+      ]
+    }
+  },
+  "provenance": {
+    "command": "load_test.py --users 5",
+    "code_commit": "e836b2f",
+    "code_dirty": false,
+    "created_at": "2026-10-20T08:59:03.962255+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "seed_load_test": 20261020
+    },
+    "sources": [
+      {
+        "name": "locustfile",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/benchmarks/locustfile.py",
+        "sha256": "cfb037e30640a4d372e716785e417e54f1b34dbf0022595c9c814dc39a5da85f",
+        "bytes": 4455
+      },
+      {
+        "name": "seed_load_test",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/benchmarks/management/commands/seed_load_test.py",
+        "sha256": "fcfabfd4c8928e774086b44fd69b71f3ced1af4f7e5d4026510a2d2920b860bc",
+        "bytes": 7365
+      }
+    ],
+    "packages": {},
+    "env": {},
+    "git_start": {
+      "commit": "e836b2f",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-20T08:56:58.019444+00:00",
+      "untracked_results": []
+    },
+    "git_end": {
+      "commit": "e836b2f",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-20T08:59:03.962227+00:00",
+      "untracked_results": [
+        "?? experiments/results/locust/20261020-085659/"
+      ]
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  }
+}
