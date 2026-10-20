@@ -1,7 +1,7 @@
 # NeuroLearn — tuzatish va II bob modelini amalga oshirish: yakuniy hisobot (REMEDIATION_REPORT)
 
 Spetsifikatsiya: `NEUROLEARN_REMEDIATION.md` (10-bosqich, 6-bo‘lim). Audit:
-`NEUROLEARN_AUDIT.md`. Jarayon jurnali, har bir qaror (D1–D69) va har bir
+`NEUROLEARN_AUDIT.md`. Jarayon jurnali, har bir qaror (D1–D71) va har bir
 QADAM: `REMEDIATION_PROGRESS.md`. II bob ↔ kod ↔ test: `docs/THESIS_MAPPING.md`.
 
 Repozitoriylar va branch: backend `~/Desktop/neuro_dj`, frontend
@@ -395,6 +395,8 @@ orqali (`config/.env` ochilmaydi).
 | `assist09-frozen/20261012-063439` (D60) | `244f046` | ha | `experiments/.venv/bin/python -m experiments.h2_frozen --reference experiments/results/assist09/20261010-060005 --workers 4` |
 | `junyi-h1/20261019-102526` (H1) | `2500c77` | ha | `experiments/.venv/bin/python -m experiments.h1 --workers 5` |
 | `junyi-h3/20261019-122423` (H3) | `2500c77` | boshida commit qilinmagan H1 papkasi bor edi (D64 bilan qabul qilingan) | `experiments/.venv/bin/python -m experiments.h3 --workers 5` |
+| `junyi-h1-posthoc/20261020-180934` (D71, post-hoc) | `c1ad4a9` | ha | `experiments/.venv/bin/python -m experiments.d71 --workers 5` (bitta buyruq ikkala papkani yozadi) |
+| `junyi-h3-lambda/20261020-180934` (D71, post-hoc) | `c1ad4a9` | ha | o‘sha |
 | `graphs/20261006-052348` (D52) | `c1a683b` | ha | `experiments/.venv/bin/python -m experiments.graph_report` |
 | `tree-benchmark/20261016-093916` (H4) | `b8d6b3a` | ha | `scripts/dj5433.sh venv/bin/python manage.py run_tree_benchmark --database benchmark --shapes course_like,deep_chain,random --warmups 5 --repeats 30 --timeout 120.0 --parallel-repeats 3 --seed 20261006 --memory-limit-gb 8.0` |
 | `tree-benchmark/20261019-161430` (D63h) | `9f97aa7` | ha | o‘sha, `--only-parallel --shapes course_like,random` |
@@ -423,6 +425,13 @@ Tekshiruvlar (natija emas): `experiments/.venv/bin/python -m experiments.clamp_c
 3. **H1 va H3 qo‘llab-quvvatlanmadi / aniqlanmadi.** Junyi platformasi mashqni
    prerekvizitlardan keyin tavsiya qiladi (`suggested`), shuning uchun
    graf ta’sirining bir qismi platforma yo‘naltirishidan bo‘lishi mumkin (D62a).
+   **D71 (post-hoc, tavsifiy; hukmlar o‘zgarmaydi):** H1 da o‘tish bali bilan
+   taqqoslash teng qamrovda emas edi (javobsiz prerekvizit r = 0 ⇒ τ = 0);
+   barcha prerekvizitlari ishlangan voqealarda ehtimoliy qoida o‘tish bali va
+   `earned_proficiency` dan farq qilmaydi, r_s(w) ning AUC'i tasodifiyga yaqin.
+   H3 da asl graf bilan AUC λ oshgan sari kamayadi, eng yuqorisi λ = 0 da.
+   Jadvallar — `junyi-h1-posthoc/20261020-180934` va `junyi-h3-lambda/20261020-180934`
+   ning `tables.md` sida.
 4. **Junyi parametrlari saqlanmagan** — taqsimotni berib bo‘lmaydi, D65a
    bo‘yicha qayta o‘ynalmadi (analitik chegara bilan).
 5. **P(L) = 1.0 yutuvchi holat** (D65a): 1 − ε chegarasi qo‘shilmadi;
@@ -435,8 +444,9 @@ Tekshiruvlar (natija emas): `experiments/.venv/bin/python -m experiments.clamp_c
    o‘zgarsa qo‘lda yangilanadi (`test_raw_sql_names_the_models_columns_and_tables`
    yiqiladi).
 8. **CI masofada ishga tushirilmagan** (push yo‘q) — lokal ekvivalent 7-bo‘limda.
-9. **`verification/`** dagi xatolar tekshiruvchining signallari va mezon
-   ziddiyati (8-bo‘lim); `verification/` ga tegilmadi.
+9. **`verification/`** — tekshiruvchining yakuniy hisoboti (`85ac91e`) ikki
+   nuqson topdi, ikkalasi tuzatildi (N-1, N-2; 8-bo‘lim); uning bu tuzatishlarga
+   bog‘liq testlarini yangilash tekshiruvchining ishi.
 10. **Root `.env` dagi token** bekor qilinishi foydalanuvchiga bog‘liq.
 11. Frontend: 850 kB chunk, skrinshotlar, profil o‘chirish UI'si (2.1).
 
@@ -606,26 +616,33 @@ ikki buyruq ishlatadigan kodga tegmaydi.
 
 ---
 
-## 8. `verification/` dagi xatolar
+## 8. `verification/` — tekshiruvchining yakuniy hisoboti va undan keyin
 
 `verification/` ga tegilmadi; faqat ishga tushirildi
-(`scripts/dj5433.sh venv/bin/python -m pytest --ds=verification.settings verification/tests`):
-D70 dan keyin **824 passed, 6 failed, 1 error** (D70 dan oldin 825 / 6). Hammasini
-tuzatish — tekshiruvchining ishi.
+(`scripts/dj5433.sh venv/bin/python -m pytest --ds=verification.settings verification/tests`).
 
-| Test | Sababi | Kim tuzatadi |
+**Tekshiruvchining sonlari** (`verification/REPORT.md`, `85ac91e`): oldingi
+7 ta xatoni (N/A signallari, D48 mezoni, D70 fixture'i) tekshiruvchi yopdi;
+`verification/tests` **936 passed, 1 failed, 1 xfailed**, `verification/neural`
+62 passed, 3 skipped. Ikki nuqson:
+
+| Nuqson | Holat | Tuzatish |
 |---|---|---|
-| `test_e_experiments.py::test_d48_every_result_has_sha256_commit_seed_and_command` | `tree-benchmark/*` (4 ta) va `tree-benchmark-quick/20261012-131931` da `provenance.sources` bo‘sh: daraxtlar seed'dan generatsiya qilinadi, kirish fayli yo‘q. Mezon (“har natijada manba sha256”) generatsiya qilingan benchmark uchun ziddiyatli; Locust natijalarida manba sifatida yuk fayllari yozilgan | Tekshiruvchi: generatsiya qilingan natijalar uchun mezonni aniqlash (seed + generator kodi yetarlimi). Commit qilingan natijalarga tegilmaydi |
-| `test_b2_rejections.py::test_v_b2_adding_a_topic_that_closes_a_cycle_is_rejected` (ERROR, setup) | Fixture `empty_sections` bo‘sh bo‘limlar orasida A → B → C → A relatsiya halqasini quradi, ya’ni aynan D70 taqiqlagan yashirin siklga tayanadi; uchinchi relatsiya endi `cycle` bilan rad etiladi. Testning maqsadi (topic qo‘shish G_L siklini yopsa rad etiladi) kodda hamon bajariladi — masalan, A → B va b1 → A dan keyin A ga topic qo‘shish | Tekshiruvchi: fixture'ni tugunlar grafida siklsiz holatga (yuqoridagi kabi) almashtirish |
-| `test_na.py::test_pending_stages[8]` | N/A signali: 8-bosqich qatori “Kutilmoqda” emas — u eskirgan edi, QADAM 13 da “Bajarildi” ga tuzatildi (8a, 8b-1…8b-3) | Tekshiruvchi: signalni olib tashlab, E guruhini qayta tekshirish |
-| `test_na.py::test_pending_stages[9]` | N/A signali: 9-bosqich bajarildi (H4) | Tekshiruvchi: H guruhini yozish |
-| `test_na.py::test_pending_stages[10]` | N/A signali: 10-bosqich bajarildi | Tekshiruvchi: F guruhini (V-F1, V-F2) yozish |
-| `test_na.py::test_na_group_e_pipeline_run_all_is_not_implemented` | N/A signali: `experiments/run_all.py` mavjud (8b-3) | Tekshiruvchi: V-E4 ni haqiqiy tekshiruv bilan almashtirish |
-| `test_na.py::test_na_group_h_benchmark_command_is_not_implemented` | N/A signali: `run_tree_benchmark` mavjud (9) | Tekshiruvchi: V-H1 ni yozish |
+| N-1 (V-E3): pyKT eksporti 5 qator yozadi, pyKT 0.0.38 `read_data` 6 qator o‘qiydi | **tuzatildi** (`cdd8826`) | oltinchi qator `NA`; test eksportni pyKT'ning o‘z o‘quvchisi bilan o‘qiydi |
+| N-2 (V-H1): `measurements.csv` da mediana, p95, SQL soni, o‘zgargan qatorlar yo‘q | **tuzatildi** (`3ed55e9`) | to‘rt ustun; per-takror SQL soni va o‘zgargan qatorlar saqlanadi |
 
-Shuningdek `test_na_group_f_performance_is_still_unmeasured` o‘tadi, chunki u
-`verification/tests/test_f_performance.py` yo‘qligini tekshiradi; V-F1 va V-F2
-endi o‘lchangan (6-bo‘lim, `test_query_budget.py`) — bu faylni tekshiruvchi yozadi.
-D66a darvozasida verification o‘zgarishdan oldin va keyin bir xil edi (826 / 5);
-825 / 6 ga o‘tish faqat 8-bosqich qatorining tuzatilishidan.
+**Tuzatishlardan keyin** (shu sessiyada ishga tushirildi, D71 natijalaridan keyin):
+`verification/tests` **934 passed, 3 failed, 1 xfailed**. V-E3 testi endi o‘tadi.
+Uchala FAIL — tekshiruvchining yordamchi funksiyasi `_pykt_blocks`
+(`verification/tests/test_e_consent_export.py:105`, “a pyKT block is five lines”):
+u N-1 dan oldingi 5 qatorli formatni taxmin qiladi — N-1 ning kutilgan oqibati
+(`test_v_e1_the_only_learner_identifier_is_the_pseudonym`,
+`test_v_e2_sources_and_archived_topic_in_every_file`,
+`test_v_e2_counts_agree_across_the_files`). N-2 ning strict xfail testi hamon
+xfail: u commit qilingan eski `tree-benchmark-quick/20261012-131931` CSV'sini
+o‘qiydi, commit qilingan natijalar esa qayta yozilmaydi — yangi `--quick`
+natijasi paydo bo‘lgandagina XPASS bo‘ladi. Bularni yangilash — tekshiruvchining ishi.
 
+Qolgan suite'lar (o‘sha holatda): backend **1 298 passed**, 51 skipped,
+13 subtests, 0 failed; `experiments/.venv` — `experiments/tests` **415 passed**,
+2 skipped; `report_values --check` — 177 son, 0 farq.

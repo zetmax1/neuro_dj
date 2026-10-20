@@ -322,13 +322,22 @@ xatosi bo‘lib chiqardi.
 
 | Gipoteza | Natija papkasi | Holat |
 |---|---|---|
-| H1 — ehtimoliy tayyorlik qoidasi boshqa qoidalardan yaxshiroq (Junyi) | `junyi-h1/20261019-102526` | **qo‘llab-quvvatlanmadi** (bajarilganlik bilan farq aniqlanmadi, o‘tish bali qoidasi yaxshiroq) |
+| H1 — ehtimoliy tayyorlik qoidasi boshqa qoidalardan yaxshiroq (Junyi) | `junyi-h1/20261019-102526`; post-hoc: `junyi-h1-posthoc/20261020-180934` (D71) | **qo‘llab-quvvatlanmadi** (bajarilganlik bilan farq aniqlanmadi, o‘tish bali qoidasi yaxshiroq). D71 (post-hoc, tavsifiy, hukm o‘zgarmaydi): o‘tish bali bilan taqqoslash teng qamrovda emas edi (τ = 0); barcha prerekvizitlari ishlangan voqealarda teng qamrovdagi farqlar nolni kesadi, r_s(w) AUC'i tasodifiyga yaqin |
 | H2 — BKT+IRT BKT dan yaxshi (D53) va DKT bilan taqqoslanadigan (D56), ASSISTments 2009 | `assist09/20261010-060005` | **ikkala kontrast bajarildi**: +0,016 [0,016; 0,017]; −0,003 [−0,005; −0,001] ≥ −0,01. D55 (uch chegara) va D60 (muzlatilgan b) da mustahkam. Elo/Rasch hammadan yuqori (0,762) — cheklov sifatida |
-| H3 — haqiqiy graf nazoratlardan yaxshiroq (BKT+IRT+Pre, Junyi) | `junyi-h3/20261019-122423` | **k = 3 aniqlanmadi, k = 5 qo‘llab-quvvatlanmadi** (tasodifiy grafdan yaxshi, teskari bilan farq aniqlanmadi, grafsizdan yomonroq) |
+| H3 — haqiqiy graf nazoratlardan yaxshiroq (BKT+IRT+Pre, Junyi) | `junyi-h3/20261019-122423`; post-hoc: `junyi-h3-lambda/20261020-180934` (D71) | **k = 3 aniqlanmadi, k = 5 qo‘llab-quvvatlanmadi** (tasodifiy grafdan yaxshi, teskari bilan farq aniqlanmadi, grafsizdan yomonroq). D71 (post-hoc, tavsifiy): asl graf bilan dastlabki k AUC λ oshgan sari kamayadi — eng yuqorisi λ = 0 (grafsiz), II bobning λ = 0,5 i undan past |
 | H4 — CTE MPTT dan yozishda tezroq, o‘qishda ≤ 1,5× sekin, parallel yozishda yaxlit | `tree-benchmark/20261016-093916` + D63h | **qo‘llab-quvvatlanmadi** (chuqur zanjirda yozish, deyarli hamma o‘qish kataklari); qulfli yo‘lda ikkala usul yaxlit |
 | V-F2 — lokal p95 < 300 ms (500 mavzu, 1 500 prerekvizit) | `locust/20261020-100901` | **bajarildi** gunicorn 8 worker, 50 foydalanuvchi: p95 190 / 210 / 280 ms (`next_question` / `submit_answer` / `trajectory`); bitta `runserver` jarayonida bajarilmagan (qo‘shimcha) |
 
 Barcha sonlar `REMEDIATION_REPORT.md` dagi `experiments/report_values.py` blokida `metrics.json` dan olinadi va `--check` bilan tekshiriladi.
+
+**D71 — post-hoc, tavsifiy tahlillar** (`experiments/d71.py`; qaror `REMEDIATION_PROGRESS.md` D71, natijalar QADAM 15). H1/H3 bilan bir xil ma’lumot, namuna, split va fit; asl run'larni takrorlash darvozasi (15/15) o‘tgan. Yangi natijalarda o‘qish qoidasi va hukm yo‘q — D61/D62 hukmlari o‘zgarmaydi.
+
+| Tahlil | Natija papkasi | Kod (fayl:funksiya) | Test |
+|---|---|---|---|
+| H1 (i): barcha prerekvizitlari ishlangan voqealar S — qoidalar, teng qamrovdagi farqlar [95 % CI], S da r_s(w) AUC | `junyi-h1-posthoc/20261020-180934` | `experiments/d71.py:subset_rules`, `subset_equal_coverage`, `h1_part` | `experiments/tests/test_d71.py` |
+| H1 (ii): r_s(w) bo‘yicha xato–qamrov egri chizig‘i va boshqa qoidalar nuqtalari | o‘sha | `experiments/d71.py:curve` | `test_d71.py::test_both_directories_are_written_verified_and_marked_post_hoc` |
+| H3: asl graf, λ ∈ {0; 0,1; 0,25; 0,5; 0,75; 1} bo‘yicha dastlabki k ∈ {3, 5} AUC [95 % CI] | `junyi-h3-lambda/20261020-180934` | `experiments/d71.py:h3_part` | `test_d71.py` |
+| Takrorlash darvozasi va fit checkpoint'i | ikkala papkada `reproduction_gate`, `checkpoint` | `experiments/d71.py:gate`, `fit`, `fit_checkpoint` | `test_d71.py::test_the_gate_stops_a_run_that_does_not_reproduce_h1`, `::test_a_finished_fold_is_read_back_from_the_checkpoint` |
 
 ---
 

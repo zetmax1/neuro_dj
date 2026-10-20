@@ -3692,6 +3692,140 @@ o‘zi tekshiradi). **Vaqt bahosi** (QADAM 10 jurnallaridan, 5 worker): log o‘
 
 ---
 
+## QADAM 15 — tekshiruvchi hisobotidan keyingi tuzatishlar, D71, push oldidan tekshiruv (2026-10-20)
+
+Asos: tekshiruvchining yakuniy hisoboti (`verification/REPORT.md`, `85ac91e`):
+`verification/tests` 936 passed, 1 failed (N-1), 1 xfailed (N-2); K-1 va K-2
+kuzatuvlari. `verification/` ga tegilmadi.
+
+### Commit'lar
+
+| Commit | Nima |
+|---|---|
+| `cdd8826` | N-1: pyKT eksporti — har talaba uchun 6 qator |
+| `3ed55e9` | N-2: `measurements.csv` da mediana, p95, SQL soni, o‘zgargan qatorlar |
+| `3614f27` | D71 qarori (koddan va natijadan oldin) |
+| `f88ded8` | D71 kodi: `experiments/d71.py`, testlar, `d71-*` launcher rejimlari |
+| `c1ad4a9` | D71 `--quick` natijasi |
+| `b0295da` | D71 to‘liq natijasi |
+
+### 1. N-1 — pyKT formati
+
+pykt-toolkit 0.0.38 ning `pykt/preprocess/split_datasets.py:9-79` (`read_data`)
+faylni `i % 6` qadam bilan o‘qiydi: uid,len (`:20`); savollar (`:32`);
+konseptlar (`:38`); javoblar (`:44`); vaqt (`:67`); `usetimes` (`:73`); yo‘q
+ustun `NA` (`line.find("NA")`). Eksport 5 qator yozardi — birinchidan keyingi
+har blok siljirdi. Endi oltinchi qator `NA` (platforma javob davomiyligini
+yozmaydi; pyKT'ning o‘z preprocessorlari ham shunday, `poj_preprocess.py:36`).
+`export_research_data.py`: `PYKT_LINES` 6 ta, `PYKT_MISSING = "NA"`, metadata'da
+o‘quvchi nomi. Test: `test_research_export.py::test_pykt_reads_the_file_with_its_own_reader`
+— eksportni `experiments/.venv` dagi pyKT `read_data` bilan o‘qiydi: xato
+satri yo‘q, 3 talaba va 6 javob metadata bilan mos. Eksport testlari 16 passed.
+
+### 2. N-2 — benchmark CSV
+
+`benchmarks/runner.py`: `measure()` per-takror `queries` va `rows_touched`
+ro‘yxatlarini saqlaydi; `csv_rows` ustunlari
+`shape,size,operation,kind,method,repeat,seconds,status,median,p95,queries,rows_touched`
+(mediana/p95 — katakning `metrics.json` dagi qiymati; per-takror ro‘yxati yo‘q eski
+natija uchun katak medianalari). Commit qilingan natijalar qayta yozilmadi.
+`benchmarks/tests` 92 passed (+2: CSV ustunlari, haqiqiy `measure()` dagi
+per-takror sonlar).
+
+### 3. D71 — post-hoc, tavsifiy
+
+Ishga tushirishlar (ikkalasi ham ikkala uchida toza, `tables.verify` = []):
+
+| Run | Unit | Commit | Vaqt | Darvoza |
+|---|---|---|---|---|
+| quick (200 talaba, 100 replika) | `neurolearn-h2-d71-quick-20261020-220239` | `f88ded8` | 7,5 daq | 15/15 (asl quick H1/H3 bilan) |
+| to‘liq (2 000 talaba, 1 000 replika) | `neurolearn-h2-d71-full-20261020-221523` | `c1ad4a9` | 22:15 → 23:09, **54 daq** (fit 37–40 daq) | **15/15** |
+
+To‘liq run boshida MemAvailable 9,6 GB, swap 0 (birinchi urinishda swap
+1 282 MB band edi — run boshlanmadi, foydalanuvchi swap'ni tozaladi). Checkpoint
+`d71-950ceb8716bad143` (5 fold fit'i yozildi; uzilish bo‘lmadi). Darvoza: H1
+voqealari 9 664 va S = 7 136, beshala qoidaning (belgilangan, muvaffaqiyatsiz)
+juftligi asl H1 bilan aynan; asl graf λ = 0,25 da va grafsiz arm k = 3, 5 da AUC
+va javoblar soni asl H3 bilan (saqlangan 6 xonada) teng.
+
+**(a)(i) H1, qism-to‘plam S** (`junyi-h1-posthoc/20261020-180934`): S = 7 136 /
+9 664 (73,8 %), 664 talaba; r = 0 bo‘lgan voqealar 2 528.
+
+| k | Taqqoslash | Qamrov (ehtim. / qoida) | Xato ulushi (ehtim. / qoida) | Farq [95 % CI] |
+|---|---|---|---|---|
+| 3 | o‘tish bali | 0,9577 / 0,9609 | 0,1514 / 0,1520 | −0,000513 [−0,002379; 0,001424] |
+| 3 | `earned_proficiency` | 0,9099 / 0,9154 | 0,1466 / 0,1464 | +0,000263 [−0,002430; 0,002951] |
+| 5 | o‘tish bali | 0,9577 / 0,9609 | 0,1251 / 0,1253 | −0,000164 [−0,001959; 0,001703] |
+| 5 | `earned_proficiency` | 0,9099 / 0,9154 | 0,1195 / 0,1194 | +0,000101 [−0,002282; 0,002652] |
+
+Bajarilganlik S da ta’rif bo‘yicha hamma voqeani belgilaydi — taqqoslanmadi.
+τ (fold'lar): o‘tish bali bilan 0,781 / 0,825 / 0,863 / 0,790 / 0,824;
+`earned_proficiency` bilan 0,998–0,999. S da r_s(w) AUC: k = 3 — **0,5227**
+[0,4962; 0,5494], k = 5 — 0,5397 [0,5148; 0,5652].
+
+**(a)(ii) Xato–qamrov egri chizig‘i** (to‘liq to‘plam, k = 3; k = 5 papkada):
+
+| τ | 0 | 0,01 | 0,05 | 0,1 | 0,2 | 0,5 | 0,8 | 0,95 | 0,99 |
+|---|---|---|---|---|---|---|---|---|---|
+| Qamrov | 1,000 | 0,738 | 0,736 | 0,732 | 0,722 | 0,714 | 0,707 | 0,703 | 0,695 |
+| Xato ulushi | 0,1694 | 0,1665 | 0,1654 | 0,1630 | 0,1580 | 0,1544 | 0,1516 | 0,1506 | 0,1492 |
+
+Qoidalar nuqtalari (k = 3): bajarilganlik (0,738; 0,1666), o‘tish bali
+(0,956; 0,1527), `earned_proficiency` (0,676; 0,1464). Egri chiziqda 0,738 dan
+1,0 gacha qamrov yo‘q (r = 0 bo‘lgan 2 528 voqea) — o‘tish bali nuqtasi shu
+bo‘shliqda. Bajarilganlik nuqtasi τ = 0,01 nuqtasi bilan deyarli bir xil.
+
+**(b) H3, λ egri chizig‘i** (`junyi-h3-lambda/20261020-180934`; asl graf, test qismi):
+
+| λ | AUC, k = 3 [95 % CI] | AUC, k = 5 [95 % CI] | Butun to‘plam |
+|---|---|---|---|
+| 0 (grafsiz) | **0,7836** [0,7765; 0,7905] | **0,7936** [0,7869; 0,7998] | 0,7724 |
+| 0,1 | 0,7835 [0,7764; 0,7901] | 0,7933 [0,7867; 0,7995] | 0,7720 |
+| 0,25 | 0,7824 [0,7755; 0,7891] | 0,7924 [0,7859; 0,7986] | 0,7716 |
+| 0,5 | 0,7761 [0,7694; 0,7828] | 0,7885 [0,7822; 0,7948] | 0,7709 |
+| 0,75 | 0,7632 [0,7561; 0,7700] | 0,7806 [0,7742; 0,7870] | 0,7693 |
+| 1,0 | 0,7483 [0,7409; 0,7556] | 0,7709 [0,7645; 0,7775] | 0,7669 |
+
+Javoblar: k = 3 — 54 798, k = 5 — 84 143.
+
+**Tavsif (hukm emas).** H1: barcha prerekvizitlari ishlangan voqealarda teng
+qamrovdagi farqlar nolni kesadi (eng kattasi |0,0005|), r_s(w) muvaffaqiyatsizlikni
+deyarli ajratmaydi (AUC CI k = 3 da 0,5 ni o‘z ichiga oladi). Asl H1 dagi
+“o‘tish bali yaxshiroq” farqi (+0,017) degeneratsiyadan kelgan: S da u yo‘q.
+H3: Junyi grafi bilan Pre-initsializatsiya dastlabki urinishlar AUC'ini
+yaxshilamaydi — AUC λ bo‘yicha monoton kamayadi, λ = 0,1 grafsizga eng yaqin,
+II bobning λ = 0,5 i grafsizdan k = 3 da ~0,0075 past.
+
+### 4. Push oldidan tekshiruv (faqat o‘qish, qiymatlar chiqarilmadi)
+
+| | Backend | Frontend |
+|---|---|---|
+| Branch / remote | `thesis-model`; `origin git@github.com:zetmax1/neuro_dj.git`; upstream'dan oldinda | `thesis-model`; `origin git@github.com:zetmax1/neuro.git`; upstream yo‘q |
+| HEAD dagi maxfiy naqshlar (`SECRET_KEY=`, URL'dagi parol, `password=`, token shakllari, private key) | Maxfiy qiymat yo‘q: 8 ta URL paroli shablon/CI/test, hech biri konteynerning haqiqiy paroliga teng emas; `scripts/dj5433.sh` dagi `SECRET_KEY` — lokal standart; parollar — test fixture'lari; `ghp_` — hujjatdagi naqsh nomi (ortida belgi yo‘q) | Yo‘q (`package-lock.json` dagi `eyJ` — sha512 integrity ichida) |
+| Kuzatilmasligi kerak | `.env`, `config/.env`, `db.sqlite3`, `backups/` kuzatilmaydi; `experiments/data/` dan faqat `README.md`; `config/.env.example` — shablon | **`.env` kuzatiladi**: HEAD'da faqat `VITE_API_URL` |
+| Tarixda eski qiymatlar | `SECRET_KEY` literal: `bb80ec4` (qo‘shilgan) → `b44df84` (olib tashlangan); `db.sqlite3`: `bb80ec4` → `4d8abc2`; demo parollar: `18447be` … `332d56f` (olib tashlangan); GitHub token shakli tarixda yo‘q; `.env`/`config/.env` hech qachon kuzatilmagan | `.env` ning `83afe20` versiyasida `VITE_SUPABASE_PROJECT_ID`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` (208 belgi) |
+
+Tarix qayta yozilmadi, push qilinmadi. Push qilinsa, eski `SECRET_KEY`,
+`db.sqlite3` va Supabase kaliti tarix orqali ochiq bo‘ladi — kalitlarni almashtirish
+yoki tarixni tozalash foydalanuvchi qarori.
+
+### 5. Testlar
+
+| Suite | Natija |
+|---|---|
+| Backend (`scripts/dj5433.sh venv/bin/python -m pytest`) | **1 298 passed**, 51 skipped, 13 subtests, 0 failed (+9: eksport 1, benchmark 2, D71 5, launcher 1) |
+| `experiments/.venv` — `experiments/tests` | **415 passed**, 2 skipped (+6) |
+| `benchmarks/tests` | 92 passed |
+| `verification/tests` (faqat ishga tushirildi) | 934 passed, **3 failed**, 1 xfailed — uchala FAIL tekshiruvchining 5 qatorli pyKT bloki taxmini (`test_e_consent_export.py:105`), N-1 ning kutilgan oqibati; V-E3 endi o‘tadi; N-2 xfail eski commit qilingan CSV'ni o‘qigani uchun xfail bo‘lib qoladi |
+| `report_values --check` | 177 son, 9 bo‘lim, 0 farq |
+
+`REMEDIATION_REPORT.md`: §3 ga D71 papkalari, §4 (3, 9-xavf), §8 (tekshiruvchi
+sonlari va tuzatishlardan keyingi holat). `docs/THESIS_MAPPING.md`: 10.2 dagi H1
+va H3 qatorlarida D71 havolalari va D71 jadvali.
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
