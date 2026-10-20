@@ -81,16 +81,23 @@ FILES = {
     "metadata": "metadata.json",
 }
 
-# What the five lines of one learner's block in the pyKT file hold. Recorded in
-# the metadata as well, so a loader never has to guess (and so the pipeline of
-# stage 8b can assert it against the pyKT version it actually installs).
+# What the six lines of one learner's block in the pyKT file hold. Recorded in
+# the metadata as well, so a loader never has to guess. Six, not five: pyKT's
+# own reader (pykt-toolkit 0.0.38, ``pykt/preprocess/split_datasets.py:9-79``,
+# ``read_data``) walks the file in steps of ``i % 6`` — uid, questions,
+# concepts, responses, timestamps, usetimes — and a five-line block shifts every
+# block after the first (verification N-1). The platform does not record how
+# long an answer took, so the sixth line is "NA", the value pyKT's own
+# preprocessors write when the column is absent (``poj_preprocess.py:36``).
 PYKT_LINES: tuple[str, ...] = (
     "pseudonym,sequence_length",
     "question_ids",
     "concept_ids",
     "responses",
     "timestamps_ms",
+    "usetimes",
 )
+PYKT_MISSING = "NA"
 
 
 @dataclass(frozen=True)
@@ -318,7 +325,7 @@ class Command(BaseCommand):
 
     def write_pykt(self, path: Path, rows: list[tuple]) -> None:
         """
-        One five-line block per learner (``PYKT_LINES``).
+        One six-line block per learner (``PYKT_LINES``).
 
         The knowledge component of this model is the topic, so ``concept_ids``
         are topic ids. Rows arrive already ordered by pseudonym and then by
@@ -337,6 +344,7 @@ class Command(BaseCommand):
                 handle.write(
                     ",".join(str(int(row[7].timestamp() * 1000)) for row in group) + "\n"
                 )
+                handle.write(PYKT_MISSING + "\n")
 
     def write_graph(self, path: Path, snapshot: KBSnapshot) -> None:
         """
@@ -436,9 +444,11 @@ class Command(BaseCommand):
                 "lines_per_learner": len(PYKT_LINES),
                 "lines": list(PYKT_LINES),
                 "concept": "topic id — the knowledge component of this model is the topic",
+                "missing": PYKT_MISSING,
+                "reader": "pykt-toolkit 0.0.38 pykt.preprocess.split_datasets.read_data",
                 "note": (
-                    "Verify against the installed pykt-toolkit before training "
-                    "(stage 8b); the loader there owns the mapping."
+                    "Read with pyKT's own reader in the test suite "
+                    "(assessments/tests/test_research_export.py)."
                 ),
             },
             "files": dict(FILES),

@@ -13,6 +13,7 @@ from __future__ import annotations
 import csv
 import json
 from io import StringIO
+from pathlib import Path
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -354,19 +355,66 @@ def test_the_pykt_file_is_one_block_per_learner(tmp_path, course):
 
     directory, _ = export(tmp_path)
     lines = (directory / "pykt_sequences.txt").read_text(encoding="utf-8").splitlines()
-    assert len(lines) == 10  # two learners, five lines each
+    assert len(lines) == 12  # two learners, six lines each (pyKT's read_data)
 
-    blocks = {lines[index]: lines[index + 1:index + 5] for index in (0, 5)}
+    blocks = {lines[index]: lines[index + 1:index + 6] for index in (0, 6)}
     header = f"{first.research_pseudonym},2"
     assert header in blocks
-    questions, concepts, responses, timestamps = blocks[header]
+    questions, concepts, responses, timestamps, usetimes = blocks[header]
     assert questions == f"{one.pk},{two.pk}"
     # The knowledge component of this model is the topic.
     assert concepts == f"{course['t1'].pk},{course['t1'].pk}"
     assert responses == "1,1"
     assert all(stamp.isdigit() for stamp in timestamps.split(","))
+    assert usetimes == "NA"  # not recorded; pyKT's own marker for an absent column
 
     assert blocks[f"{second.research_pseudonym},1"][2] == "0"
+
+
+PYKT_PYTHON = Path(__file__).resolve().parents[2] / "experiments" / ".venv" / "bin" / "python"
+PYKT_READ = """
+import json, sys
+from pykt.preprocess.split_datasets import read_data
+df, keys = read_data(sys.argv[1], min_seq_len=1)
+print(json.dumps({"uids": sorted(df["uid"]), "keys": sorted(keys),
+                  "interactions": sum(len(r.split(",")) for r in df["responses"]),
+                  "questions": list(df["questions"]), "responses": list(df["responses"])}))
+"""
+
+
+def test_pykt_reads_the_file_with_its_own_reader(tmp_path, course):
+    """
+    N-1 (verification, 2026-10-20): pyKT 0.0.38's ``read_data`` reads the file
+    without an error line and finds every learner and every answer the
+    metadata reports. Runs in ``experiments/.venv``, where pykt-toolkit lives.
+    """
+    import subprocess
+
+    if not PYKT_PYTHON.exists():
+        pytest.skip(f"experiments/.venv not found: {PYKT_PYTHON}")
+    learners = [learner(f"pykt{index}@example.org") for index in range(3)]
+    questions = [question_on(course["t1"], f"p{index}") for index in range(3)]
+    for index, who in enumerate(learners):
+        for position, (question, right, wrong) in enumerate(questions[: index + 1]):
+            choice = right if (index + position) % 2 == 0 else wrong
+            process_submission(user=who, question_id=question.pk, choice_id=choice.pk)
+
+    directory, _ = export(tmp_path)
+    done = subprocess.run(
+        [str(PYKT_PYTHON), "-I", "-c", PYKT_READ, str(directory / "pykt_sequences.txt")],
+        capture_output=True, text=True,
+    )
+    assert done.returncode == 0, done.stderr[-2000:]
+    printed = done.stdout.strip().splitlines()
+    read = json.loads(printed[-1])
+    assert not any("error" in line for line in printed[:-1]), printed
+
+    meta = read_json(directory, "metadata.json")
+    assert read["uids"] == sorted(who.research_pseudonym for who in learners)
+    assert len(read["uids"]) == meta["counts"]["learners"] == 3
+    assert read["interactions"] == meta["counts"]["rows"] == 6
+    assert set(read["keys"]) == {"uid", "questions", "concepts", "responses", "timestamps"}
+    assert meta["pykt_format"]["lines_per_learner"] == 6
 
 
 def test_the_graph_file_holds_the_tree_e_p_and_g_l(tmp_path, course):
@@ -420,7 +468,7 @@ def test_the_metadata_says_which_data_the_results_came_from(tmp_path, course):
         "legacy", "review_repeat", "seed", "simulated",
     ]
     assert metadata["identifiers"]["learner"] == "research_pseudonym"
-    assert metadata["pykt_format"]["lines_per_learner"] == 5
+    assert metadata["pykt_format"]["lines_per_learner"] == 6
     assert set(metadata["files"]) == {"pykt", "csv", "graph", "metadata"}
     assert set(metadata["files"].values()) == {path.name for path in directory.iterdir()}
     # The commit is read from git; absent outside a checkout, never invented.
