@@ -3618,6 +3618,80 @@ bilan bir xil.
 
 ---
 
+## D71 — H1 va H3 ning post-hoc tavsifiy tahlili (foydalanuvchi qarori, 2026-10-20, kod va natijadan oldin)
+
+**Sabab (tekshiruvchi, `85ac91e`, K-1 va K-2).** (1) H1 da r_s(w) = min P(L)
+va javobsiz prerekvizit P(L) = 0 bilan kiradi (D62-4), shuning uchun
+prerekviziti to‘liq ishlanmagan voqeada r = 0 (9 664 dan 2 528 tasi). O‘tish bali
+bilan teng qamrov qidiruvi beshala fold'da τ = 0 ni tanladi (qamrov 1,0 / 0,956):
+taqqoslash degeneratsiyaga uchragan. (2) H3 da λ ∈ {0,25; 0,50; 0,75} dan
+validatsiya har joyda 0,25 ni — gridning pastki chetini — tanladi.
+
+**Maqom.** Ikkalasi ham **post-hoc, tavsifiy**. D61/D62 ning o‘qish qoidalari
+va H1 (“qo‘llab-quvvatlanmadi”), H3 (“k = 3 aniqlanmadi, k = 5
+qo‘llab-quvvatlanmadi”) hukmlari **o‘zgarmaydi**; yangi natijalarda o‘qish qoidasi
+va hukm yo‘q, jadval sarlavhasi va `metrics.json` (`posthoc`, `descriptive`)
+shuni aytadi. Ma’lumot, namuna (N = 2 000, seed `20261006`), split (5 fold,
+validatsiya 20 %), parametr fit'i (`h2.fit_parameters`, `DEFAULT_GRID`, II bob
+konstantalari) — asl H1/H3 niki bilan bir xil; bootstrap talaba bo‘yicha
+klasterlangan, 1 000 replika, seed `20261006`.
+
+**(a) H1.**
+- (i) **Qism-to‘plam S** — test voqealaridan faqat barcha prerekvizitlariga voqeadan
+  oldin kamida bir marta javob berilganlari (asl run'da 7 136). S da: har qoida
+  (ehtimoliy r ≥ τ, II bob R, bajarilganlik, o‘tish bali, `earned_proficiency`)
+  ning qamrovi va xato ulushi (τ = 0,95, δ = 0,10; k = 3 asosiy, k = 5 qo‘shimcha);
+  teng qamrovda ehtimoliy qoida − qoida farqi [95 % CI] — **o‘tish bali** va
+  **`earned_proficiency`** bilan. τ asl H1 dagidek validatsiyaning S qismida
+  qidiriladi (D62-8), o‘lchov test S da. Bajarilganlik S da ta’rif bo‘yicha
+  hamma voqeani belgilaydi — u bilan teng qamrovdagi taqqoslash “hamma tayyor”
+  bilan bir xil, shuning uchun farqi hisoblanmaydi va bu jadvalda yoziladi.
+  Qo‘shimcha: S da r_s(w) bo‘yicha AUC [95 % CI].
+- (ii) **To‘liq to‘plam** — r_s(w) bo‘yicha xato–qamrov egri chizig‘i:
+  τ ∈ {0; 0,01; 0,02; 0,05; 0,1; 0,2; 0,3; 0,4; 0,5; 0,6; 0,7; 0,8; 0,9; 0,95; 0,99},
+  har nuqtada qamrov va xato ulushi (k = 3 va 5); shu tekislikda bajarilganlik,
+  o‘tish bali va `earned_proficiency` nuqtalari. Egri chiziq nuqtaviy (CI siz).
+
+**(b) H3.** Faqat asl graf, λ ∈ {0; 0,1; 0,25; 0,5; 0,75; 1,0} **qat’iy** (validatsiyada
+tanlanmaydi); λ = 0 — grafsiz model (BKT+IRT, λ = 0), asl H3 dagidek. Har λ da
+test qismida dastlabki k ∈ {3, 5} urinish AUC [95 % CI] va butun to‘plam AUC
+(nuqtaviy).
+
+**Takrorlanish darvozasi (natija yozilishidan oldin, kodda).** To‘liq run'da:
+(1) H1 voqealari soni 9 664 va S = 7 136, asl run bilan aynan; (2) to‘liq
+to‘plamda qoidalar jadvali (belgilangan / muvaffaqiyatsiz) asl H1 ning `rules`
+bloki bilan aynan; (3) λ = 0,25 va λ = 0 ning k = 3 va k = 5 dagi AUC'i asl H3
+ning `asl` va `grafsiz` arm'lari bilan 1e-9 da (asl H3 da λ hamma fold'da 0,25
+edi). Birortasi o‘tmasa — natija yozilmaydi, run to‘xtaydi va sabab bu yerga
+yoziladi (fit yoki oqim asl run'dan farq qiladi degani).
+
+**Bitta buyruq, bitta fit.** `experiments/d71.py`: ma’lumotni bir marta
+o‘qiydi, fit'ni bir marta qiladi (H1 va H3 bir xil fold'lar va qatorlar bilan
+`h2.fit_parameters` ni chaqiradi — natija bir xil), ikkala qismni bajaradi va
+ikki papka yozadi: `experiments/results/junyi-h1-posthoc/<ts>/` va
+`experiments/results/junyi-h3-lambda/<ts>/` (D48: `tables.write` → `tables.verify`).
+`--quick`: 200 talaba, 100 replika, `…-quick/` papkalar, “dissertatsiya natijasi
+emas”.
+
+**Uzilishga chidamlilik.** Har fold'ning fit'i `experiments/.runs/checkpoints/d71-<digest>/`
+ga yoziladi (H2/D55 ning `Checkpoint` mexanizmi; kalit — commit, ma’lumot
+sha256, seed, namuna, split, `quick`). Qayta ishga tushirilganda tayyor fold'lar
+o‘qiladi, faqat qolganlari fit qilinadi; daraxt toza bo‘lmasa checkpoint
+o‘chiq (D54). Necha fold checkpoint'dan olingani `metrics.json` ga yoziladi.
+
+**Ishga tushirish.** `experiments/run_h2.sh d71-quick`, keyin `d71-full`
+(user unit, `systemd-inhibit`, xotira namunalari). To‘liq run faqat
+MemAvailable ≥ 6 GB va ishlatilgan swap < 200 MB bo‘lsa boshlanadi (buyruqning
+o‘zi tekshiradi). **Vaqt bahosi** (QADAM 10 jurnallaridan, 5 worker): log o‘qish
+~3 daq, fit ~35 daq, H1 voqealari va bootstrap ~3 daq, H3: 6 λ × 5 fold bashorat
+~3 daq + 6 λ × 2 k bootstrap ~20 daq — jami **~65–75 daqiqa**; quick ~10–15 daqiqa.
+
+**Nima o‘zgarmaydi.** II bob konstantalari, `DEFAULT_GRID`, lock fayllar,
+`h1.py`/`h3.py` ning xatti-harakati, commit qilingan natijalar.
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
