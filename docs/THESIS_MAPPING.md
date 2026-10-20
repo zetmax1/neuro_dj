@@ -270,7 +270,7 @@ o‘zgarmaydi, va jadval shuni ko‘rsatish uchun ikkisini birga chiqaradi.
 
 | Element | Kod (fayl:funksiya) | Test |
 |---|---|---|
-| Algoritm 2.1 — relatsiya qo‘shish, sikl zanjiri | `neuro_model/graph.py:find_cycle_chain`; servis `curriculum/services/kb.py:add_prerequisite` | `neuro_model/tests/test_graph.py`, `test_graph_random.py` (brute force), `test_properties.py` (Hypothesis: zanjir ⇔ G_L da sikl), `curriculum/tests/test_kb_properties.py` |
+| Algoritm 2.1 — relatsiya qo‘shish, sikl zanjiri | `neuro_model/graph.py:find_cycle_chain` va (D70) `find_node_cycle_chain`; servis `curriculum/services/kb.py:add_prerequisite` | `neuro_model/tests/test_graph.py`, `test_graph_random.py` (brute force), `test_properties.py` (Hypothesis: zanjir ⇔ G_L da sikl), `curriculum/tests/test_kb_properties.py` |
 | Algoritm 2.2 — `(pos, id)` kalitli Kahn, `lev` | `neuro_model/graph.py:topological_order` | `test_graph_random.py`, `test_properties.py` (tartib har qirraga mos), `test_kb_properties.py` (SQL'dan qurilgan G_L bilan) |
 | Algoritm 2.3 — inkremental tayyorlik | `neuro_model/readiness.py:propagate`, `assessments/services/readiness.py:apply_answer` | `assessments/tests/test_readiness.py`, `test_properties.py` va `test_kb_properties.py` (hisoblagichlar = `recompute_counters`) |
 | Algoritm 2.4 — bitta javob, qat’iy tartib | `neuro_model/student.py:observe`; `assessments/services/student_model.py:apply_answer`, `orchestrator.py:apply_one_answer` | `neuro_model/tests/test_student.py`, `assessments/tests/test_student_model.py`, `test_answer_path_golden.py` (D66a) |
@@ -282,7 +282,6 @@ o‘zgarmaydi, va jadval shuni ko‘rsatish uchun ikkisini birga chiqaradi.
 | M (τ/δ gisterezis), R_s(w), r_s(w), `missing_count` | `neuro_model/readiness.py:mastered_flag`, `is_ready`, `readiness_score`, `missing_count` | `neuro_model/tests/test_readiness.py` |
 | κ (tartib ziddiyatlari), ortiqcha qirralar, Desc* | `neuro_model/graph.py:order_conflicts`, `redundant_edges`, `descendant_bitsets` | `test_graph_random.py` |
 | 2.5-tasdiq | `neuro_model/bkt.py:posterior` (xossa) | `test_student.py::test_assertion_2_5_*`, `test_properties.py` (har qabul qilingan javobdan keyin), `test_kb_properties.py` (har ledger qatori) |
-| 2.1–2.4, 2.6-tasdiqlar | — | II bob matni repoda yo‘q (spetsifikatsiya faqat 2.5 ni ta’riflaydi) — raqamlar bo‘yicha xaritalanmadi. Shu xossalar testlangan: Algoritm 2.1 ning to‘g‘riligi, 2.2 tartibi, 2.3 = to‘liq qayta hisoblash, TY5, Y1–Y4 (yuqoridagi qatorlar); raqamlarni bog‘lash uchun II bob matni kerak |
 | Y1 — ko‘chirishda o‘z avlodiga emas | `curriculum/services/kb.py:update_node` (`move_into_subtree`) | `curriculum/tests/test_tree.py`, `test_kb_properties.py` |
 | Y2 — x ≠ y, ajdod-avlod emas | `neuro_model/graph.py:is_nested`; `kb.add_prerequisite`, `_check_nesting` | `curriculum/tests/test_kb.py`, `test_properties.py`, `test_kb_properties.py` |
 | Y3 — G_L asiklik | `kb.add_prerequisite` (2.1), `kb._fresh` (2.2) | `test_kb_concurrency.py`, `test_properties.py`, `test_kb_properties.py` (mustaqil DFS) |
@@ -291,6 +290,33 @@ o‘zgarmaydi, va jadval shuni ko‘rsatish uchun ikkisini birga chiqaradi.
 | TY6 — `kb_version` mos kelmasa qayta hisoblash | `assessments/services/readiness.py:resync` | `test_readiness.py::test_ty6_*`, `test_kb_properties.py` (resync'dan oldin va keyin) |
 | V-F1 — `submit_answer` ≤ 12 SQL | `assessments/services/*` (D66, D66a) | `assessments/tests/test_query_budget.py` (12 / 12 / 8) |
 | V-F2 — p95 < 300 ms | `benchmarks/load_test.py`, `benchmarks/locustfile.py` | natija `experiments/results/locust/20261020-100901` (D68a) |
+
+### 10.1a II bobning 2.1–2.6-tasdiqlari
+
+Testlar `neuro_model/tests/test_assertions.py` da (Hypothesis, `derandomize`,
+300 misol), KB holatlari KB servisi qabul qiladiganlar bilan bir xil.
+
+| Tasdiq | Kod (fayl:funksiya) | Test |
+|---|---|---|
+| 2.1 — bitta javobdan keyin tayyorlik faqat Succ(v) da o‘zgaradi; M_s(v) o‘zgarmasa hech qayerda | `neuro_model/readiness.py:mastered_flag`, `is_ready`, `propagate`; `assessments/services/readiness.py:apply_answer` (2-qadam: M o‘zgarmasa to‘xtaydi) | `test_assertion_2_1_one_answer_changes_readiness_only_on_its_successors`; Algoritm 2.3 hisoblagichlari: `test_properties.py`, `test_kb_properties.py` |
+| 2.2 — **tuzatilgan ifoda (D70):** sikldagi har tugunda kamida bitta mavzu bo‘lsa, G_L siklsiz ⇒ G = (N, E_P) siklsiz. Shartsiz ifoda bo‘sh tugunlarda noto‘g‘ri; teskarisi umuman noto‘g‘ri | `neuro_model/graph.py:expand`, `topological_order`; D70: `find_node_cycle_chain`, `curriculum/services/kb.py:add_prerequisite` | `test_assertion_2_2_holds_for_cycles_whose_every_node_holds_a_topic`, `test_assertion_2_2_as_first_stated_fails_on_empty_nodes` (kontrmisol), `test_with_d70_both_g_l_and_g_are_acyclic`, `test_the_node_graph_check_refuses_exactly_the_edges_that_close_a_cycle_in_g`, `test_assertion_2_2_the_converse_fails_section_four_probe_one`; API: `curriculum/tests/test_kb.py::test_a_cycle_between_nodes_without_topics_is_refused` |
+| 2.3 — G_L siklsiz va (x, y) Y2 ni qanoatlantirsa: yangi graf siklsiz ⇔ G_L da Leaves(y) dan Leaves(x) ga yo‘l yo‘q (Algoritm 2.1 asosi) | `neuro_model/graph.py:find_cycle_chain` | `test_assertion_2_3_algorithm_2_1_refuses_exactly_the_edges_that_close_a_cycle`, `test_graph_random.py`, `test_properties.py` (har qo‘shishda) |
+| 2.4 — G_L siklsiz ⇔ A^n = 0; siklsiz bo‘lsa A^h = 0, A^{h−1} ≠ 0, h — bosqichlar soni | `neuro_model/graph.py:topological_order` (`lev`, h = max lev + 1) | `test_assertion_2_4_levels_bound_the_powers_of_the_adjacency_matrix`, `test_assertion_2_4_acyclic_exactly_when_a_to_the_n_vanishes` |
+| 2.5 — P(G) + P(S) < 1 va 0 < P(L) < 1 ⇒ P(L\|1) > P(L) > P(L\|0) | `neuro_model/bkt.py:posterior` | `test_student.py::test_assertion_2_5_on_the_posterior`, `::test_assertion_2_5_holds_for_every_bounded_item`, `test_properties.py` (qat’iy shakl 1e-9 < P(L) < 1 − 1e-9 da — double aniqligi, D65), `test_kb_properties.py` (har ledger qatori) |
+| 2.6 — Need_s(g) eng kichik zarur to‘plam: har bir elementisiz g ochilmaydi, topologik tartibda o‘zlashtirilsa ochiladi | `neuro_model/trajectory.py:need`, `path_to`; `curriculum/services/path.py` | `test_assertion_2_6_need_is_the_smallest_set_that_opens_the_goal`, `neuro_model/tests/test_trajectory.py` |
+
+**2.1 dagi uzluksiz r_s(w).** Kodda javobsiz prerekvizit r_s(w) ga P(L) = 0 bilan
+kiradi (`assessments/services/readiness.py:readiness_at`, H1 ham shunday), P(L0)
+bilan emas; bitta javob faqat v ning saqlangan P(L) ini o‘zgartiradi, demak
+r_s(w) ham faqat w ∈ Succ(v) da o‘zgaradi. Agar javobsiz prerekvizit uchun P(L0)
+ishlatilganda edi, λ aralashmasi orqali r_s ikki qadam narida ham o‘zgarishi
+mumkin edi.
+
+**2.2 isbotidagi xato qadam.** “Har tugunda kamida bitta mavzu bor deb hisoblash
+mumkin” — kod bo‘sh bo‘lim va topic'siz kursga ruxsat beradi. Kontrmisol:
+topic'siz C0, C1 va E_P = {C0 → C1, C1 → C0}. D70 dan oldin KB servisi buni qabul
+qilardi va sikl keyin aloqasiz amalda (bo‘sh bo‘limga topic qo‘shishda) Y3
+xatosi bo‘lib chiqardi.
 
 ### 10.2 Gipotezalar — yakuniy holat
 
@@ -378,3 +404,20 @@ Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
   qo‘shilmadi (foydalanuvchi qarori).
 - **Test.** `neuro_model/tests/test_student.py::test_the_posterior_is_clamped_once_p_l_has_rounded_to_one`,
   `test_properties.py` (posterior qat’iy [0, 1] da).
+
+### F7 — Algoritm 2.1 tugunlar grafida ham tekshiradi (D70)
+
+- **Nima.** `kb.add_prerequisite` G_L dagi tekshiruvdan (Algoritm 2.1) keyin
+  G = (N, E_P) da y dan x ga yo‘l qidiradi (`neuro_model/graph.py:find_node_cycle_chain`,
+  O(|N| + |E_P|)); topilsa — `cycle`, zanjir tugunlar darajasida.
+- **Nega.** II bobning 2.2-tasdig‘i shartsiz ifodada bo‘sh tugunlarda noto‘g‘ri:
+  topic'siz tugunlar orasidagi sikl G_L da ko‘rinmaydi va keyin aloqasiz amalda
+  Y3 xatosi bo‘lib chiqadi. Tuzatilgan ifoda: sikldagi har tugunda mavzu bo‘lsa,
+  G_L siklsizligi G siklsizligini beradi — shuning uchun qo‘shimcha faqat bo‘sh
+  tugun orqali o‘tadigan sikllar rad etiladi.
+- **Ta’siri.** Mavzusi bor tugunlarda hech narsa o‘zgarmaydi (bunday sikl G_L da
+  avvaldan ushlanardi). Daraxt amallari E_P ni o‘zgartirmaydi. D70 dan oldin dev,
+  benchmark va Locust bazalarida bunday sikl yo‘q edi (sanalgan).
+- **Test.** `neuro_model/tests/test_assertions.py` (2.2 bloki),
+  `curriculum/tests/test_kb.py::test_a_cycle_between_nodes_without_topics_is_refused`,
+  state machine'larda “G ham siklsiz” invarianti.

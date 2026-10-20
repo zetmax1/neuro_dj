@@ -3572,6 +3572,52 @@ Yangi testlar (QADAM 13): `test_answer_path_golden.py` (1), `test_ledger.py::tes
 
 ---
 
+## QADAM 14 — 2.1–2.6-tasdiqlar, 2.2 topilmasi va D70 (2026-10-20)
+
+**Tasdiqlar testlari** (`neuro_model/tests/test_assertions.py`, Hypothesis,
+`derandomize`, 300 misol): 2.1, 2.3, 2.4, 2.6 birinchi yugurishdayoq o‘tdi;
+2.2 ning teskarisi uchun kontrmisol (4-bo‘lim probe 1) — hujjat testi.
+**2.2 rad etildi** — ish to‘xtatildi, kontrmisol foydalanuvchiga berildi.
+
+**Topilma.** Eng kichik kontrmisol: topic'siz ikki kurs C0, C1,
+E_P = {C0 → C1, C1 → C0} — G da sikl, G_L bo‘sh. KB servisi PostgreSQL'da buni
+ham, bitta kursdagi ikki bo‘sh bo‘lim S1 ↔ S2 ni ham qabul qilardi; S1 ga topic
+qo‘shish o‘tar, S2 ga topic qo‘shish esa “cyclic (Y3)” bilan rad etilardi
+(yashirin sikl). **Isbotdagi xato qadam:** “har tugunda kamida bitta mavzu bor
+deb hisoblash mumkin” — kod bo‘sh bo‘lim va topic'siz kursga ruxsat beradi.
+**To‘g‘ri ifoda:** sikldagi har bir tugunda kamida bitta mavzu bo‘lsa, G_L
+siklsizligi G siklsizligini keltirib chiqaradi.
+
+**D70** (qaror `d894577`, kod `4c44557`). Koddan oldin sanaldi (faqat o‘qish):
+dev bazasi — 16 tugun, 2 relatsiya, tugunlar darajasidagi sikl 0; benchmark
+bazasi — curriculum jadvallari yo‘q; Locust bazasi — 526 tugun, 1 500
+relatsiya, sikl 0. `neuro_model/graph.py:find_node_cycle_chain` (G = (N, E_P)
+da BFS, O(|N| + |E_P|)) `kb.add_prerequisite` da G_L tekshiruvidan keyin;
+rad etish sababi `cycle`, zanjir tugunlar darajasida, API 400.
+
+O‘zgargan fayllar: `neuro_model/graph.py`, `curriculum/services/kb.py`,
+`neuro_model/tests/test_assertions.py` (yangi), `neuro_model/tests/test_properties.py`
+(D70 qoidasi va “G siklsiz” invarianti; 1 047 tekshiruvdan 29 tasida rad etish
+ishladi), `curriculum/tests/test_kb_properties.py` (faol tugunlar grafi siklsiz),
+`curriculum/tests/test_kb.py` (kontrmisol 400 bilan rad etiladi, keyin ikkala
+bo‘limga topic qo‘shiladi), `docs/THESIS_MAPPING.md` (10.1a jadvali, F7),
+`REMEDIATION_REPORT.md` (6-xavf, verification jadvali).
+
+**Testlar.** Backend (`_alt` bazalari): **1 289 passed**, 51 skipped,
+13 subtests, 0 failed (4-bo‘lim etalonlari, `test_kb_concurrency.py`, ikkala
+state machine ichida). `test_assertions.py`: 10 test.
+
+**`verification/`** (faqat ishga tushirildi): **824 passed, 6 failed, 1 error**
+(D70 dan oldin 825 / 6). Yangi: `test_b2_rejections.py::test_v_b2_adding_a_topic_that_closes_a_cycle_is_rejected`
+— ERROR setup'da: fixture `empty_sections` bo‘sh bo‘limlar orasida A → B → C → A
+halqasini quradi, ya’ni D70 taqiqlagan yashirin siklga tayanadi. Testning
+maqsadi kodda hamon bajariladi (A → B, b1 → A, keyin A ga topic — `cycle`;
+tekshirildi). Tuzatish — tekshiruvchida (fixture). Qolgan 6 ta — QADAM 13 dagi
+bilan bir xil.
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
@@ -3633,6 +3679,7 @@ Yangi testlar (QADAM 13): `test_answer_path_golden.py` (1), `test_ledger.py::tes
 | D66a | ≤ 12 SQL ga qulflar, tranzaksiya va natijalarni o‘zgartirmasdan erishish | Uch o‘qish birlashtirildi, allaqachon qulflangan qatorlarga yozuvlar uchta buyruqqa birlashtirildi: 12 / 12 / 8; oltin eksport, butun backend va verification darvozalari o‘tdi. Batafsil — “D66a” bo‘limlari. 2026-10-20 |
 | D68a | Locust'ning asosiy natijasi qaysi serverda | gunicorn 26.2.0, W = min(8 fizik yadro, ⌊(6 GB − 2 GB)/124 MB⌋) = 8; tinch mashina sharti skriptda; runserver natijalari qo‘shimcha. Natija `locust/20261020-100901`: V-F2 bajarildi. 2026-10-20 |
 | D69 | D48 ga zid birinchi Locust papkalari | `git rm`; tarixda `f41bfb0`, `98f7b5f`. 2026-10-20 |
+| D70 | 2.2-tasdiq bo‘sh tugunlarda noto‘g‘ri; yashirin sikl | Algoritm 2.1 G = (N, E_P) da ham tekshiradi (`find_node_cycle_chain`, `cycle`, tugunlar zanjiri); 2.2 shartli ifodasi; F7. Batafsil — “D70”, “QADAM 14”. 2026-10-20 |
 
 ---
 

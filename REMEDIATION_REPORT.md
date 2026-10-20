@@ -427,8 +427,10 @@ Tekshiruvlar (natija emas): `experiments/.venv/bin/python -m experiments.clamp_c
    bo‘yicha qayta o‘ynalmadi (analitik chegara bilan).
 5. **P(L) = 1.0 yutuvchi holat** (D65a): 1 − ε chegarasi qo‘shilmadi;
    uzoq to‘g‘ri javoblar seriyasidan keyin noto‘g‘ri javob P(L) ni tushirmaydi.
-6. **2.1–2.4 va 2.6-tasdiqlar** raqamlari bo‘yicha xaritalanmagan: II bob matni
-   repoda yo‘q (`docs/THESIS_MAPPING.md` 10.1).
+6. **2.2-tasdiq tuzatildi (D70):** shartsiz ifoda bo‘sh tugunlarda noto‘g‘ri;
+   dissertatsiyada shartli ifoda (sikldagi har tugunda mavzu bor) va Algoritm 2.1
+   ning tugunlar grafidagi tekshiruvi (F7) yozilishi kerak. 2.1–2.6 xaritasi —
+   `docs/THESIS_MAPPING.md` 10.1a.
 7. **Xom SQL** (D66a, ikki buyruq) — literal va testlangan, lekin model
    o‘zgarsa qo‘lda yangilanadi (`test_raw_sql_names_the_models_columns_and_tables`
    yiqiladi).
@@ -608,11 +610,13 @@ ikki buyruq ishlatadigan kodga tegmaydi.
 
 `verification/` ga tegilmadi; faqat ishga tushirildi
 (`scripts/dj5433.sh venv/bin/python -m pytest --ds=verification.settings verification/tests`):
-**825 passed, 6 failed**. Hammasini tuzatish — tekshiruvchining ishi.
+D70 dan keyin **824 passed, 6 failed, 1 error** (D70 dan oldin 825 / 6). Hammasini
+tuzatish — tekshiruvchining ishi.
 
 | Test | Sababi | Kim tuzatadi |
 |---|---|---|
 | `test_e_experiments.py::test_d48_every_result_has_sha256_commit_seed_and_command` | `tree-benchmark/*` (4 ta) va `tree-benchmark-quick/20261012-131931` da `provenance.sources` bo‘sh: daraxtlar seed'dan generatsiya qilinadi, kirish fayli yo‘q. Mezon (“har natijada manba sha256”) generatsiya qilingan benchmark uchun ziddiyatli; Locust natijalarida manba sifatida yuk fayllari yozilgan | Tekshiruvchi: generatsiya qilingan natijalar uchun mezonni aniqlash (seed + generator kodi yetarlimi). Commit qilingan natijalarga tegilmaydi |
+| `test_b2_rejections.py::test_v_b2_adding_a_topic_that_closes_a_cycle_is_rejected` (ERROR, setup) | Fixture `empty_sections` bo‘sh bo‘limlar orasida A → B → C → A relatsiya halqasini quradi, ya’ni aynan D70 taqiqlagan yashirin siklga tayanadi; uchinchi relatsiya endi `cycle` bilan rad etiladi. Testning maqsadi (topic qo‘shish G_L siklini yopsa rad etiladi) kodda hamon bajariladi — masalan, A → B va b1 → A dan keyin A ga topic qo‘shish | Tekshiruvchi: fixture'ni tugunlar grafida siklsiz holatga (yuqoridagi kabi) almashtirish |
 | `test_na.py::test_pending_stages[8]` | N/A signali: 8-bosqich qatori “Kutilmoqda” emas — u eskirgan edi, QADAM 13 da “Bajarildi” ga tuzatildi (8a, 8b-1…8b-3) | Tekshiruvchi: signalni olib tashlab, E guruhini qayta tekshirish |
 | `test_na.py::test_pending_stages[9]` | N/A signali: 9-bosqich bajarildi (H4) | Tekshiruvchi: H guruhini yozish |
 | `test_na.py::test_pending_stages[10]` | N/A signali: 10-bosqich bajarildi | Tekshiruvchi: F guruhini (V-F1, V-F2) yozish |
