@@ -3432,6 +3432,41 @@ sonlari QADAM 12 da saqlanib qolgan.
 
 ---
 
+## D70 — 2.2-tasdiq bo‘sh tugunlarda noto‘g‘ri; Algoritm 2.1 tugunlar darajasida ham tekshiradi (foydalanuvchi qarori, 2026-10-20, kod va sanashdan oldin)
+
+**Topilma.** 2.2-tasdiq (“G_L da sikl bo‘lmasa, G = (N, E_P) da ham sikl
+yo‘q”) bo‘sh tugunlar — topic'siz kurs, bo‘sh bo‘lim — bo‘lganda noto‘g‘ri.
+Kontrmisol (Hypothesis, eng kichik): topic'siz ikki kurs C0, C1 va
+E_P = {C0 → C1, C1 → C0}: G da sikl bor, G_L da qirra yo‘q. KB servisi
+buni PostgreSQL'da qabul qiladi (kurslar ham, bitta kursdagi ikki bo‘sh bo‘lim
+ham). Isbotdagi xato qadam: “har tugunda kamida bitta mavzu bor deb hisoblash
+mumkin” — kod bo‘sh bo‘lim va topic'siz kursga ruxsat beradi, shuning uchun bu
+qadam asossiz. **To‘g‘ri ifoda:** sikldagi har bir tugunda kamida bitta mavzu
+bo‘lsa, G_L siklsizligi G siklsizligini keltirib chiqaradi (har tugundan bitta
+barg tanlanadi; qo‘shni tugunlar Y2 bo‘yicha bir-birining ichida emas, demak
+barglar har xil va G_L da yopiq yo‘l hosil bo‘ladi).
+
+**Oqibat — yashirin sikl.** Bo‘sh tugunlar orasidagi E_P sikli keyin aloqasiz
+amalda Y3 xatosini beradi: S1 ↔ S2 dan keyin S1 ostiga topic qo‘shiladi,
+S2 ostiga topic qo‘shish esa “cyclic (Y3)” bilan rad etiladi.
+
+**Qaror.** Algoritm 2.1 (`kb.add_prerequisite`; relatsiya yaratadigan barcha
+yo‘llar — `ensure_prerequisite`, API, admin, importlar — shu servis orqali
+o‘tadi) G_L dan tashqari G = (N, E_P) da ham sikl tekshiradi: faol tugunlar
+va faol relatsiyalar ustida y dan x ga yo‘l bo‘lsa, (x, y) rad etiladi. Rad
+etish sababi mavjud `cycle`, zanjir tugunlar darajasida (y … x). Tekshiruv
+G_L tekshiruvidan keyin: mavzusi bor tugunlardagi sikl G_L da allaqachon
+ushlanadi (shartli 2.2), qo‘shimcha faqat bo‘sh tugunlar orqali o‘tadigan
+sikllar rad etiladi. Daraxt amallari E_P ni o‘zgartirmaydi, ularga qo‘shimcha
+tekshiruv kerak emas. Murakkablik O(|N| + |E_P|).
+
+**Koddan oldin:** dev, benchmark va Locust bazalarida tugunlar darajasidagi
+E_P sikllari skript bilan sanaladi (faqat o‘qish); bo‘lsa — hech narsa
+o‘chirilmaydi, ish to‘xtatiladi. THESIS_MAPPING: F7.
+
+
+---
+
 ## QADAM 13 — 10-bosqich, 2-qism: D65a, D66a, D68a, D69, yakuniy hisobot (2026-10-20)
 
 Har bir qaror natijadan oldin alohida commit'da (yuqoridagi D65a, D66a, D68a,
