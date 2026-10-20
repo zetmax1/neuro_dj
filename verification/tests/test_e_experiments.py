@@ -886,3 +886,36 @@ def test_split_h2_run_fold_never_shows_a_test_learner_to_a_fit(monkeypatch):
             assert not seen[key] & test, f"fold {fold.index}: {key} saw a test learner"
         assert seen["DKT.validation"] == set(fold.validation)
         assert seen["DKT.fit"] == set(fold.train)
+
+
+# ---------------------------------------------------------------------------
+# N-1's reach — no experiment reads the research export (final check, 2026-10-21)
+# ---------------------------------------------------------------------------
+
+# The management command and the four files it writes.
+EXPORT_MARKERS = ("export_research_data", "pykt_sequences", "attempts.csv", "knowledge_base.json")
+
+
+def test_n1_no_experiment_reads_the_research_export():
+    """
+    N-1 (five lines per learner in the pyKT file, fixed in ``cdd8826``) could
+    reach a thesis result only through a pipeline that reads the export. None
+    does: no tracked module under ``experiments/`` names the command or one of
+    its files, and every committed result's sources are dataset files or the
+    load-test generators, never an export.
+    """
+    modules = [line for line in _git("ls-files", "experiments").decode().splitlines() if line.endswith(".py")]
+    assert any(m.endswith("experiments/h2.py") for m in modules)
+    for module in modules:
+        text = (REPO / module).read_text(encoding="utf-8")
+        assert not [m for m in EXPORT_MARKERS if m in text], module
+
+    checked = 0
+    for metrics_path in RESULTS.glob("*/*/metrics.json"):
+        sources = json.loads(metrics_path.read_text(encoding="utf-8"))["provenance"]["sources"]
+        for source in sources:
+            path = Path(source["path"])
+            assert "exports" not in path.parts and not [m for m in EXPORT_MARKERS if m in path.name], (
+                metrics_path, source["path"])
+            checked += 1
+    assert checked >= 20

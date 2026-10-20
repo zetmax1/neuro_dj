@@ -15,7 +15,8 @@ V-H1 and H4 (stage 9, D63, D63g, D63h) — the final verification.
 - **D63h** — the merged reading is rebuilt here from the four result folders
   and compared with what REMEDIATION_REPORT §6 and QADAM 11 state.
 - **V-H1** — the committed ``--quick`` result: every operation and method in
-  the CSV, median/p95/queries/changed rows per cell, integrity for both methods.
+  the CSV, median/p95/queries/changed rows per cell, integrity for both methods;
+  a small fresh run whose CSV carries those four columns on every row (N-2).
 
 The trees live in the ``benchmark`` alias, in the test database
 ``neurolearn_verify_bench`` (``verification/settings.py``).
@@ -401,15 +402,65 @@ def test_v_h1_the_quick_result_has_every_operation_statistic_and_integrity():
     assert {r["method"] for r in metrics["parallel"]} == {"mptt", "cte"}
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "V-H1 asks for median, p95, query count and changed rows in the output CSV; "
-    "measurements.csv holds the raw timings only (benchmarks/runner.py csv_rows) and "
-    "the four statistics are in metrics.json / tables.md"
-))
-def test_v_h1_the_csv_itself_carries_the_summary_columns():
-    with (QUICK / "measurements.csv").open(encoding="utf-8", newline="") as handle:
-        header = next(csv.reader(handle))
-    assert {"median", "p95", "queries", "rows_touched"} <= set(header)
+SMALL_REPEATS = 3
+
+
+@db_both
+def test_v_h1_the_csv_itself_carries_the_summary_columns(tmp_path):
+    """
+    V-H1: "Chiqish CSV'sida ... mediana, p95, so'rovlar soni va o'zgargan
+    qatorlar bor" (N-2). The committed quick result predates the columns, so a
+    small ``run_tree_benchmark --quick`` (one shape, 100 nodes, three repeats,
+    one short parallel phase) writes a fresh CSV here. Each repeat row carries
+    its cell's median and p95 — those of ``metrics.json`` and, computed here,
+    those of the cell's own timings — and the repeat's own SQL count and
+    changed rows, whose median, min and max are the cell's.
+    """
+    from django.core.management import call_command
+
+    out = tmp_path / "small"
+    call_command("run_tree_benchmark", "--quick", "--database", ALIAS, "--no-checkpoint",
+                 "--memory-limit-gb", "0", "--shapes", "random", "--sizes", "100",
+                 "--repeats", str(SMALL_REPEATS), "--warmups", "1", "--parallel-workers", "2",
+                 "--parallel-seconds", "0.5", "--parallel-repeats", "1", "--out", str(out))
+    metrics = json.loads((out / "metrics.json").read_text(encoding="utf-8"))
+    with (out / "measurements.csv").open(encoding="utf-8", newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    assert {"median", "p95", "queries", "rows_touched"} <= set(rows[0])
+
+    by_cell = defaultdict(list)
+    for row in rows:
+        if row["status"] == "ok":
+            by_cell[(row["operation"], row["method"])].append(row)
+    assert set(by_cell) == {(op, m) for op in OPERATIONS for m in ("mptt", "cte")}
+
+    for cell in metrics["cells"]:
+        for method, entry in cell["methods"].items():
+            key = (cell["operation"], method)
+            got = by_cell[key]
+            assert entry["status"] == "ok" and len(got) == SMALL_REPEATS, key
+            seconds = [float(r["seconds"]) for r in got]
+            assert {float(r["median"]) for r in got} == {entry["seconds"]["median"]}, key
+            assert {float(r["p95"]) for r in got} == {entry["seconds"]["p95"]}, key
+            # The timings are rounded to 1e-6 s in the CSV; the statistics were
+            # taken before that rounding.
+            assert entry["seconds"]["median"] == pytest.approx(statistics.median(seconds), abs=1e-6), key
+            p95 = statistics.quantiles(seconds, n=20, method="inclusive")[-1]
+            assert entry["seconds"]["p95"] == pytest.approx(p95, abs=1e-6), key
+
+            queries = [int(r["queries"]) for r in got]
+            touched = [int(r["rows_touched"]) for r in got]
+            assert min(queries) >= 1, key
+            assert statistics.median(queries) == entry["queries_median"], key
+            assert (min(queries), max(queries)) == (entry["queries_min"], entry["queries_max"]), key
+            assert statistics.median(touched) == entry["rows_touched_median"], key
+            if cell["kind"] == "write":
+                assert min(touched) >= 1, key
+
+    # A parallel phase has a throughput, not a cell's statistics.
+    parallel = [r for r in rows if r["status"] == "ops_per_second"]
+    assert parallel
+    assert all(r[c] == "" for r in parallel for c in ("median", "p95", "queries", "rows_touched"))
 
 
 @db_both

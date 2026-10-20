@@ -1,51 +1,79 @@
-# verification/REPORT.md — yakuniy mustaqil tekshiruv, 2026-10-20
+# verification/REPORT.md — yakuniy mustaqil tekshiruv, yopish sessiyasi, 2026-10-21
 
-Tekshiruvchi sessiyasi (D54). Faqat `verification/` ga yozildi; implementatsiya
-kodi, `experiments/`, `benchmarks/`, `docs/`, `REMEDIATION_*.md` ga tegilmadi;
-`config/.env` va ildiz `.env` ochilmadi. Postgres buyruqlari `scripts/dj5433.sh`
-orqali (DSN konteynerdan, env fayl o‘qilmaydi).
+Tekshiruvchi sessiyasi (D54), yopish. Faqat `verification/` ga yozildi;
+implementatsiya kodi, `experiments/`, `benchmarks/`, `docs/`, `REMEDIATION_*.md`
+va commit qilingan natijalarga tegilmadi; `config/.env` va ildiz `.env`
+ochilmadi. Postgres buyruqlari `scripts/dj5433.sh` orqali (DSN konteynerdan, env
+fayl o‘qilmaydi). Push, amend, rebase, reset — yo‘q.
 
-**Boshlang‘ich holat (0-qadam).** `systemctl --user list-units 'neurolearn-*'` →
-`0 loaded units`; daraxt toza; `git log -5`: `740bb20` (QADAM 14), `4c44557`
-(D70 kodi), `d894577` (D70 qarori), `9f940a1` (QADAM 13), `f7626ae`
-(REMEDIATION_REPORT). Branch `thesis-model`.
+**Boshlang‘ich holat.** Branch `thesis-model`, HEAD `852e1e3` (QADAM 15), daraxt
+toza, `systemctl --user list-units 'neurolearn-*'` → 0. Oldingi tekshiruvdan
+(`85ac91e`, 2026-10-20) beri 7 commit: `cdd8826` (N-1 tuzatish), `3ed55e9` (N-2
+tuzatish), `3614f27` (D71 qarori), `f88ded8` (D71 kodi), `c1ad4a9` (D71 quick
+natijasi), `b0295da` (D71 to‘liq natijasi), `852e1e3` (hujjatlar).
 
-Oldingi hisobot (2026-10-12, `e97261e`) shu fayl tarixida qoladi; bu versiya
-uni almashtiradi.
+Oldingi versiyalar (`e97261e`, `85ac91e`) shu fayl tarixida qoladi. 3 (a)–(i)
+bo‘limlari `85ac91e` sessiyasidan (o‘sha kod bugun ham o‘zgarmagan — 0 (e));
+0, 1, 2, 3 (j)–(k), 4, 5, 7, 8-bo‘limlar shu sessiyada yangilandi.
+
+## 0. Yopish sessiyasi — topshiriqlar va natija
+
+| # | Topshiriq | Natija |
+|---|---|---|
+| 1 | `test_e_consent_export.py:105` dagi `_pykt_blocks` ni pyKT 0.0.38 ning 6 qatorli blokiga moslashtirish | **Bajarildi.** Blok `PYKT_BLOCK` = (uid,seq_len; questions; concepts; responses; timestamps; usetimes) — `pykt/preprocess/split_datasets.py:9-79` dagi `read_data` ning `i % 6` qadami (o‘rnatilgan 0.0.38 ning o‘zidan o‘qildi). Sanash testi endi to‘rt qatorda n ta qiymat va pyKT “yo‘q ustun” deb oladigan `NA` yo‘qligini, oltinchi qatorda `NA` (yoki n qiymat) ni tekshiradi. 3 FAIL yo‘qoldi: modul **28 passed** (oldin 25 passed, 3 failed) |
+| 2 | N-2 strict xfail → kichik yangi run | **Bajarildi.** `test_v_h1_the_csv_itself_carries_the_summary_columns` endi `tmp_path` ga `run_tree_benchmark --quick` ni kichik daraxtda yuguradi (`random`, 100 tugun, 3 takror, 1 warm-up, 2 worker × 0,5 s × 1) — **3,2 s**. Har takror qatorida `median`, `p95` = `metrics.json` dagi qiymat **va** o‘zim CSV vaqtlaridan hisoblagan mediana / p95 (`statistics.quantiles(..., method="inclusive")`, 1e-6); `queries` ≥ 1, ularning mediana / min / max = `queries_median` / `_min` / `_max`; `rows_touched` mediana = `rows_touched_median`, yozish amallarida ≥ 1; parallel qatorlarda to‘rt ustun bo‘sh; 6 amal × 2 usul. **Bo‘sh emasligi:** `3ed55e9^` dagi eski `csv_rows` scratch plagin bilan monkeypatch qilinsa — test yiqiladi (sarlavhada ustunlar yo‘q) |
+| 3 | H2/D55/D60/H1/H3/D71 `export_research_data` ni ishlatmasligi | **Tasdiqlandi** — 3 (k). Yangi test `test_e_experiments.py::test_n1_no_experiment_reads_the_research_export` |
+| 4 | D71: reja run'dan oldin, `tables.verify`, D48 pozitsion, post-hoc belgisi, D61/D62 hukmlari | **Tasdiqlandi** — 3 (j). Yangi modul `test_e_d71_posthoc.py` (12 test) |
+| 5 | `852e1e3` diff'i: II bob konstantalari, `DEFAULT_GRID`, lock fayllar | **O‘zgarmagan** — 0 (e) |
+| 6 | To‘liq suite'lar | 1-bo‘lim |
+| 7 | Hisobot, faqat `verification/` commit | shu fayl |
+
+### 0 (e). `852e1e3` va `85ac91e..852e1e3` diff'i
+
+- `852e1e3` ning o‘zi faqat 3 hujjat faylini o‘zgartiradi: `REMEDIATION_PROGRESS.md`
+  (faqat qo‘shilgan qatorlar, 0 o‘chirilgan), `REMEDIATION_REPORT.md`,
+  `docs/THESIS_MAPPING.md`. Kod, konstanta, grid, lock fayl yo‘q.
+- Butun oraliq `85ac91e..852e1e3` da `git diff --stat` **bo‘sh**:
+  `config/settings.py` (`THESIS_MODEL`), `experiments/models/` (`classical.py:44`
+  `CONSTANTS`: G_MAX 0,30, S_MAX 0,10, a 1, Elo α 0,8 / β 0,05, λ 0,5, τ 0,95,
+  c 0,05, θ ±4), `neuro_model/` (`calibrate.py:93` `DEFAULT_GRID`, 4 752 nomzod),
+  `requirements.lock`, `experiments/requirements.lock`, `requirements*.txt`,
+  `experiments/requirements.txt`, `experiments/h1.py`, `h2.py`, `h3.py`,
+  `experiments/datasets/`. Oraliqdagi o‘zgargan kod: `export_research_data.py`
+  (N-1), `benchmarks/runner.py` (N-2), yangi `experiments/d71.py`, `run_h2.sh` ga
+  3 ta `d71-*` maqsad, testlar.
+- `experiments/results/` da oraliqda 12 fayl, hammasi `A` (qo‘shilgan) — commit
+  qilingan natija o‘zgartirilmagan yoki o‘chirilmagan.
 
 ## 1. Testlar (o‘lchangan sonlar)
 
-| Suite | Muhit | Oldin (`740bb20`, tekshiruvchi o‘zgarishlaridan oldin) | Keyin |
+| Suite | Muhit | `85ac91e` (oldingi hisobot) | `852e1e3` + shu sessiyaning `verification/` o‘zgarishlari |
 |---|---|---|---|
-| `verification/tests` | `venv` (Django 6.0.5), compose Postgres 5433, `--ds=verification.settings` | 824 passed, **6 failed, 1 error** (2 daq 46 s) | **936 passed, 1 failed, 1 xfailed** (6 daq 44 s) — 107 yangi test; FAIL — N-1 (V-E3, haqiqiy nuqson), xfail — N-2 (strict) |
-| `verification/neural` | `experiments/.venv` (torch 2.5.1+cpu, pykt 0.0.38) | — | **62 passed, 3 skipped** (skip'lar — D57 izolyatsiyasi populyatsiya parametrli 3 model uchun ataylab, oldingi K-2) |
-| Backend (`scripts/dj5433.sh venv/bin/python -m pytest`, `experiments/tests` va `benchmarks/tests` ichida) | `venv` | — | **1 289 passed, 51 skipped**, 13 subtests, 0 failed (9 daq 43 s) — QADAM 14 bilan aynan |
-| `experiments/tests` | `experiments/.venv` | — | **409 passed, 2 skipped** (pytest: 10 daq 35 s; skip — Django tomoni bu venv'da yo‘q) |
-| `benchmarks/tests` | `venv` | — | **90 passed** (27 s) |
-| THESIS_MAPPING nomlagan 17 test fayli | `venv` | — | **637 passed**, 13 subtests (3 daq 12 s) |
-| `report_values --check` | ikkala venv | — | 177 son, 9 bo‘lim, **0 farq**, rc = 0 |
-| `run_tree_benchmark --quick` (o‘zim) | verification benchmark test bazasi | — | rc = 0, 3 daq 47 s (3 (b)) |
-| `run_all --dataset junyi --quick` (o‘zim, `740bb20` ning toza kloni, `--workers 2`) | `experiments/.venv`, `NEUROLEARN_DATA` | — | rc = 0; h1 va h3 natijalari ikkala uchida toza provenance, `tables.verify` va pozitsion tekshiruv = []. Devor vaqti 165 daq — mashina shu orada band/uxlagan (bir vaqtda yugurgan experiments suite'ning devor vaqti 150 daq, pytest'ning o‘zi 10,6 daq dedi); implementatorning 18 daqiqasi bilan solishtirib bo‘lmaydi |
+| `verification/tests` | `venv` (Django 6.0.5), compose Postgres 5433, `--ds=verification.settings` | 936 passed, 1 failed (N-1), 1 xfailed (N-2) | **951 passed**, 0 failed, 0 xfailed, 0 skipped (7 daq 48 s) |
+| `verification/neural` | `experiments/.venv` (torch 2.5.1+cpu, pykt 0.0.38) | 62 passed, 3 skipped | **62 passed, 3 skipped** (4 s; skip'lar — D57 izolyatsiyasi populyatsiya parametrli 3 model uchun ataylab) |
+| Backend (`scripts/dj5433.sh venv/bin/python -m pytest`; `experiments/tests` va `benchmarks/tests` ichida) | `venv` | 1 289 passed, 51 skipped, 13 subtests | **1 298 passed, 51 skipped**, 13 subtests, 0 failed (12 daq 22 s); 51 skip — hammasi torch talab qiladigan `experiments/tests` (`test_h2_bounds` 19, `test_h2_frozen` 13, `test_order_protocol` 13, `test_models` 6), ular `experiments/.venv` da yuguradi. QADAM 15 dagi son bilan aynan |
+| `experiments/tests` | `experiments/.venv` | 409 passed, 2 skipped | **415 passed, 2 skipped** (14 daq 0 s, boshqa suite bilan bir vaqtda; skip — Django tomoni bu venv'da yo‘q) |
+| `benchmarks/tests` | `venv` | 90 passed | **92 passed** (27 s; +2 — `3ed55e9` ning testlari) |
+| `report_values --check REMEDIATION_REPORT.md` | ikkala venv | 177 son, 9 bo‘lim, 0 farq | **177 son, 9 bo‘lim, 0 farq**, rc = 0 (ikkala venv'da) |
+| `run_tree_benchmark --quick` (to‘liq quick, o‘zim) | verification benchmark test bazasi | rc = 0, 3 daq 47 s | `test_v_h1_run_tree_benchmark_quick_runs_here` ichida HEAD'da (N-2 dan keyin) qayta yugurdi — PASS |
 
-Seed: `verification.settings.VERIFICATION_SEED` = 20261003 (har case uchun
-`SEED + offset`). `verification/tests` xdist'siz, `-p no:cacheprovider`.
+`verification/tests` ning o‘sishi: 938 → 951 test (+12 `test_e_d71_posthoc.py`,
++1 N-1 qamrovi; N-2 xfail oddiy testga aylandi, son o‘zgarmadi).
+
+Seed: `verification.settings.VERIFICATION_SEED` = 20261003. `verification/tests`
+xdist'siz, `-p no:cacheprovider`. Bu sessiyada `verification/tests` va
+`experiments/tests` bir vaqtda, keyin backend va `verification/neural` (har biri
+o‘z test bazasi bilan) yugurdi — devor vaqtlari shuning uchun taqqoslanmaydi.
 
 ## 2. `verification/` dagi xatolar — sabab va qaror
 
+`85ac91e` dagi 7 ta xato (N/A signallari, D48 mezoni, D70 fixture'i) o‘sha
+sessiyada yopilgan (shu fayl tarixida, `85ac91e`). Shu sessiyada:
+
 | # | Test | Sabab | Qaror |
 |---|---|---|---|
-| 1–3 | `test_na.py::test_pending_stages[8]`, `[9]`, `[10]` | N/A signali: 8, 9, 10-bosqichlar “Bajarildi” | **Yopildi.** `test_implemented_stages` endi 0–10 ni kuzatadi (8–10 katagida izoh bor, shuning uchun holat — birinchi so‘z); yangi `test_no_stage_is_pending`: jadvalda aynan 0–10 bosqich va hech birida “Kutilmoqda” yo‘q |
-| 4 | `test_na.py::test_na_group_e_pipeline_run_all_is_not_implemented` | N/A signali: `run_all.py` paydo bo‘ldi | **V-E4 yozildi** — `test_e4_run_all.py` (10 test, 3-bo‘lim); signal o‘rnida “E guruhi yozilgan” testi |
-| 5 | `test_na.py::test_na_group_h_benchmark_command_is_not_implemented` | N/A signali: `run_tree_benchmark` bor | **V-H1 va H4 yozildi** — `test_h_tree_benchmark.py`; signal o‘rnida “H guruhi yozilgan” testi |
-| 6 | `test_e_experiments.py::test_d48_every_result_has_sha256_commit_seed_and_command` | Mezon ziddiyati: `tree-benchmark/*` (4) va `tree-benchmark-quick` da `sources` bo‘sh — kirish fayli yo‘q, daraxt generatsiya qilinadi | **Mezon aniqlandi.** Generatsiya qilingan natija (`report == tree_benchmark` yoki Locust) uchun sha256 o‘rniga **generator, seed va parametrlar** talab qilinadi: daraxt uchun `settings` (shakllar, hajmlar, takrorlar, timeout, parallel, seed), `seeds.trees == settings.seed`, buyruqda `--seed`, `benchmarks/generator.py` run commit'ida mavjud, har o‘lchangan (shakl, hajm) uchun `trees[]` yozuvi; generator run commit'idan beri o‘zgarmagani uchun **18 daraxtning har birining sha256'i (shakl, hajm, seed) dan qayta hosil qilindi va mos keldi**. Locust uchun `run` parametrlari, `seeds.seed_load_test`, generator fayllari `sources` da. `sources` dagi kod fayli endi bugungi fayl bilan emas, **run commit'idagi blob** bilan solishtiriladi (data fayli — avvalgidek). Har commit `git cat-file` bilan tekshiriladi. Yangi `test_d48_the_generated_criterion_still_catches_a_missing_seed_or_parameter`: seed, parametr, daraxt yozuvi yoki digest buzilsa — yiqiladi |
-| 7 | `test_b2_rejections.py::test_v_b2_adding_a_topic_that_closes_a_cycle_is_rejected` (ERROR, setup) | Fixture bo‘sh bo‘limlar halqasi A → B → C → A ga tayangan — D70 aynan shuni taqiqlaydi | **Fixture almashtirildi**: A → B, B → C va c1 → A (c1 — C ning mavzusi). G = (N, E_P) siklsiz, shuning uchun D70 qabul qiladi; b1 qo‘shilgach E_L = {b1 → c1}; a1 qo‘shish G_L da a1 → b1 → c1 → a1 ni yopadi → `cycle`, versiya, tugunlar va relatsiyalar o‘zgarmaydi. Maqsad saqlandi. Qo‘shimcha test: eski halqaning uchinchi relatsiyasi endi `cycle` bilan rad etiladi |
-
-Shuningdek `test_na_group_f_performance_is_still_unmeasured` (o‘tib turgan, lekin
-eskirgan signal) — V-F1/V-F2 endi o‘lchandi (`test_f_performance.py`), signal
-“F guruhi yozilgan” testiga almashtirildi.
-
-`verification/settings.py` ga `benchmark` alias qo‘shildi: test bazasi
-`neurolearn_verify_bench` (benchmark bazasining o‘zi ochilmaydi).
+| 8–10 | `test_e_consent_export.py::test_v_e1_the_only_learner_identifier_is_the_pseudonym`, `::test_v_e2_sources_and_archived_topic_in_every_file`, `::test_v_e2_counts_agree_across_the_files` | Tekshiruvchining yordamchisi `_pykt_blocks` (`:105`) N-1 dan oldingi 5 qatorli blokni taxmin qilardi; `cdd8826` dan keyin fayl 6 qatorli (`… "NA"`) — N-1 tuzatishining kutilgan oqibati | **Yopildi** (0-bo‘lim, 1). Blok uzunligi endi spetsifikatsiyadan emas, pyKT 0.0.38 ning o‘z o‘quvchisidan |
+| 11 | `test_h_tree_benchmark.py::test_v_h1_the_csv_itself_carries_the_summary_columns` (strict xfail) | Commit qilingan eski quick CSV'ni o‘qirdi — N-2 dan oldin yozilgan, qayta yozilmaydi | **Yopildi** (0-bo‘lim, 2): yangi kichik run'ning CSV'si tekshiriladi, xfail olib tashlandi |
 
 ## 3. Mustaqil tekshiruvlar
 
@@ -66,7 +94,7 @@ implementatsiya funksiyalari faqat **tekshiriladigan obyekt** sifatida chaqirild
 | D64: H3 ogohlantirishi | ikkala uchidagi yagona o‘zgarish `?? experiments/results/junyi-h1/`; H1 ikkala uchida toza |
 | D64 `split_changes` | faqat `??` + `experiments/results/` ajratiladi; `M` natija fayli, `A` natija, `experiments/resultsX/`, kod fayli — dirty. Vaqtinchalik git repo'da: untracked natija ⇒ `dirty = False`; commit qilingan natijani tahrirlash yoki begona `.py` ⇒ `dirty = True` |
 
-### (a′) V-E4 va V-E3 — `test_e4_run_all.py` (10 test, PASS), `test_e_consent_export.py`
+### (a′) V-E4 va V-E3 — `test_e4_run_all.py` (10 test, PASS), `test_e_consent_export.py` (28 test, PASS)
 
 - **V-E4.** `run_all.plan`: assist09 → faqat h2 (h1, h3 sabab bilan
   “ishga tushirilmadi”), junyi → h1 va h3 (h2 sabab bilan); `--dry-run` hech
@@ -77,13 +105,15 @@ implementatsiya funksiyalari faqat **tekshiriladigan obyekt** sifatida chaqirild
   `quick = true`, `thesis_result = false`, jadvalda “`--quick` ishga tushirish —
   dissertatsiya natijasi emas”, buyruqda `--quick`, git'da kuzatiladi,
   `tables.verify` = []. Spetsifikatsiyadagi “simulyatsiya ma’lumotida” o‘rniga
-  haqiqiy ma’lumot (D48) — 6-bo‘lim, 15-band; parametr tiklash testi
-  `neuro_model/tests/test_calibrate.py` da bor. Junyi quick o‘zim yugurtirdim
-  (1-bo‘lim).
-- **V-E3.** Qatorlar soni (metadata = CSV = pyKT bloklari) avvaldan o‘tadi;
-  **pyKT'ning o‘z o‘quvchisi bilan o‘qish — FAIL** (N-1).
+  haqiqiy ma’lumot (D48) — 6-bo‘lim, 15-band. Junyi quick `85ac91e` sessiyasida
+  o‘zim yugurtirdim; o‘shandan beri `run_all.py`, `h1.py`, `h2.py`, `h3.py` va
+  `datasets/` o‘zgarmagan (0 (e)).
+- **V-E3.** Qatorlar soni (metadata = CSV = pyKT bloklari) o‘tadi; **pyKT'ning
+  o‘z o‘quvchisi** (`experiments/.venv`, `read_data`, `-I`) bilan o‘qish — endi
+  **PASS**: xato qatori yo‘q, `uid` lar = CSV psevdonimlari, talabalar va
+  javoblar soni metadata bilan teng (N-1 yopildi, 4-bo‘lim).
 
-### (b) H4 — `test_h_tree_benchmark.py` (23 test + 1 strict xfail)
+### (b) H4 — `test_h_tree_benchmark.py` (24 test, PASS)
 
 | Tekshiruv | Natija |
 |---|---|
@@ -95,7 +125,8 @@ implementatsiya funksiyalari faqat **tekshiriladigan obyekt** sifatida chaqirild
 | Son chiqmagan kataklar | `deep_chain/100000`: birinchi pass'da 2 × “ishga tushirilmadi — xotira” + 1 × timeout, qayta o‘lchashda 3 × timeout — `metrics.json` da ρ yo‘q, CSV'da vaqt yo‘q (faqat holat), jadvalda xulosa matni |
 | D63h birlashtirish (o‘zim qurdim) | 54 katak: yozishda “CTE tezroq” emas — **6**, o‘qishda 1,5× dan sekin — **16**, son yo‘q — **3**; `deep_chain/100000` o‘chirish — “taqqoslanadigan” (0,922); qayta o‘tkazilgan 72 parallel bosqich: qulfli 18/18 toza (ikkala usul), qulfsiz MPTT oraliqlari 27/27 buzilgan, qulfsiz CTE Y1 — 1/27 (`course_like/1000` ×8). REMEDIATION_REPORT §6 va QADAM 11 bilan aynan mos |
 | V-H1, commit qilingan `--quick` | har shakl × amal × usul CSV'da; har katakda mediana, p95, `queries_median`, `rows_touched_median` (metrics.json'da); parallel yaxlitlik ikkala usul uchun |
-| V-H1, **o‘zim ishga tushirdim**: `run_tree_benchmark --quick` (verification'ning benchmark test bazasida, `--out` tmp, `--no-checkpoint`) | rc = 0 (3 daq 47 s); `metrics.json`, `measurements.csv`, `tables.md`, `env.txt` yozildi; `tables.verify` va `verify_tree_benchmark_positions` = []; har shakl × 6 amal × 2 usul CSV'da, har katakda p95 > 0 va so‘rovlar ≥ 1; parallel qulfsiz bosqich ikkala usulda, har birida yaxlitlik natijasi |
+| V-H1, **o‘zim ishga tushirdim**: `run_tree_benchmark --quick` (verification'ning benchmark test bazasida, `--out` tmp, `--no-checkpoint`) | rc = 0; `metrics.json`, `measurements.csv`, `tables.md`, `env.txt` yozildi; `tables.verify` va `verify_tree_benchmark_positions` = []; har shakl × 6 amal × 2 usul CSV'da, har katakda p95 > 0 va so‘rovlar ≥ 1; parallel qulfsiz bosqich ikkala usulda, har birida yaxlitlik natijasi |
+| V-H1, CSV'ning o‘zida to‘rt ustun (N-2) — kichik yangi run | 0-bo‘lim, 2: PASS (3,2 s); eski `csv_rows` bilan — FAIL |
 
 ### (c) D66a — `test_f_performance.py` (7 test, PASS)
 
@@ -123,205 +154,186 @@ mos (so‘rovlar, xatolar, xato ulushi, p50, p95, RPS; `tables.verify` = []); uc
 endpoint p95 < 300 (190 / 210 / 280), xato 0; run parametrlari 50 foydalanuvchi,
 120 s, gunicorn 8 worker, DEBUG yo‘q, kurs 500 / 1 500. REMEDIATION_REPORT §6 va
 THESIS_MAPPING 10.2 dagi sonlar o‘sha. SQL sonlari (c) da.
-**Locust takrori o‘tkazilmadi** — shart bajarilmadi (7-bo‘lim).
+**Locust takrori o‘tkazilmadi** (7-bo‘lim).
 
 ### (f) REMEDIATION_REPORT — `test_reports.py` (5 test, PASS)
 
-- `experiments.report_values --check REMEDIATION_REPORT.md` (o‘zim ishga tushirdim,
+- `experiments.report_values --check REMEDIATION_REPORT.md` (shu sessiyada,
   ikkala venv'da): **177 son, 9 bo‘lim, 0 farq**, rc = 0; nusxada bitta son
-  (BKT AUC 0.707 → 0.708) o‘zgartirilsa — rc ≠ 0.
+  (BKT AUC 0.707 → 0.708) o‘zgartirilsa — rc ≠ 0. `852e1e3` qo‘shgan D71 matni
+  `report_values` qamrovida emas (son o‘sha 177) — uning da’volarini qo‘lda
+  tekshirdim (3 (j), oxirgi band).
 - Matritsa: hisobotdagi §2.2 PROGRESS'dagi bilan **qatorma-qator bir xil**
   (239 qator); 226 / 9 / 4 — qatorlardan sanaldi; “Kutilmoqda” yo‘q.
 - **Kech “Bajarildi” ga o‘tgan qatorlar** (2026-10-12 dagi `e97261e` bilan
-  solishtirib): **44 qator**. Har birining dalilidagi commit'lar backend yoki
-  frontend tarixida bor, fayl yo‘llari mavjud (o‘chirilgani yozilgan
-  `pages/Courses.tsx` — `c2bb542` da o‘chirilgan). 5 qatorda dalil boshqa qatorga
-  havola (masalan “EX3, EX4 qatorlari”) — o‘sha qatorlarda dalil bor. Butun
-  matritsa bo‘yicha “Bajarildi” qatorlaridagi 272 ta commit/yo‘l tokeni — hammasi
-  mavjud.
-- **“Qisman” (9) va “Kechiktirildi” (4) sabablari — baho:**
-  - `.env` tokeni (1.3, 7.3, Q6 — bitta masala uch qatorda): sabab haqiqiy —
-    bekor qilish faqat foydalanuvchida.
-  - ES8 / “Simulyator generativ emas”: sabab asosli (D48: natija faqat haqiqiy
-    ma’lumotdan; D13), lekin 8-bosqich spetsifikatsiyasidagi generativ simulyator
-    va undagi “Pre dastlabki AUC ni oshiradi” sanity testi bajarilmagan — bu
-    ochiq qarz, sabab bilan.
-  - pyKT/…/DBE-KT22: DBE-KT22 manbasi ochilmadi — tashqi to‘siq, asosli.
-  - 7.2 Bundle (850 kB chunk) va 2.8 Profil (o‘chirish/parol UI yo‘q): sabab
-    “bu bosqichda qilinmadi” — texnik to‘siq emas, tanlov. Qisman holati to‘g‘ri,
-    lekin “sabab” aslida “qilinmagan ish” tavsifi.
-  - 2.11 skrinshotlar: brauzer va to‘ldirilgan baza foydalanuvchida — asosli.
-  - Kechiktirildi: DBE-KT22 yuklovchisi, annotatsiya/κ (annotator yo‘q), D26 va
-    LLM dizayni (D26 qarori) — to‘rttasi ham asosli va hujjatlashtirilgan.
+  solishtirib): **44 qator**, dalillaridagi commit'lar va yo‘llar mavjud; butun
+  matritsa bo‘yicha “Bajarildi” qatorlaridagi 272 ta commit/yo‘l tokeni mavjud.
+- **“Qisman” (9) va “Kechiktirildi” (4) sabablari — baho** (`85ac91e` dagidek):
+  `.env` tokeni (1.3, 7.3, Q6) — bekor qilish faqat foydalanuvchida; ES8 /
+  “Simulyator generativ emas” — asosli (D48, D13), lekin generativ simulyator va
+  uning sanity testi ochiq qarz; DBE-KT22 — tashqi to‘siq; 7.2 Bundle va 2.8
+  Profil — “qilinmagan ish”, texnik to‘siq emas; 2.11 skrinshotlar — asosli;
+  4 “Kechiktirildi” — asosli va hujjatlashtirilgan.
 
 ### (g) THESIS_MAPPING — `test_thesis_mapping.py` (4 test, PASS)
 
-Jadval hujjatning o‘zidan (backtick tokenlar) o‘qiladi. 10.1 (20 qator) va 10.1a
-(2.1–2.6) dagi har bir `fayl:funksiya` (`kb.x`, `Class.a/b`, yo‘lsiz fayl nomi
-ham) `ast` bilan topildi; qavs ichidagi tavsifiy tokenlar (`lev`,
-`move_into_subtree`) o‘sha faylda so‘z sifatida bor. Har bir test fayli va nomlangan
-test funksiyasi (`*` bilan) mavjud; F1, F3, F6, F7 ning “Test.” qatorlari ham.
-Nomlangan **17 test faylini** backend muhitida ishga tushirdim
-(`scripts/dj5433.sh venv/bin/python -m pytest <17 fayl>`): **637 passed**,
-13 subtests, 0 failed (3 daq 12 s). F2 yopilgan, F4 va F5 da “Test.” qatori yo‘q
-(5-bo‘lim, K-6).
+10.1 (20 qator) va 10.1a dagi har bir `fayl:funksiya` `ast` bilan topildi; har
+test fayli va nomlangan test funksiyasi mavjud. `852e1e3` qo‘shgan D71 jadvalidagi
+`experiments/d71.py:subset_rules`, `subset_equal_coverage`, `h1_part`, `curve`,
+`h3_part`, `gate`, `fit`, `fit_checkpoint` va uchta `test_d71.py::…` nomi ham
+mavjud (qo‘lda). F4 va F5 da “Test.” qatori yo‘q (K-6).
 
 ### (h) — 6-bo‘limda.
 
 ### (i) D70 — `test_d70_node_cycles.py` (34 test, PASS)
 
-30 ta tasodifiy holat (1–2 kurs, 3–6 bo‘lim, 0–4 mavzu — ko‘p tugun bo‘sh) ×
-30 qadam: relatsiya (har qanday ikki tugun), yangi mavzu, ko‘chirish — hammasi
-`kb.*` orqali. Kutilgan qaror ikki mustaqil qismdan: D70 dan oldingi qoida
-(oracle: Y2, `networkx` bilan G_L asiklikligi, “duplicate”) va G da y ⇝ x yo‘li
-(o‘zimning BFS). Natija:
+30 ta tasodifiy holat × 30 qadam: relatsiya, yangi mavzu, ko‘chirish — hammasi
+`kb.*` orqali; kutilgan qaror ikki mustaqil qismdan (D70 dan oldingi qoida —
+oracle, `networkx`; G da y ⇝ x — o‘z BFS'im). Servis qarori har qadamda kutilganiga
+teng; har qabul qilingan holatda **G ham, G_L ham siklsiz**; rad etilganda
+versiya, tugunlar va relatsiyalar o‘zgarmagan; yig‘indi: 498 qabul, 11 faqat
+tugunlar darajasidagi sikl, 46 G_L sikli, 2 yangi mavzu G_L siklini yopgani
+uchun rad, 55 ko‘chirish rad. Tuzatilgan 2.2 va kontrmisollar — `85ac91e` dagidek.
 
-- servis qarori har qadamda kutilganiga teng; har qabul qilingan holatda
-  **G ham, G_L ham siklsiz** (`networkx`); rad etilganda versiya, tugunlar va
-  relatsiyalar o‘zgarmagan;
-- yig‘indi: 498 qabul, **11 faqat tugunlar darajasidagi sikl** (D70 rad etgan),
-  46 G_L sikli, **2 yangi mavzu G_L siklini yopgani uchun rad**, 55 ko‘chirish rad;
-  alohida sanoqda 133 tugun-darajasidagi va 85 G_L rad etish;
-- **tuzatilgan 2.2**: x, y va y ⇝ x yo‘lidagi barcha tugunlarda mavzu bo‘lsa, D70
-  dan oldingi qoida o‘zi “cycle” deydi — ya’ni mavzusi bor tugunlarda D70 hech
-  narsani o‘zgartirmaydi (har qadamda tekshirildi; leaf-darajasidagi zanjir
-  `[a1, b1]` avvalgidek);
-- kontrmisollar: mavzusiz ikki kurs C0 ⇄ C1 — ikkinchisi `cycle`, zanjir tugunlar
-  darajasida (C0 … C1); bo‘sh S1 ⇄ S2 — rad, keyin ikkala bo‘limga mavzu
-  qo‘shiladi (D70 dan oldingi “yashirin sikl” Y3 xatosi yo‘q).
+### (j) D71 — `test_e_d71_posthoc.py` (12 test, PASS)
+
+| Tekshiruv | Natija |
+|---|---|
+| Reja run'dan oldin | `## D71 — …` sarlavhasi `3614f27^` da yo‘q, `3614f27` da bor; `3614f27` da `experiments/d71.py` yo‘q. To‘rt papkaning (`junyi-h1-posthoc[-quick]`, `junyi-h3-lambda[-quick]`) `code_commit` i — quick `f88ded8`, to‘liq `c1ad4a9`; ikkalasi ham `3614f27` ning avlodi (`merge-base --is-ancestor`); `git_start.at` (17:02:40 va 17:15:23 UTC) > reja commit vaqti (16:43:25 UTC); ikkala uchida toza, `git_start` = `git_end` = `code_commit`. `git diff 3614f27 HEAD -- REMEDIATION_PROGRESS.md` da **o‘chirilgan qator yo‘q** — reja keyin tahrirlanmagan |
+| `tables.verify` | to‘rt papkada **[]** |
+| D48 pozitsion (o‘zimniki; D71 uchun implementatsiyada pozitsion tekshiruvchi yo‘q) | `metrics.json` dan har qiymat ma’nosi bo‘yicha olinadi va **o‘z jadvali (bo‘lim / k), o‘z qatori (qoida yoki τ / λ soni bo‘yicha), o‘z ustuni (sarlavha nomi bilan) va katak ichidagi o‘rni** (“0.784 [0.776; 0.791]” da baho / quyi / yuqori) da qidiriladi: H1 papkalarida **170**, H3 da **48** qiymat — hammasi o‘z katagida. Bo‘sh emasligi: τ = 0,5 qatorida ikki katak almashtirilsa — 2 ta xato; λ = 0,5 va 0,75 qatorlari almashtirilsa — xato. Scratch'da qo‘shimcha: har papkada 200 tasodifiy bitta-katak mutatsiyasi — **800 / 800 ushlandi** |
+| Post-hoc belgisi, hukm yo‘q | to‘rt papkada `spec = D71`, `posthoc = true`, `descriptive = true`, `status_note` “post-hoc, tavsifiy — D61/D62 ning o‘qish qoidasi va hukmi o‘zgarmaydi”; `tables.md` banneri xuddi shu; `reading` / `verdict` kaliti yo‘q, “qo‘llab-quvvatlandi / qo‘llab-quvvatlanmadi / aniqlanmadi” so‘zlari na jadvalda, na metrics'da yo‘q. Quick papkalarda `quick = true`, `thesis_result = false` va “dissertatsiya natijasi emas”; to‘liqlarida aksincha |
+| Takrorlanish darvozasi — **o‘zim, asl natijalardan** | split seed / fold'lar, N = 2 000, log sha256, 1 000 replika — asl H1/H3 bilan bir xil. H1: voqealar 9 664, S = 7 136 (`with_every_prerequisite_answered`), to‘liq to‘plamdagi 5 qoidaning (belgilangan, muvaffaqiyatsiz) — asl `rules` bilan aynan. H3: asl run'da λ beshala fold'da 0,25 (fold yozuvlaridan); D71 ning λ = 0,25 va λ = 0 AUC'i (k = 3, 5) asl `asl` va `grafsiz` arm'lari bilan 1e-9 da, javoblar soni teng. λ to‘plami {0; 0,1; 0,25; 0,5; 0,75; 1} va τ egri chizig‘i 15 nuqtasi — rejadagidek. D71 ning o‘z `reproduction_gate` i (15/15) ham `equal` |
+| D61/D62 hukmlari o‘zgarmagan | `junyi-h1/20261019-102526` va `junyi-h3/20261019-122423` — har biri tarixda bitta commit (`abc8c5a`, `ac632d3`), `3614f27..HEAD` diff'i bo‘sh, ishchi daraxtda o‘zgarish yo‘q. Asl hukmlar: H1 “qo‘llab-quvvatlanmadi”, H3 k = 3 “aniqlanmadi”, k = 5 “qo‘llab-quvvatlanmadi” — THESIS_MAPPING qatorlaridagi qalin hukm aynan shular. `852e1e3` H1/H3 qatorlarida hukmni o‘zgartirmagan, faqat D71 izohini qo‘shgan |
+| `852e1e3` dagi D71 da’volari (qo‘lda) | “S da ehtimoliy qoida o‘tish bali va `earned_proficiency` dan farq qilmaydi” — to‘rt farqning (k = 3, 5) CI'si nolni kesadi: to‘g‘ri. “H3 da AUC λ oshgan sari kamayadi, eng yuqorisi λ = 0” — k = 3 va k = 5 da baholar qat’iy kamayadi: to‘g‘ri. “r_s(w) AUC'i tasodifiyga yaqin” — k = 3 da 0,523 [0,496; 0,549], k = 5 da 0,540 [0,515; 0,565]: kattalik bo‘yicha to‘g‘ri, lekin k = 5 da CI 0,5 ni o‘z ichiga olmaydi (K-11) |
+
+### (k) N-1 natijalarga ta’sir qilmagani — `test_e_experiments.py::test_n1_no_experiment_reads_the_research_export` (PASS)
+
+`export_research_data` — Django management buyrug‘i
+(`assessments/management/commands/export_research_data.py`). Pipeline'lar uni
+ishlatmaydi:
+
+| Pipeline | Ma’lumotga kirish (fayl:qator) | Manba yozuvi |
+|---|---|---|
+| H2 | `experiments/h2.py:127` `assist09.load(...)` → `experiments/datasets/assist09.py:48` (`assistments2009/as.csv`), `:170` `load`, `:207` `open` | `h2.py:499` `Source.of("assistments2009", dataset.path)` |
+| D55 (`h2_bounds`) | `experiments/h2_bounds.py:562` `h2.prepare(...)` (H2 ning o‘sha yo‘li) | `h2_bounds.py:753` |
+| D60 (`h2_frozen`) | `experiments/h2_frozen.py:504` `h2.prepare(...)` | `h2_frozen.py:606` |
+| H1 | `experiments/h1.py:555` `junyi.load(...)` → `experiments/datasets/junyi.py:80-81` (`junyi_Exercise_table.csv`, `junyi_ProblemLog_original.csv`), `:848` `load` | `h1.py:660-662` |
+| H3 | `experiments/h3.py:673` `junyi.load(...)` | `h3.py:770-772` |
+| D71 | `experiments/d71.py:372` `junyi.load(...)` | `d71.py:435-437` |
+
+- `experiments/`, `benchmarks/`, `neuro_model/` da (`.venv` dan tashqari)
+  `export_research_data`, `pykt_sequences`, `attempts.csv`, `knowledge_base.json`
+  — **0 ta moslik** (grep; testda git kuzatadigan har `experiments/**.py` bo‘yicha).
+- `experiments/.venv` da Django yo‘q (`import django` → `ModuleNotFoundError`) —
+  pipeline'lar buyruqni hatto chaqira olmaydi; ma’lumot ildizi
+  `experiments/datasets/__init__.py:18` `data_root()` (`experiments/data/` yoki
+  `NEUROLEARN_DATA`).
+- Commit qilingan 28 natija papkasining `provenance.sources` i: `as.csv` (11),
+  Junyi ikki fayli (8 + 8), 4 GraphML, Locust generatorlari (3 + 3); daraxt
+  benchmark'larida bo‘sh (generatsiya). Eksport papkasidan yoki uning faylidan
+  birorta ham manba yo‘q.
+- `cdd8826` faqat ikki fayl: eksport buyrug‘i va uning testi.
+
+**Xulosa:** N-1 dissertatsiya natijalarining (H1–H4, D55, D60, D71) hech biriga
+ta’sir qilmagan.
 
 ## 4. Nuqsonlar
 
-**N-1 (FAIL, V-E3) — pyKT eksporti pyKT'ning o‘z o‘quvchisi bilan to‘g‘ri o‘qilmaydi.**
-`assessments/management/commands/export_research_data.py:319-338` (`write_pykt`,
-`PYKT_LINES`) har talaba uchun **5 qator** yozadi (uid; savollar; konseptlar;
-javoblar; vaqt). pykt-toolkit 0.0.38 (`experiments/.venv`) ning
-`pykt.preprocess.split_datasets.read_data` bloki **6 qator** (… timestamps;
-**usetimes**, yo‘q bo‘lsa `NA`) deb o‘qiydi. Natija: ikkinchi talabaning sarlavhasi
-birinchisining `usetimes` iga tushadi, keyingi blok siljiydi, pyKT
-`error response in line: 9` deydi va talabalarni tashlab yuboradi.
-Takrorlash:
-`verification/tests/test_e_consent_export.py::test_v_e3_pykt_reads_the_exported_sequences_without_error`
-(eksport → `experiments/.venv/bin/python -I -c "read_data(...)"`, 3 talaba → 1 qator).
-Sun’iy 3 talabalik 5-qatorli faylda ham xuddi shu (1 qator, `badr = 1`). Eksport
-metadata'sining o‘zi “Verify against the installed pykt-toolkit before training
-(stage 8b)” deydi — bu tekshirilmagan. Tuzatish yo‘nalishi: har blokka oltinchi
-qator (`NA` yoki foydalanish vaqti). Dissertatsiya natijalariga ta’siri yo‘q (H1–H3
-eksportdan o‘qimaydi), lekin V-E3 talabi buzilgan va platforma ma’lumotini pyKT
-bilan tahlil qilish yo‘li ishlamaydi. Bu test suite'da ataylab **FAIL** qoldirildi.
+**N-1 (V-E3) — YOPILDI (`cdd8826`), mustaqil tasdiqlandi.** Eksport har talaba
+uchun 6 qator yozadi (`PYKT_LINES` + `PYKT_MISSING = "NA"`). Tekshiruvchining
+V-E3 testi faylni pyKT 0.0.38 ning o‘z `read_data` si bilan o‘qiydi: xato qatori
+yo‘q, talabalar, psevdonimlar va javoblar soni metadata / CSV bilan teng — PASS.
+6 qatorli blokka moslashtirilgan tekshiruvchi testlari ham PASS (0-bo‘lim, 1).
+Natijalarga ta’siri yo‘q — 3 (k).
 
-**N-2 (kichik, V-H1 shakli) — CSV'da xulosa ustunlari yo‘q.** V-H1: “Chiqish
-CSV'sida barcha amallar, hajmlar, mediana, p95, so‘rovlar soni va o‘zgargan
-qatorlar bor”. `benchmarks/runner.py:811` (`csv_rows`) faqat har takrorning xom
-vaqtini (va parallel op/s) yozadi; mediana, p95, so‘rovlar soni va o‘zgargan
-qatorlar faqat `metrics.json` va `tables.md` da. Ma’lumot yo‘qolmagan (xom
-vaqtlardan mediana/p95 qayta hosil qilinadi — (b) da qilindi), lekin so‘rovlar
-soni va o‘zgargan qatorlar CSV'dan tiklanmaydi. Takrorlash:
-`test_h_tree_benchmark.py::test_v_h1_the_csv_itself_carries_the_summary_columns`
-(`xfail(strict=True)` — tuzatilsa XPASS bo‘lib yiqiladi va olib tashlanadi).
+**N-2 (V-H1 CSV) — YOPILDI (`3ed55e9`), mustaqil tasdiqlandi.** `measurements.csv`
+da `median`, `p95` (katak qiymati, `metrics.json` dagidek), `queries`,
+`rows_touched` (har takrorniki). Yangi kichik run'da qiymatlar o‘zim hisoblagan
+statistikalarga va `metrics.json` ga mos; eski `csv_rows` bilan test yiqiladi
+(0-bo‘lim, 2). Commit qilingan eski natijalar (masalan
+`tree-benchmark-quick/20261012-131931`) qayta yozilmagan — ularning CSV'sida
+ustunlar yo‘q, bu to‘g‘ri (D48: natija qayta yozilmaydi).
+
+**Ochiq mahsulot nuqsoni: yo‘q.**
 
 ## 5. Kuzatuvlar
 
-**K-1 (muhim, H1 talqini) — `pass_mark` bilan taqqoslash teng qamrovda emas.**
-r_s(w) = min P(L) (`neuro_model/readiness.py:79`) va javobsiz prerekvizit P(L) = 0
-bilan kiradi (D62-4). Shuning uchun prerekviziti to‘liq ishlanmagan har voqeada
-r = 0 (voqealarning 26,2 %), ya’ni ehtimoliy qoidaning qamrovi faqat 1,0 (τ = 0)
-yoki ≤ 0,738 bo‘la oladi. O‘tish bali qoidasining qamrovi 0,956 — unga eng yaqini
-1,0, va `tau_for_coverage` beshala fold'da **τ = 0** ni tanladi
-(`junyi-h1/20261019-102526/metrics.json`: `tau_chosen.3.pass_mark = 0.0`,
-`coverage_gap = 0.043978`). Ya’ni “o‘tish bali” kontrasti ehtimoliy qoidani emas,
-**“hamma tayyor”** qoidasini (xato ulushi = bazaviy 0,169) o‘tish bali bilan
-solishtiradi; “qo‘llab-quvvatlanmadi” xulosasi shu degenerat taqqoslashga tayanadi.
-Bajarilganlik bilan kontrastda τ ≈ 0,006–0,028, ya’ni ehtimoliy qoida amalda
-“hamma prerekvizit ishlangan” qoidasining o‘zi (farq −0,000023). D61 ning o‘qish
-qoidasi “teng qamrovda” deydi; bu shart o‘tish bali uchun bajarilmagan.
-Implementatsiya D62 ga to‘g‘ri amal qilgan — bu kod nuqsoni emas, dizayn
-oqibati, lekin dissertatsiyada H1 xulosasi shu cheklov bilan yozilishi kerak;
-H1 ning mazmunli o‘lchovi r_s(w) AUC = 0,5195 [0,5012; 0,5372] (tasodifiydan
-deyarli farqsiz).
+K-1…K-8 va K-10 `85ac91e` dagidek (fayl tarixida); qisqacha:
 
-**K-2 (H3) — λ har doim gridning pastki chetida.** λ ∈ {0,25; 0,50; 0,75}
-(D62-10) dan validatsiya har fold'da va asl, teskari, tasodifiy-1 arm'larida
-**0,25** ni tanladi (QADAM 10). II bobning λ = 0,5 i hech qayerda tanlanmagan,
-asl − grafsiz esa k = 5 da manfiy. Optimum gridning pastidan tashqarida bo‘lishi
-mumkin (D59 dagi PT holatiga o‘xshash) — H3 xulosasi “λ ≥ 0,25 da” deb o‘qilishi
-kerak.
+- **K-1 (muhim, H1 talqini)** — `pass_mark` bilan taqqoslash teng qamrovda emas
+  (τ = 0, “hamma tayyor” qoidasi bilan solishtirish). D71 buni tavsifiy tahlil
+  qildi (3 (j)); hukm o‘zgarmagan, dissertatsiyada cheklov sifatida yozilishi kerak.
+- **K-2 (H3)** — validatsiya λ ni har joyda gridning pastki cheti 0,25 da tanladi.
+  D71 egri chizig‘i: AUC λ bo‘yicha kamayadi, eng yuqorisi λ = 0 (grafsiz); ya’ni
+  optimum haqiqatan gridning pastidan tashqarida edi.
+- K-3 P(L) = 1.0 amalda yutuvchi; K-4 V-F2 da graf endpoint'i yuk ostida
+  o‘lchanmagan; K-5 V-F1 bir martalik holatlarda 12 dan yuqori; K-6 F4/F5 da
+  “Test.” qatori yo‘q; K-7 “Bajarildi (kod)” legendada yo‘q; K-8 jadvalda “-0”;
+  K-10 muhit (`SECRET_KEY` uzunligi ogohlantirishi, parallel verification
+  sessiyalari).
 
-**K-3 — P(L) = 1.0 “aynan yutuvchi” emas, amalda yutuvchi.** D65a/F6: P(L)
-double'da 1.0 ga yetgach noto‘g‘ri javobda P(L)′ fl(1 − S) ning yaxlitlanishiga
-qarab 1.0 yoki 1 − O(1e-15) bo‘ladi (o‘lchangan: 0,9999999999999982). Xavf
-(REMEDIATION_REPORT §4.5) to‘g‘ri tasvirlangan; faqat “P(L) ni tushirmaydi”
-emas, “sezilarli tushirmaydi”.
+**K-8 (davomi).** D71 H1 jadvalida ham “-0 [-0.002; 0.002]” (k = 5, o‘tish bali;
+baho −0,000164) va “0 [-0.002; 0.003]” — D48 bo‘yicha to‘g‘ri, o‘quvchi uchun
+belgi va kattalik yo‘qoladi.
 
-**K-4 — V-F2 ning “keshdagi graf” qismi o‘lchanmagan.** V-F2 graf, `trajectory`
-va `submit_answer` p95 ni so‘raydi; Locust oqimi `next_question`, `submit_answer`,
-`trajectory` (D68). Graf endpoint'i (`/api/curriculum/prerequisite-graph/`) yuk
-ostida o‘lchanmagan; uning so‘rovlar soni mavzular soniga bog‘liq emasligi (c) da
-tasdiqlandi.
+**K-9 (yangilandi).** `REMEDIATION_REPORT.md` §8 va QADAM 15 dagi “tuzatishlardan
+keyin” verification sonlari (934 passed, 3 failed, 1 xfailed) shu sessiyadan
+keyin eskirdi; joriy sonlar 1-bo‘limda. `REMEDIATION_*.md` ga tegilmadi —
+yangilash implementatorning ishi.
 
-**K-5 — V-F1 bir martalik holatlarda 12 dan yuqori.** Kursdagi birinchi javob 15,
-yangi talabaning birinchi so‘rovi 21 (θ qatori va holat qatorlari yaratiladi).
-D66a buni ochiq yozgan; V-F1 yumshoq chegara.
+**K-11 (yangi, D71 matni).** `852e1e3` dagi “r_s(w) AUC'i tasodifiyga yaqin”
+k = 3 uchun aniq (CI 0,5 ni o‘z ichiga oladi), k = 5 da CI [0,515; 0,565] 0,5 dan
+yuqori — kuchsiz, lekin tasodifiydan farqli. H3 λ egri chizig‘ida λ = 0, 0,1,
+0,25 baholari orasidagi farq 0,0001–0,0012, CI'lar to‘liq ustma-ust (bular
+juftlanmagan CI'lar, farq CI'si emas): “eng yuqorisi λ = 0” — nuqtaviy baho
+bo‘yicha. Ikkalasi ham tavsifiy da’vo, hukm emas; dissertatsiyada shu aniqlik
+bilan yozilsin.
 
-**K-6 — THESIS_MAPPING: F5 (kalibrlash grid'i) da “Test.” qatori yo‘q.** Grid
-`neuro_model/tests/test_calibrate.py::test_the_p0_and_pt_grids_are_d59s` bilan
-qotirilgan (mavjud, o‘tadi) — faqat hujjatda nomlanmagan. F4 ham testsiz (faqat
-kesh manzili).
-
-**K-7 — matritsada “Bajarildi (kod)” holati** (EX5, “Benchmark zaif”) legendada
-yo‘q; 226 ga “Bajarildi” sifatida kiradi. H4 natijasi keyin qo‘shilgan (“H4
-tayyorligi” qatori), shuning uchun “(kod)” izohi eskirgan.
-
-**K-8 — H1 jadvalida “-0 [-0; 0]”.** `tables.fmt` 3 xonada −0,000023 ni “-0”
-qilib ko‘rsatadi; D48 bo‘yicha to‘g‘ri (son metrics'da), lekin o‘quvchi uchun
-belgi va kattalik yo‘qoladi. Dissertatsiya jadvalida 6 xona yoki ilmiy yozuv
-tavsiya etiladi.
-
-**K-9 — REMEDIATION_REPORT §8 va QADAM 14 dagi verification sonlari endi
-eskirgan** (824 / 6 / 1). Bu hisobotdagi sonlar 1-bo‘limda; `REMEDIATION_*.md`
-ga tegilmadi — yangilash implementatorning ishi.
-
-**K-10 — muhit.** `scripts/dj5433.sh` ning standart `SECRET_KEY`
-(“benchmark-local-only”, 20 bayt) PyJWT'ning `InsecureKeyLengthWarning` ini
-beradi (faqat test/benchmark o‘rami; production kaliti env'dan). Ikki
-`verification/tests` sessiyasi bir vaqtda ishga tushsa, ikkinchisi birinchisining
-test bazasini o‘chirishga urinadi (qat’iy `TEST.NAME`) — README'ga yozildi.
+**K-12 (yangi).** To‘liq D71 natijalarida `thesis_result = true` — post-hoc
+belgisi bilan birga. Rejaga zid emas (reja faqat quick'ni “dissertatsiya natijasi
+emas” deydi), lekin o‘quvchi `thesis_result` ni “tasdiqlovchi natija” deb
+o‘qimasligi kerak; ma’nosi — “quick emas”.
 
 ## 6. II bob ta’riflari va kod orasidagi farqlar (faqat ro‘yxat)
 
-II bob matni repoda yo‘q; solishtirish `NEUROLEARN_REMEDIATION.md` §3 (II bobdan
-olingan model), 8-bosqich matni va qarorlar (D…) bo‘yicha. Faqat ro‘yxat.
+II bob matni repoda yo‘q; solishtirish `NEUROLEARN_REMEDIATION.md` §3, 8-bosqich
+matni va qarorlar (D…) bo‘yicha. `85ac91e` dan beri ro‘yxatga ta’sir qiluvchi kod
+o‘zgarmagan (0 (e)); D71 yangi farq kiritmaydi (λ egri chizig‘i — tavsifiy,
+λ = 0,5 konstantasi o‘zgarmagan).
 
 | # | II bob / spetsifikatsiya | Kodda | Qayerda / qaror |
 |---|---|---|---|
-| 1 | H1: qoida “birinchi urinish”da tekshiriladi | Voqea — birinchi urinish, lekin muvaffaqiyatsizlik **dastlabki k = 3 javobda** to‘g‘rilar ulushi < 0,5 (k = 5 qo‘shimcha); k tadan kam javobli voqea bor javoblari bilan | `experiments/h1.py:153` (`Event.failed`), D62-5/6 |
+| 1 | H1: qoida “birinchi urinish”da tekshiriladi | Voqea — birinchi urinish, lekin muvaffaqiyatsizlik **dastlabki k = 3 javobda** to‘g‘rilar ulushi < 0,5 (k = 5 qo‘shimcha) | `experiments/h1.py:153` (`Event.failed`), D62-5/6 |
 | 2 | H1 bajarilganlik: “har bir prerekvizit **savoliga** ≥ 1 javob” | har bir prerekvizit **mashqiga (mavzuga)** ≥ 1 javob | `experiments/h1.py:172`, D61 |
-| 3 | H1: ehtimoliy qoida r ≥ τ, teng qamrov | r = min P(L), javobsiz prerekvizit P(L) = 0 (P(L0) emas) — teng qamrov o‘tish bali uchun erishilmaydi (K-1) | D62-4, `readiness.py:79` |
-| 4 | H1 qoidalari: 3 ta | + II bobning R (M, δ) va platformaning `earned_proficiency` (qo‘shimcha) | D61, D62a(c) |
-| 5 | Ma’lumot: DBE-KT22 (javoblar + KC grafi) | **Junyi Academy (2015)** — H1/H3; ASSISTments 2009 — H2 (grafsiz) | D61, D53 |
-| 6 | ω ∈ (0, 1] har relatsiyada | Junyi'da ω = 1 (vazn yo‘q); 3 tugunli SCC bitta mavzuga birlashtirildi (Y3) | D62-3, D61 |
-| 7 | 2.2-tasdiq: G_L siklsiz ⇒ G siklsiz | **Shartli**: sikldagi har tugunda mavzu bo‘lsa; shartsiz ifoda bo‘sh tugunlarda noto‘g‘ri; teskarisi umuman noto‘g‘ri | D70, THESIS_MAPPING 10.1a |
-| 8 | Algoritm 2.1: Y2 + G_L da BFS, O(n·d + m) | + G = (N, E_P) da y ⇝ x BFS, O(\|N\| + \|E_P\|) | `neuro_model/graph.py:find_node_cycle_chain`, F7 |
-| 9 | θ, P(L) formulalari cheklovsiz | θ ±4 (F1); posterior va P(L)′ [0, 1] ga clamp (F6); P(L) = 1.0 amalda yutuvchi (K-3) | D6, D65a |
-| 10 | Kalibrlash usuli belgilanmagan | chegaralangan grid (4 752 nomzod); G0 va S0 ning 77 % / 87 % i yuqori chetda | F5, D59 |
-| 11 | Har javob yangi dalil | `review_repeat` oynasidagi takror ledger'ga yoziladi, modelni o‘zgartirmaydi | F3, D25 |
-| 12 | H3: graf Pre(w) orqali yordam beradi (λ = 0,5) | λ validatsiyada {0,25; 0,50; 0,75} dan; har joyda 0,25 tanlandi (K-2); o‘lchov — mashqning dastlabki k ∈ {3, 5} urinishi AUC | D62-10, D61 |
-| 13 | H2: bashorat — talabaning oldingi javoblaridan | D57: qat’iy oldingi **order**lardan; BKT+IRT (λ=0), Elo, PFA uchun boshqa talabalarning oldingi javoblari ham (b_q, PFA) | D57, oldingi hisobot K-2 |
-| 14 | H4: “CTE yozishda tezroq, o‘qishda taqqoslanadigan” | “taqqoslanadigan” = ≤ 1,5× sekin (natijadan oldin tanlangan); o‘zgartiruvchi amallar orqaga qaytariladigan tranzaksiyada (fsync o‘lchanmaydi) | D63, D63a |
-| 15 | V-E4: `run_all --quick` simulyatsiya ma’lumotida, “simulated” belgisi | haqiqiy ma’lumotda, “`--quick` — dissertatsiya natijasi emas” belgisi; parametr tiklash testi `test_calibrate.py` da | D48, D13 |
-| 16 | V-F2: lokal, bitta server | gunicorn 8 sync worker (runserver 50 foydalanuvchida p95 6,3 s) | D68a |
+| 3 | H1: ehtimoliy qoida r ≥ τ, teng qamrov | r = min P(L), javobsiz prerekvizit P(L) = 0 — teng qamrov o‘tish bali uchun erishilmaydi (K-1) | D62-4, `readiness.py:79` |
+| 4 | H1 qoidalari: 3 ta | + II bobning R (M, δ) va platformaning `earned_proficiency` | D61, D62a(c) |
+| 5 | Ma’lumot: DBE-KT22 | **Junyi Academy (2015)** — H1/H3; ASSISTments 2009 — H2 | D61, D53 |
+| 6 | ω ∈ (0, 1] har relatsiyada | Junyi'da ω = 1; 3 tugunli SCC bitta mavzuga birlashtirildi | D62-3, D61 |
+| 7 | 2.2-tasdiq: G_L siklsiz ⇒ G siklsiz | **Shartli**: sikldagi har tugunda mavzu bo‘lsa | D70, THESIS_MAPPING 10.1a |
+| 8 | Algoritm 2.1: Y2 + G_L da BFS | + G = (N, E_P) da y ⇝ x BFS | `neuro_model/graph.py:find_node_cycle_chain`, F7 |
+| 9 | θ, P(L) formulalari cheklovsiz | θ ±4 (F1); posterior va P(L)′ clamp (F6) | D6, D65a |
+| 10 | Kalibrlash usuli belgilanmagan | chegaralangan grid (4 752 nomzod) | F5, D59 |
+| 11 | Har javob yangi dalil | `review_repeat` oynasidagi takror modelni o‘zgartirmaydi | F3, D25 |
+| 12 | H3: λ = 0,5 | λ validatsiyada {0,25; 0,50; 0,75} dan; hamma joyda 0,25 (K-2); D71: λ = 0 eng yuqori | D62-10, D61, D71 |
+| 13 | H2: talabaning oldingi javoblaridan | D57: qat’iy oldingi **order**lardan; ba’zi modellarda boshqa talabalarning oldingi javoblari ham | D57 |
+| 14 | H4: “CTE yozishda tezroq, o‘qishda taqqoslanadigan” | “taqqoslanadigan” = ≤ 1,5× sekin; o‘zgartiruvchi amallar orqaga qaytariladi | D63, D63a |
+| 15 | V-E4: `--quick` simulyatsiya ma’lumotida | haqiqiy ma’lumotda, “dissertatsiya natijasi emas” belgisi | D48, D13 |
+| 16 | V-F2: lokal, bitta server | gunicorn 8 sync worker | D68a |
 
-## 7. N/A va bajarilmaganlar
+## 7. Cheklovlar, N/A va bajarilmaganlar
 
 | Tekshiruv | Holat | Sabab |
 |---|---|---|
-| (e) Locust'ning 2 daqiqalik gunicorn takrori | **o‘tkazilmadi** | Shart bajarilmadi (2026-10-20, o‘lchangan): MemAvailable **5 963 MB** (< 6 GB), swap ishlatilgani **2 784 MB** (≥ 200 MB); sessiya davomida swap bo‘shi 1,3 GB → 0,8 GB ga tushdi. Farq yozilmadi — taxmin yozilmaydi |
-| V-G1, V-G2, V-G3, V-G5, V-G7 | **N/A** | Brauzer harness yo‘q (frontend'da Playwright va `e2e/` yo‘q — `test_na_group_g_browser_checks_have_no_harness` hamon o‘tadi); frontend repozitoriydan tashqarida |
-| V-G6 | qisman PASS | statik qismi (`test_g_frontend_contract.py`); “har son API javobida” — brauzersiz emas |
-| V-A4 (`mutmut`) | qo‘l mutantlari | o‘zgarmagan (7/7 ushlanadi) |
-| CI masofada | **tasdiqlanmadi** | push yo‘q; men backend, experiments, verification suite'larini lokal yugurdim (1-bo‘lim); frontend CI (lint, tsc, vitest, build) bu topshiriq ro‘yxatida yo‘q va qayta yugurtirilmadi |
-| `run_all --dataset assist09 --quick` | qayta yugurtirilmadi | 24 daqiqa; junyi quick (h1 + h3) va dispatcher (spy) yetarli deb olindi; assist09 quick'ning commit qilingan natijasi tekshirildi (`test_e4_run_all.py`) |
-| Junyi per-skill parametrlari taqsimoti | N/A | saqlanmagan (implementatorning o‘zi yozgan) |
+| **CI masofada** | **ishga tushmagan, tasdiqlanmadi** | Push yo‘q — masofaviy CI bu repo uchun hech qachon ishlamagan. Lokal ekvivalent (backend, experiments, benchmarks, verification, `report_values`) — 1-bo‘lim. Frontend CI (lint, tsc, vitest, build) bu topshiriq ro‘yxatida yo‘q va qayta yugurtirilmadi |
+| **Tarixdagi kalit** | ochiq (faqat foydalanuvchi yopadi) | `config/settings.py` dagi literal `SECRET_KEY` `bb80ec4` da (dastlabki commit) qo‘shilgan, `b44df84` da olib tashlangan — git tarixida qoladi, buzilgan deb hisoblanishi kerak. **Qiymat bu hisobotga yozilmadi va ko‘rsatilmadi** (faqat `git log -G` hash'lari va qo‘shilgan / o‘chirilgan qatorlar soni sanaldi). `.env` va `config/.env` hech bir commit'da yo‘q (`git log --all` bo‘sh). Ildiz `.env` dagi token — ochilmadi; bekor qilish foydalanuvchida |
+| Locust'ning 2 daqiqalik gunicorn takrori | o‘tkazilmadi | `85ac91e` dagi shart (MemAvailable ≥ 6 GB va swap < 200 MB) bu sessiyada ham bajarilmadi (swap ~0,5 GB ishlatilgan); serverlarga oid kod `85ac91e` dan beri o‘zgarmagan |
+| `run_all --quick` (assist09, junyi) | qayta yugurtirilmadi | `run_all.py`, `h1.py`, `h2.py`, `h3.py`, `datasets/` `85ac91e` dan beri o‘zgarmagan (0 (e)); junyi quick o‘sha sessiyada toza klonda rc = 0 |
+| Venv'larni lock fayllardan yangidan qurish | qilinmadi | repodagi `venv` va `experiments/.venv` ishlatildi; lock fayllar o‘zgarmagan |
+| V-G1, V-G2, V-G3, V-G5, V-G7 | **N/A** | brauzer harness yo‘q; frontend repozitoriydan tashqarida |
+| V-G6 | qisman PASS | statik qismi (`test_g_frontend_contract.py`) |
+| V-A4 (`mutmut`) | qo‘l mutantlari | 7/7 ushlanadi |
+| D71 ni qayta yugurtirish | qilinmadi | ~70 daqiqa; o‘rniga reproduction gate asl natijalardan qayta hisoblandi va pozitsion tekshiruv (3 (j)) |
 
 ## 8. Yakuniy hukm — spetsifikatsiyaning 6-bo‘limi
 
@@ -330,21 +342,28 @@ tugallangan hisoblanadi”.
 
 | Shart | Mustaqil hukm | Dalil (shu sessiyada) |
 |---|---|---|
-| 4-bo‘limdagi barcha etalon testlar o‘tadi | **bajarildi** | backend suite 1 289 passed, 0 failed; THESIS_MAPPING nomlagan 17 fayl 637 passed; verification'ning V-A1 (4-bo‘lim sonlari oracle bilan 1e-3 da) o‘tadi |
-| CI ikkala repozitoriyda yashil | **tasdiqlanmadi** | CI masofada hech qachon ishga tushirilmagan (push yo‘q). Backend'ning lokal ekvivalenti yashil (1-bo‘lim); frontend CI'ni men qayta yugurtirmadim (implementator: lint 0 error, tsc 0, vitest 90/90, build). Shartning so‘zma-so‘z o‘qilishida bajarilmagan |
-| “Kechiktirildi” qatorlarining sababi yozilgan | **bajarildi** | 4/4 qatorda sabab (va 9/9 “Qisman” da); matritsa hisobot bilan bir xil, 226 / 9 / 4 qatorlardan sanaldi; 272 dalil tokeni mavjud (3 (f)) |
-| `run_all.py --quick` va `run_tree_benchmark --quick` toza muhitda xatosiz | **bajarildi** (bitta izoh bilan) | `run_tree_benchmark --quick` — verification'ning yangi benchmark test bazasida rc = 0, chiqish katakma-katak tekshirildi; `run_all --dataset junyi --quick` — `740bb20` ning toza klonida rc = 0, ikkala natija toza provenance bilan, `tables.verify` = []. Izoh: venv'lar yangidan lock fayllardan qurilmadi (repodagi `experiments/.venv` ishlatildi) va `--dataset assist09 --quick` qayta yugurtirilmadi |
+| 4-bo‘limdagi barcha etalon testlar o‘tadi | **bajarildi** | backend suite 1 298 passed, 0 failed; THESIS_MAPPING nomlagan test fayllari uning ichida; verification'ning V-A1 (4-bo‘lim sonlari oracle bilan 1e-3 da) o‘tadi |
+| CI ikkala repozitoriyda yashil | **tasdiqlanmadi** | masofaviy CI hech qachon ishga tushmagan (push yo‘q); lokal ekvivalent yashil (1-bo‘lim); frontend CI qayta yugurtirilmadi. So‘zma-so‘z o‘qilishida bajarilmagan |
+| “Kechiktirildi” qatorlarining sababi yozilgan | **bajarildi** | 4/4 (va 9/9 “Qisman”); matritsa hisobot bilan bir xil (3 (f)) |
+| `run_all.py --quick` va `run_tree_benchmark --quick` toza muhitda xatosiz | **bajarildi** (izoh bilan) | `run_tree_benchmark --quick` — HEAD'da (N-2 dan keyin) verification benchmark test bazasida qayta yugurdi, chiqish katakma-katak tekshirildi; `run_all --dataset junyi --quick` — `85ac91e` sessiyasida toza klonda rc = 0, pipeline kodi o‘shandan beri o‘zgarmagan. Izoh: venv'lar lock fayllardan yangidan qurilmadi; assist09 quick qayta yugurtirilmadi |
 
-**Yakuniy hukm: 6-bo‘limning tugallanganlik mezoni to‘liq bajarilmagan** — to‘rt
-shartdan uchtasi mustaqil tasdiqlandi, “CI ikkala repozitoriyda yashil” sharti esa
-faqat lokal ekvivalent bilan qoplangan (masofaviy CI yo‘q; bu push va CI ishga
-tushirilishi bilan yopiladi, kod o‘zgarishi talab qilinmaydi). Implementatsiyaning
-o‘zida II bob modeli bo‘yicha **mahsulot nuqsoni topilmadi**: A–D, H4, D65a, D66a,
-D70 tekshiruvlarining hammasi o‘tdi. Mezondan tashqari, verification
-spetsifikatsiyasi bo‘yicha bitta **FAIL** bor — **N-1 (V-E3)**: pyKT eksporti
-pyKT 0.0.38 o‘quvchisi bilan to‘g‘ri o‘qilmaydi; va bitta kichik shakl
-nomuvofiqligi — **N-2 (V-H1 CSV)**. Dissertatsiya natijalariga ikkalasining ham
-ta’siri yo‘q; H1 talqini uchun K-1 muhim.
+**Yakuniy hukm.** Verification spetsifikatsiyasi bo‘yicha **ochiq nuqson yo‘q**:
+oldingi hisobotning ikki nuqsoni — N-1 (V-E3, pyKT eksporti) va N-2 (V-H1 CSV) —
+tuzatildi va mustaqil tasdiqlandi; ikkalasi ham dissertatsiya natijalariga
+ta’sir qilmagan (N-1 uchun fayl:qator bilan — 3 (k); N-2 faqat chiqish shakli).
+D71 post-hoc tahlili rejaga muvofiq: reja kod va run'dan oldin commit qilingan,
+keyin tahrirlanmagan; natijalar asl H1/H3 ni aynan takrorlaydi, har qiymat o‘z
+katagida, post-hoc belgisi bor va hukm yo‘q; D61/D62 hukmlari o‘zgarmagan.
+II bob konstantalari, `DEFAULT_GRID` va lock fayllar o‘zgarmagan. Barcha lokal
+suite'lar yashil (verification 951 / 0, neural 62 / 0, backend 1 298 / 0, experiments 415 / 0, benchmarks 92 / 0, `report_values` 0 farq).
+
+**6-bo‘limning tugallanganlik mezoni to‘liq bajarilmagan** — to‘rt shartdan
+uchtasi mustaqil tasdiqlandi; “CI ikkala repozitoriyda yashil” sharti faqat
+lokal ekvivalent bilan qoplangan. Bu push va CI ishga tushirilishi bilan
+yopiladi, kod o‘zgarishi talab qilinmaydi. Ikkinchi ochiq masala — tarixdagi
+eski `SECRET_KEY` (`bb80ec4`…`b44df84`) va ildiz `.env` dagi token — faqat
+foydalanuvchi tomonidan kalitlarni bekor qilish bilan yopiladi. H1 talqini uchun
+K-1 va K-11, H3 uchun K-2 muhim.
 
 ## 9. Qanday qayta ishga tushirish
 
@@ -352,6 +371,8 @@ ta’siri yo‘q; H1 talqini uchun K-1 muhim.
 docker compose --env-file config/.env up -d            # Postgres 5433, Redis 6380
 scripts/dj5433.sh venv/bin/python -m pytest --ds=verification.settings verification/tests -q -p no:cacheprovider
 experiments/.venv/bin/python -m pytest verification/neural -q -p no:cacheprovider
+scripts/dj5433.sh venv/bin/python -m pytest -q                       # backend (+ experiments/, benchmarks/ testlari)
+experiments/.venv/bin/python -m pytest experiments/tests -q -p no:cacheprovider
 experiments/.venv/bin/python -m experiments.report_values --check REMEDIATION_REPORT.md
 ```
 

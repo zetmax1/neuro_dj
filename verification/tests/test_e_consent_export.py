@@ -100,10 +100,17 @@ def _csv_rows(text: str) -> list[dict[str, str]]:
     return list(csv.DictReader(io.StringIO(text)))
 
 
+# One learner's block as pyKT 0.0.38 reads it (``pykt/preprocess/split_datasets.py:9-79``,
+# ``read_data`` walks the file in steps of ``i % 6``). A line holding "NA" is an
+# absent column; responses are always read.
+PYKT_BLOCK = ("uid,seq_len", "questions", "concepts", "responses", "timestamps", "usetimes")
+
+
 def _pykt_blocks(text: str) -> list[list[str]]:
     lines = text.splitlines()
-    assert len(lines) % 5 == 0, "a pyKT block is five lines"
-    return [lines[i:i + 5] for i in range(0, len(lines), 5)]
+    size = len(PYKT_BLOCK)
+    assert len(lines) % size == 0, f"a pyKT block is {size} lines"
+    return [lines[i:i + size] for i in range(0, len(lines), size)]
 
 
 def _json_keys(value, out=None) -> set[str]:
@@ -360,7 +367,11 @@ def test_v_e2_counts_agree_across_the_files(world, exported):
     assert meta["counts"]["learners"] == len(blocks) == len({r["pseudonym"] for r in rows})
     for block in blocks:
         n = int(block[0].split(",")[1])
-        assert all(len(line.split(",")) == n for line in block[1:])
+        # questions, concepts, responses, timestamps: one value per answer, and
+        # none that pyKT would take for an absent column.
+        assert all(len(line.split(",")) == n and "NA" not in line for line in block[1:5])
+        # usetimes: the platform records no answer duration, so pyKT's "NA".
+        assert block[5] == "NA" or len(block[5].split(",")) == n, block[5]
     # bob and carol are the two real learners left out for consent (D45).
     assert meta["counts"]["excluded_no_consent_learners"] == 2
     assert meta["thesis_result"] is True

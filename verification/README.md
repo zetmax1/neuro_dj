@@ -74,7 +74,8 @@ tricks and without `-n` (no xdist).
 | `tests/test_e_results_d58_d59.py` | D58's refusals, `tables.verify` run by the verifier, five random values per result, provenance against git history |
 | `tests/test_e_junyi_h1_h3.py` | H1/H3 on Junyi: D61's edge direction from the CSV, D62-5/6 events and failures counted by hand on a slice of the real graph (P(L) from the oracle), `earned_proficiency` by perturbation, degree-preserving random graphs, the reversed arm, the result folders, D64 |
 | `tests/test_e4_run_all.py` | V-E4: `run_all`'s plan per dataset, `--quick` reaching each hypothesis (spy), the committed quick results and their markers |
-| `tests/test_h_tree_benchmark.py` | V-H1 and H4: integrity checkers against corruption made here, D63g's legal `move_to`, ρ and its interval by hand and from the raw CSV, cells without a number, D63h's merged reading |
+| `tests/test_e_d71_posthoc.py` | D71 (post-hoc H1 subset / curve, H3 λ curve): plan committed before code and runs, `tables.verify` and every value in its own row and column, the post-hoc marker and no verdict, the reproduction gate recomputed from the original H1/H3, D61/D62's verdicts unchanged |
+| `tests/test_h_tree_benchmark.py` | V-H1 and H4: integrity checkers against corruption made here, D63g's legal `move_to`, ρ and its interval by hand and from the raw CSV, cells without a number, D63h's merged reading, a small fresh `run_tree_benchmark --quick` whose CSV carries median, p95, queries and changed rows (N-2) |
 | `tests/test_f_performance.py` | V-F1 measured here (JWT, real transactions), N+1 on three endpoints, random answers replayed through the oracle after D66a, V-F2's table against its metrics |
 | `tests/test_d65a_clamp.py` | D65a/F6: the posterior is the oracle's clamped; P(L) = 1.0 and a wrong answer, in the model and through the API |
 | `tests/test_d70_node_cycles.py` | D70/F7: random trees with empty nodes; G and G_L stay acyclic; the corrected 2.2; the counterexamples |
