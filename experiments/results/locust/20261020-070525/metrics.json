@@ -1,0 +1,242 @@
+{
+  "run": {
+    "users": 50,
+    "spawn_rate": 5.0,
+    "duration_s": 120,
+    "wall_s": 120.3,
+    "locust_exit_code": 0,
+    "server": "django runserver (threaded, one process, --noreload)",
+    "debug": false,
+    "cache": "Redis (redis://127.0.0.1:6380/3)",
+    "db_conn_max_age": 0,
+    "login_throttle": "100000/minute",
+    "database": "neurolearn_locust",
+    "database_created_now": false,
+    "course": {
+      "course": 1,
+      "topics": 500,
+      "prerequisites": 1500,
+      "questions": 5000,
+      "learners": 50
+    },
+    "flow": "login → next_question → submit_answer → trajectory (benchmarks/locustfile.py)",
+    "correct_rate": 0.75
+  },
+  "endpoints": {
+    "csrf": {
+      "requests": 50,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 1000.0,
+      "p95_ms": 2300.0,
+      "mean_ms": 959.6168223199857,
+      "max_ms": 2401.086440999279,
+      "rps": 0.41984308560067735
+    },
+    "login": {
+      "requests": 50,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 830.0,
+      "p95_ms": 1600.0,
+      "mean_ms": 883.4595794598499,
+      "max_ms": 1777.7825849989313,
+      "rps": 0.41984308560067735
+    },
+    "next_question": {
+      "requests": 1025,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 900.0,
+      "p95_ms": 1300.0,
+      "mean_ms": 896.4663132302131,
+      "max_ms": 1724.7314889991685,
+      "rps": 8.606783254813886
+    },
+    "submit_answer": {
+      "requests": 995,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 2300.0,
+      "p95_ms": 4500.0,
+      "mean_ms": 2522.7663559758757,
+      "max_ms": 10445.88758899954,
+      "rps": 8.354877403453479
+    },
+    "trajectory": {
+      "requests": 1041,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 1100.0,
+      "p95_ms": 1600.0,
+      "mean_ms": 1123.41331904613,
+      "max_ms": 2016.06634899872,
+      "rps": 8.741133042206103
+    },
+    "Aggregated": {
+      "requests": 3161,
+      "failures": 0,
+      "error_share": 0.0,
+      "p50_ms": 1200.0,
+      "p95_ms": 3000.0,
+      "mean_ms": 1483.9157166950272,
+      "max_ms": 10445.88758899954,
+      "rps": 26.54247987167482
+    }
+  },
+  "v_f2": {
+    "submit_answer": "p95 4500 ms — mo‘ljaldan yuqori",
+    "trajectory": "p95 1600 ms — mo‘ljaldan yuqori",
+    "next_question": "p95 1300 ms — mo‘ljaldan yuqori"
+  },
+  "server_statuses": {
+    "200": 3172,
+    "404": 5
+  },
+  "environment": {
+    "postgres": {
+      "vendor": "postgresql",
+      "version": "16.15 (Debian 16.15-1.pgdg13+2)",
+      "shared_buffers": "128MB",
+      "fsync": "on",
+      "synchronous_commit": "on",
+      "max_connections": "100",
+      "database": "neurolearn"
+    },
+    "cpu": {
+      "model": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+      "logical_cores": 16,
+      "governors": [
+        "powersave"
+      ],
+      "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43"
+    },
+    "memory": {
+      "total_kb": 15615896,
+      "available_kb": 6998456
+    },
+    "load": {
+      "load_1m": 1.81,
+      "load_5m": 2.06,
+      "load_15m": 2.01
+    },
+    "busiest_processes": [
+      {
+        "cpu_percent": 239.0,
+        "command": "python"
+      },
+      {
+        "cpu_percent": 16.4,
+        "command": "firefox"
+      },
+      {
+        "cpu_percent": 11.9,
+        "command": "Isolated Web Co"
+      },
+      {
+        "cpu_percent": 6.9,
+        "command": "gnome-shell"
+      },
+      {
+        "cpu_percent": 3.5,
+        "command": "antigravity-ide"
+      }
+    ],
+    "note": "vaqt o‘lchovlari mashinaga bog‘liq; nisbat (ρ) va uning oralig‘i mashinadan kam bog‘liq, shuning uchun da’vo ular ustiga qurilgan",
+    "memory_before": {
+      "MemTotal": 15249,
+      "MemAvailable": 6937,
+      "SwapTotal": 4095,
+      "SwapFree": 1864
+    },
+    "memory_at_load_start": {
+      "MemTotal": 15249,
+      "MemAvailable": 6834,
+      "SwapTotal": 4095,
+      "SwapFree": 1864
+    },
+    "memory_during": {
+      "samples": 25,
+      "min_mem_available_mb": 6388,
+      "min_swap_free_mb": 1864
+    },
+    "at_end": {
+      "memory": {
+        "total_kb": 15615896,
+        "available_kb": 7096212
+      },
+      "load": {
+        "load_1m": 2.88,
+        "load_5m": 2.35,
+        "load_15m": 2.12
+      },
+      "busiest_processes": [
+        {
+          "cpu_percent": 16.5,
+          "command": "firefox"
+        },
+        {
+          "cpu_percent": 12.0,
+          "command": "Isolated Web Co"
+        },
+        {
+          "cpu_percent": 6.9,
+          "command": "gnome-shell"
+        },
+        {
+          "cpu_percent": 3.4,
+          "command": "antigravity-ide"
+        },
+        {
+          "cpu_percent": 3.3,
+          "command": "resources-proce"
+        }
+      ]
+    }
+  },
+  "provenance": {
+    "command": "load_test.py",
+    "code_commit": "5ab628e",
+    "code_dirty": false,
+    "created_at": "2026-10-20T07:07:43.770585+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "seed_load_test": 20261020
+    },
+    "sources": [
+      {
+        "name": "locustfile",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/benchmarks/locustfile.py",
+        "sha256": "cfb037e30640a4d372e716785e417e54f1b34dbf0022595c9c814dc39a5da85f",
+        "bytes": 4455
+      },
+      {
+        "name": "seed_load_test",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/benchmarks/management/commands/seed_load_test.py",
+        "sha256": "fcfabfd4c8928e774086b44fd69b71f3ced1af4f7e5d4026510a2d2920b860bc",
+        "bytes": 7365
+      }
+    ],
+    "packages": {},
+    "env": {},
+    "git_start": {
+      "commit": "5ab628e",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-20T07:05:24.626406+00:00",
+      "untracked_results": []
+    },
+    "git_end": {
+      "commit": "5ab628e",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-20T07:07:43.770565+00:00",
+      "untracked_results": [
+        "?? experiments/results/locust/"
+      ]
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  }
+}
