@@ -296,6 +296,10 @@ def measure(
         "queries_min": min(queries) if queries else None,
         "queries_max": max(queries) if queries else None,
         "rows_touched_median": statistics.median(rows) if rows else None,
+        # Per repeat, for measurements.csv (V-H1): repeat i of these lists is
+        # repeat i of ``timings``.
+        "queries": list(queries),
+        "rows_touched": list(rows),
     }
 
 
@@ -808,36 +812,53 @@ def run(
     }
 
 
+CSV_HEADER = [
+    "shape", "size", "operation", "kind", "method", "repeat", "seconds", "status",
+    "median", "p95", "queries", "rows_touched",
+]
+
+
 def csv_rows(document: dict) -> list[list]:
-    """Every repeat's raw timing, for ``measurements.csv``."""
-    rows: list[list] = [[
-        "shape", "size", "operation", "kind", "method", "repeat", "seconds", "status",
-    ]]
+    """
+    Every repeat's raw timing, for ``measurements.csv``, with what V-H1 asks
+    the CSV itself to hold: the cell's median and p95 (seconds, the values of
+    ``metrics.json``) on each of its rows, and the repeat's own SQL count and
+    changed rows. A cell without numbers (timeout, memory) and a parallel
+    phase leave those columns empty. A result written before the per-repeat
+    lists existed has no per-repeat counts; its rows carry the cell's medians
+    there instead, which is what was measured.
+    """
+    rows: list[list] = [list(CSV_HEADER)]
     for cell in document["cells"]:
         for method, entry in cell["methods"].items():
             if entry.get("status") != "ok":
                 rows.append([
                     cell["shape"], cell["size"], cell["operation"], cell["kind"],
-                    method, "", "", entry.get("status", "error"),
+                    method, "", "", entry.get("status", "error"), "", "", "", "",
                 ])
                 continue
+            seconds = entry.get("seconds") or summarise(entry["timings"])
+            queries = entry.get("queries") or [entry.get("queries_median", "")] * len(entry["timings"])
+            touched = entry.get("rows_touched") or [entry.get("rows_touched_median", "")] * len(entry["timings"])
             for index, value in enumerate(entry["timings"]):
                 rows.append([
                     cell["shape"], cell["size"], cell["operation"], cell["kind"],
                     method, index, value, "ok",
+                    seconds["median"], seconds["p95"], queries[index], touched[index],
                 ])
     for row in document["parallel"]:
         for phase in row["phases"]:
             rows.append([
                 row["shape"], row["size"], f"parallel_{row['workers']}", "write",
                 row["method"], phase["repeat"], phase["throughput"], "ops_per_second",
+                "", "", "", "",
             ])
     return rows
 
 
 __all__ = [
     "run", "run_cell", "run_parallel", "measure", "changed_rows", "reading",
-    "ratio_interval", "verdict_of", "summarise", "quantile", "csv_rows",
+    "ratio_interval", "verdict_of", "summarise", "quantile", "csv_rows", "CSV_HEADER",
     "Budget", "Checkpoint", "DEFAULT_SHAPES", "DEFAULT_SIZES", "DEFAULT_WORKERS",
     "QUICK_SIZES", "QUICK_WORKERS", "CTE_FASTER", "MPTT_FASTER", "COMPARABLE",
     "TIMEOUT", "SUPPORTED", "NOT_SUPPORTED", "NOT_COMPUTED", "READ_TOLERANCE",

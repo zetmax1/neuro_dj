@@ -302,7 +302,11 @@ def test_the_csv_has_one_row_per_repeat():
         "cells": [{
             "shape": "deep_chain", "size": 1000, "operation": "read_branch", "kind": "read",
             "methods": {
-                MPTT: {"status": "ok", "timings": [0.1, 0.2]},
+                MPTT: {
+                    "status": "ok", "timings": [0.1, 0.2],
+                    "seconds": runner.summarise([0.1, 0.2]),
+                    "queries": [3, 4], "rows_touched": [7, 8],
+                },
                 CTE: {"status": runner.TIMEOUT},
             },
         }],
@@ -316,11 +320,49 @@ def test_the_csv_has_one_row_per_repeat():
 
     assert rows[0] == [
         "shape", "size", "operation", "kind", "method", "repeat", "seconds", "status",
+        "median", "p95", "queries", "rows_touched",
     ]
-    assert rows[1][4:] == [MPTT, 0, 0.1, "ok"]
-    assert rows[2][4:] == [MPTT, 1, 0.2, "ok"]
-    assert rows[3][4:] == [CTE, "", "", runner.TIMEOUT]
-    assert rows[4][2] == "parallel_2"
+    # V-H1: median and p95 of the cell (as in metrics.json), the repeat's own counts
+    assert rows[1][4:] == [MPTT, 0, 0.1, "ok", 0.15, 0.195, 3, 7]
+    assert rows[2][4:] == [MPTT, 1, 0.2, "ok", 0.15, 0.195, 4, 8]
+    assert rows[3][4:] == [CTE, "", "", runner.TIMEOUT, "", "", "", ""]
+    assert rows[4][2] == "parallel_2" and rows[4][8:] == ["", "", "", ""]
+    assert all(len(row) == len(rows[0]) for row in rows)
+
+
+def test_an_older_result_without_per_repeat_counts_gets_the_cell_medians():
+    """A metrics.json written before verification N-2 holds only the medians; the CSV says those."""
+    document = {
+        "cells": [{
+            "shape": "random", "size": 1000, "operation": "append_leaf", "kind": "write",
+            "methods": {MPTT: {
+                "status": "ok", "timings": [0.1, 0.3, 0.2],
+                "queries_median": 5.0, "rows_touched_median": 2.0,
+            }},
+        }],
+        "parallel": [],
+    }
+    rows = runner.csv_rows(document)
+    assert [row[8:] for row in rows[1:]] == [[0.2, 0.29, 5.0, 2.0]] * 3
+
+
+@pytest.mark.django_db(databases=["default", ALIAS])
+def test_measure_keeps_the_per_repeat_counts_next_to_the_timings():
+    """V-H1: repeat i of ``queries``/``rows_touched`` is repeat i of ``timings``."""
+    spec = generator.TreeSpec(shape=Shape.COURSE_LIKE, size=80, seed=20261006)
+    generator.build_all(spec, using=ALIAS)
+    targets = operations.targets(spec, count=4)
+
+    result = runner.measure(
+        operations.BY_NAME["append_leaf"], MPTT, targets,
+        using=ALIAS, warmups=1, repeats=3, budget=runner.Budget(timeout=60.0),
+    )
+
+    assert result["status"] == "ok"
+    assert len(result["queries"]) == len(result["rows_touched"]) == len(result["timings"]) == 3
+    assert all(count >= 1 for count in result["queries"])
+    assert sorted(result["queries"])[1] == result["queries_median"]
+    assert sorted(result["rows_touched"])[1] == result["rows_touched_median"]
 
 
 # ---------------------------------------------------------------------------
