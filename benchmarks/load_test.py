@@ -15,8 +15,10 @@ benchmarks/load_test.py — the Locust load test, end to end (stage 10, SN3, V-F
    are not refused.
 4. Runs ``benchmarks/locustfile.py`` headless and samples memory every 5 s.
 5. Writes ``experiments/results/locust/<ts>/``: ``metrics.json``, ``tables.md``,
-   ``env.txt`` and Locust's CSV files. The learners' password is generated per
-   run and written nowhere.
+   ``env.txt`` and Locust's CSV files. The table goes through
+   ``experiments.tables.write``, so every number it prints is rendered by
+   ``fmt`` and verified against ``metrics.json`` before anything is written
+   (D48). The learners' password is generated per run and written nowhere.
 
 p50 and p95 are Locust's: it keeps response times in buckets rounded to two
 significant digits above 100 ms, so they are that coarse.
@@ -26,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import json
 import os
 import re
 import secrets
@@ -40,6 +41,9 @@ import urllib.request
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
+
+from experiments import tables as result_tables
+from experiments.tables import fmt
 
 ROOT = Path(__file__).resolve().parent.parent
 PYTHON = sys.executable
@@ -158,14 +162,15 @@ def server_statuses(log: Path) -> list[dict[str, int]]:
     return [{"status": code, "count": n} for code, n in sorted(counts.items())]
 
 
-def tables(metrics: dict) -> str:
+def render(metrics: dict) -> str:
+    """tables.md; every number through ``fmt``, as ``tables.verify`` expects."""
     run_ = metrics["run"]
     lines: list[str] = []
     warnings = metrics["provenance"]["tree_warnings"]
     if warnings:
         lines += ["> **Ogohlantirish (D54):** " + "; ".join(warnings), ""]
     lines += [
-        f"# Locust: {run_['users']} foydalanuvchi, {run_['duration_s']} s",
+        f"# Locust: {fmt(run_['users'])} foydalanuvchi, {fmt(run_['duration_s'])} s",
         "",
         "| Endpoint | So‘rovlar | Xatolar | Xato ulushi | p50, ms | p95, ms | RPS |",
         "|---|---|---|---|---|---|---|",
@@ -175,38 +180,40 @@ def tables(metrics: dict) -> str:
         if row is None:
             continue
         lines.append(
-            f"| {name} | {row['requests']} | {row['failures']} | {row['error_share']:.4f} "
-            f"| {row['p50_ms']:.0f} | {row['p95_ms']:.0f} | {row['rps']:.2f} |"
+            f"| {name} | {fmt(row['requests'])} | {fmt(row['failures'])} | {fmt(row['error_share'])} "
+            f"| {fmt(row['p50_ms'])} | {fmt(row['p95_ms'])} | {fmt(row['rps'])} |"
         )
-    lines += ["", f"V-F2 mo‘ljali (p95 < {metrics['v_f2_target_ms']} ms, yumshoq):"]
+    lines += ["", f"V-F2 mo‘ljali (p95 < {fmt(metrics['v_f2_target_ms'])} ms, yumshoq):"]
     for name, verdict in metrics["v_f2"].items():
         lines.append(f"- `{name}`: {verdict}")
     env = metrics["environment"]
+    during = env["memory_during"]
     lines += [
         "",
         "## Muhit",
         "",
         f"- Server: {run_['server']}; **DEBUG={run_['debug']}**; kesh {run_['cache']}; "
-        f"`DB_CONN_MAX_AGE`={run_['db_conn_max_age']}",
+        f"`DB_CONN_MAX_AGE`={fmt(run_['db_conn_max_age'])}",
         f"- Ma’lumotlar bazasi: `{run_['database']}` (alohida, faqat simulyatsiya — D13); "
-        f"kurs: {run_['course']['topics']} mavzu, {run_['course']['prerequisites']} prerekvizit",
-        f"- CPU: {env['cpu']['model']}, {env['cpu']['logical_cores']} mantiqiy yadro, "
-        f"governor {env['cpu']['governors']}",
-        f"- Xotira oldin: MemAvailable {env['memory_before']['MemAvailable']} MB / "
-        f"MemTotal {env['memory_before']['MemTotal']} MB; swap bo‘sh "
-        f"{env['memory_before']['SwapFree']} / {env['memory_before']['SwapTotal']} MB",
-        f"- Yuk davomida: eng past MemAvailable {env['memory_during'].get('min_mem_available_mb')} MB, "
-        f"eng past SwapFree {env['memory_during'].get('min_swap_free_mb')} MB "
-        f"({env['memory_during'].get('samples')} namuna)",
+        f"kurs: {fmt(run_['course']['topics'])} mavzu, "
+        f"{fmt(run_['course']['prerequisites'])} prerekvizit",
+        f"- CPU: {env['cpu']['model']}, {fmt(env['cpu']['logical_cores'])} mantiqiy yadro, "
+        f"governor {', '.join(env['cpu']['governors'] or ['—'])}",
+        f"- Xotira oldin: MemAvailable {fmt(env['memory_before']['MemAvailable'])} MB / "
+        f"MemTotal {fmt(env['memory_before']['MemTotal'])} MB; swap bo‘sh "
+        f"{fmt(env['memory_before']['SwapFree'])} / {fmt(env['memory_before']['SwapTotal'])} MB",
+        f"- Yuk davomida: eng past MemAvailable {fmt(during['min_mem_available_mb'])} MB, "
+        f"eng past SwapFree {fmt(during['min_swap_free_mb'])} MB "
+        f"({fmt(during['samples'])} namuna)",
         "- Server logidagi status kodlari: "
-        + ", ".join(f"{s['status']} — {s['count']}" for s in metrics["server_statuses"]),
+        + ", ".join(f"{fmt(s['status'])} — {fmt(s['count'])}" for s in metrics["server_statuses"]),
         "",
         "## Manba",
         "",
         f"- commit `{metrics['provenance']['code_commit']}`, "
         f"dirty={metrics['provenance']['code_dirty']}",
         f"- buyruq: `{metrics['provenance']['command']}`",
-        f"- p50/p95 — Locust'ning o‘zi: {metrics['locust_rounding_above_ms']} ms dan yuqorida "
+        f"- p50/p95 — Locust'ning o‘zi: {fmt(metrics['locust_rounding_above_ms'])} ms dan yuqorida "
         "vaqtlar ikki muhim raqamgacha yaxlitlangan.",
     ]
     return "\n".join(lines) + "\n"
@@ -346,12 +353,11 @@ def main(argv: list[str] | None = None) -> Path:
         },
         "provenance": provenance.payload(),
     }
-    (out / "metrics.json").write_text(json.dumps(metrics, indent=2, ensure_ascii=False) + "\n")
-    (out / "tables.md").write_text(tables(metrics))
-    (out / "env.txt").write_text(provenance.env_txt())
+    # Locust's own end-of-run summary (it prints it to stderr).
     if locust.stderr.strip():
         (out / "locust-stderr.txt").write_text(locust.stderr)
-    print(tables(metrics))
+    result_tables.write(out, metrics, provenance.env_txt(), renderer=render)
+    print(render(metrics))
     print(f"Written to {out}")
     return out
 

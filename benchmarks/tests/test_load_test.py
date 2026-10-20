@@ -10,8 +10,6 @@ RPS from Locust's CSV into the right fields.
 
 from __future__ import annotations
 
-import re
-
 import pytest
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
@@ -19,6 +17,7 @@ from django.core.management.base import CommandError
 
 from assessments.models import Question
 from benchmarks import load_test
+from experiments import tables as result_tables
 from curriculum.models import Topic, TopicKind, TopicPrerequisite
 from curriculum.services.graph import build_snapshot
 
@@ -120,35 +119,19 @@ def test_the_load_test_database_is_named_after_the_configured_one():
     assert url == "postgres://u:p@127.0.0.1:5433/neurolearn_locust"
 
 
-NUMBER = re.compile(r"(?<![\w.])-?\d+(?:[.,]\d+)?(?![\w.])")
-
-
-def _scalars(value, out: set[float], strings: list[str]) -> None:
-    if isinstance(value, bool):
-        return
-    if isinstance(value, (int, float)):
-        out.add(float(value))
-    elif isinstance(value, str):
-        strings.append(value)
-    elif isinstance(value, dict):
-        for item in value.values():
-            _scalars(item, out, strings)
-    elif isinstance(value, list):
-        for item in value:
-            _scalars(item, out, strings)
-
-
 def test_every_number_in_tables_md_is_a_value_in_metrics_json(tmp_path):
     """
-    D48 (and verification's check of it): tables.md shows no number that
-    metrics.json does not hold, at most rounded. The first committed runs
-    broke this with the hard-coded 300 ms target and status-code keys.
+    D48, checked by the project's own ``experiments.tables.verify`` (the same
+    check ``tables.write`` applies before writing and the experiments suite
+    applies to every published result). The first committed Locust runs broke
+    it: the 300 ms target from a constant, status codes as dictionary keys,
+    numbers formatted outside ``fmt``.
     """
     (tmp_path / "locust_stats.csv").write_text(STATS_CSV)
     endpoints = load_test.read_stats(tmp_path / "locust")
     for name in ("login", "next_question"):
-        endpoints[name] = dict(endpoints["submit_answer"], rps=0.42)
-    endpoints["trajectory"] = dict(endpoints["submit_answer"], p95_ms=1600.0)
+        endpoints[name] = dict(endpoints["submit_answer"], rps=0.4166)
+    endpoints["trajectory"] = dict(endpoints["submit_answer"], p95_ms=1600.0, rps=8.6125)
     metrics = {
         "run": {
             "users": 50, "duration_s": 120, "server": "django runserver", "debug": False,
@@ -165,19 +148,14 @@ def test_every_number_in_tables_md_is_a_value_in_metrics_json(tmp_path):
             "memory_before": {"MemTotal": 15249, "MemAvailable": 6937, "SwapTotal": 4095, "SwapFree": 1864},
             "memory_during": {"samples": 25, "min_mem_available_mb": 6388, "min_swap_free_mb": 1864},
         },
-        "provenance": {"tree_warnings": [], "code_commit": "5ab628e", "code_dirty": False, "command": "load_test.py"},
+        "provenance": {
+            "tree_warnings": ["ishchi daraxt ishga tushirish boshida toza emas edi"],
+            "code_commit": "5ab628e", "code_dirty": True, "command": "load_test.py",
+        },
     }
-    numbers: set[float] = set()
-    strings: list[str] = []
-    _scalars(metrics, numbers, strings)
-    text = load_test.tables(metrics)
-    for value in sorted(set(strings), key=len, reverse=True):
-        if len(value) >= 3:
-            text = text.replace(value, " ")
-    unbacked = []
-    for token in NUMBER.findall(text):
-        normal = token.replace(",", ".")
-        places = len(normal.split(".")[1]) if "." in normal else 0
-        if not any(round(v, places) == float(normal) for v in numbers):
-            unbacked.append(token)
-    assert unbacked == []
+
+    markdown = load_test.render(metrics)
+
+    assert result_tables.verify(markdown, metrics) == []
+    assert "| submit_answer | 200 | 2 | 0.01 | 110 | 250 | 1.67 |" in markdown
+    assert markdown.startswith("> **Ogohlantirish (D54):**")
