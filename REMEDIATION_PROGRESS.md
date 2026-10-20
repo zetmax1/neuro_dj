@@ -3238,6 +3238,25 @@ kabi) qo‘shiladi.
 
 ---
 
+### D65a — sanash natijasi (2026-10-20): **0 emas, to‘xtatildi**
+
+`experiments/.venv/bin/python -m experiments.clamp_count` (34 s; ma’lumot
+sha256 `f22e3fb7…`, 338 001 qator, 5 fold, checkpoint `h2-bounds-99bb9f9117e5e296`):
+
+| Model | `bkt.step` chaqiruvlari | posterior [0, 1] dan tashqarida (yangi clamp) | P(L)′ [0, 1] dan tashqarida (mavjud clamp) | P(L)′ farq qiladi |
+|---|---|---|---|---|
+| BKT | 1 744 901 | **1 177** | 1 167 | 0 |
+| BKT+IRT (λ=0) | 1 744 901 | **370** | 369 | 0 |
+
+Qoida bo‘yicha (son 0 emas) ish to‘xtatildi va son foydalanuvchiga aytildi;
+`bkt.posterior` **o‘zgartirilmadi**. Kuzatuv: 1 547 holatning hammasida
+P(L)′ ikkala yo‘lda bir xil — posterior > 1 bo‘lsa mavjud o‘tish clamp'i
+P(L)′ ni baribir 1.0 ga tushiradi, bashorat esa P(L) ning yangilanishdan
+oldingi qiymatidan olinadi. Shuning uchun clamp commit qilingan sonlarni
+o‘zgartirmasligi kutiladi, lekin bu qarorni foydalanuvchi qabul qiladi.
+Junyi — parametrlar saqlanmagan, sanalmadi (protokolda yozilgan).
+
+
 ## D69 — D48 ga zid birinchi Locust papkalari olib tashlanadi (2026-10-20)
 
 Foydalanuvchi qarori (10-bosqich, 2-qism, A1). `experiments/results/locust/20261020-070525`
