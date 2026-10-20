@@ -3207,6 +3207,37 @@ muallifi yozadi.
 
 ---
 
+## D65a — posteriorni [0, 1] ga clamp qilish: protokol (2026-10-20, o‘zgarish va sanashdan oldin)
+
+Foydalanuvchi qarori (10-bosqich, 2-qism, A3): `bkt.posterior` va PT
+o‘tishidan keyingi P(L) [0, 1] ga clamp qilinadi; 1 − ε chegarasi
+qo‘shilmaydi. PT o‘tishi (`bkt.transition`) allaqachon clamp qiladi, shuning
+uchun kod o‘zgarishi faqat `bkt.posterior` da.
+
+**Sanash (o‘zgarishdan oldin, natija o‘zgaradimi?).** Yangi skript
+`experiments/clamp_count.py` H2 ning o‘z oqimini (ma’lumot, tozalash, D57
+protokoli, 5-fold split, `h2.prepare` / `h2.fold_sets`) fit'siz qayta
+o‘ynaydi: parametrlar D55 to‘liq yugurishining checkpoint'idan
+(`experiments/.runs/checkpoints/h2-bounds-99bb9f9117e5e296`, `30ad4e4`,
+asosiy sozlama `fit-0-*`, `h2_frozen.reusable_checkpoint` bilan topiladi).
+BKT va BKT+IRT (λ=0) uchun, H2 dagidek o‘qitish fold'ida item'larni isitish va
+test fold'ida bashorat. Har `bkt.posterior` chaqiruvida sanaladi:
+
+- `posterior_clamped` — xom posterior [0, 1] dan tashqarida (yangi clamp ishlaydi);
+- `transition_clamped` — xom P(L)′ [0, 1] dan tashqarida (mavjud clamp);
+- `p_after_differs` — clamp qilingan va qilinmagan yo‘lda P(L)′ farq qiladi.
+
+**Qoida.** `posterior_clamped` = 0 (BKT ham, BKT+IRT ham) → commit qilingan
+natijalar o‘zgarmaydi deb yoziladi va clamp commit qilinadi. 0 bo‘lmasa →
+to‘xtash va sonni foydalanuvchiga aytish (qaror shu). Junyi (H1/H3): per-skill
+parametrlar saqlanmagan (checkpoint yo‘q, `metrics.json` dagi
+`folds[].parameters` bo‘sh), 25,9 mln qatorni qayta fit qilish bu qarordan
+tashqarida — (c) bajarilmaydi. THESIS_MAPPING ga F6 (raqamli himoya, θ clamp
+kabi) qo‘shiladi.
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
