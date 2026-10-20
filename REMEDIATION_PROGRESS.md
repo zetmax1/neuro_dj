@@ -34,7 +34,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8b-1 — Yuklovchilar (D49–D51) va graf tahlili (D52) | **Bajarildi** | `c1a683b` | — |
 | 8b-2 — H2: ASSISTments 2009 (D53, D56, D57) | **Bajarildi** — to‘liq natija `experiments/results/assist09/20261009-055443/` (D57); D55 D57 bilan hali ishga tushirilmagan | `7ff7ae2` … `e97621c`, natija `abb1fe4` | — |
 | 8b-3 — H1/H3 kodi, Junyi yuklovchisi, graf nazoratlari, `run_all.py` | **Bajarildi** — H1 `junyi-h1/20261019-102526` (qo‘llab-quvvatlanmadi), H3 `junyi-h3/20261019-122423` (k=3 aniqlanmadi, k=5 qo‘llab-quvvatlanmadi); DBE-KT22 yuklovchisi va annotatsiya vositasi kechiktirildi (D62) | `056f17d` … `ac632d3` | — |
-| 9 — Saqlash usullari benchmarki (H4, D63) | **Ishga tushirildi** — birinchi to‘liq pass `20261016-093916` (H4 qo‘llab-quvvatlanmadi); D63c/D63g bo‘yicha qayta o‘lchanadi | `68acf4e` … `cb7aec4` | — |
+| 9 — Saqlash usullari benchmarki (H4, D63) | **Bajarildi** — to‘liq pass `20261016-093916` + D63h qayta o‘lchashi (`20261019-161430`, `20261019-163435`, `20261020-050428`); H4 qo‘llab-quvvatlanmadi | `68acf4e` … `ed45931` | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
 
 ---
@@ -2750,6 +2750,73 @@ aynan mos.
   kamdan-kam hol bu sanoqqa kirmaydi.)
 - **H1 voqealarida `suggested` ulushi:** 3 093 / 9 664 = **0,3201**
   (butun namunada 0,2175).
+
+
+## QADAM 11 — H4 ning tanlab qayta o‘lchanishi (D63h, 2026-10-19/20)
+
+### Ishga tushirishlar (hammasi `9f97aa7`, ikkala uchida toza)
+
+| Qism | Unit | Vaqt | Natija |
+|---|---|---|---|
+| (b) parallel, `course_like` + `random` | `…-bench-reselect-parallel-20261019-201708` | 20:17 → 21:14 | `tree-benchmark/20261019-161430` |
+| (b) parallel, `deep_chain` 10³/10⁴ | o‘sha unit, 2-chaqiruv | 21:14 → 21:34 | `tree-benchmark/20261019-163435` |
+| (a) `deep_chain/100000` butun | `…-bench-reselect-block-20261020-085302` | 08:53 → 10:04 | `tree-benchmark/20261020-050428` |
+
+Uchalasida `tables.verify` = [] va pozitsion tekshiruv = []; keyingi
+chaqiruvlar oldingisining commit qilinmagan papkasi yonida boshlangan va
+provenance uni `untracked_results` ga yozgan (D64). (a) da 72 namuna,
+180 s dan katta tanaffus yo‘q (D63e belgisi yo‘q; mashina run tugagandan
+keyin uxlagan), eng past MemAvailable 5,64 GB, SwapFree 4 080 MB (D63c
+belgisi yo‘q). (a) 71 daqiqa davom etdi (birinchi pass'da 228): CTE ning
+ikki o‘qishi va ko‘chirishi bu safar serverdagi 120 s `statement_timeout`
+ga birinchi urinishda urildi.
+
+### (a) `deep_chain/100000` — asosiy son qayta o‘lchangan, birinchisi yonida
+
+| Amal | ρ (qayta) [95 % CI] | ρ (birinchi, bosim ostida) | Xulosa (qayta / birinchi) |
+|---|---|---|---|
+| shox o‘qish | — (CTE timeout) | — (CTE xotira) | timeout / ishga tushirilmadi — xotira |
+| ajdod o‘qish | — (CTE timeout) | — (CTE xotira) | timeout / ishga tushirilmadi — xotira |
+| oxiriga barg | 281,43 [235,17; 365,02] | 412,09 [283,97; 500,77] | CTE tezroq / CTE tezroq |
+| eng chapga barg | 422,46 [381,92; 453,00] | 1 240,00 [1 077,99; 1 428,34] | CTE tezroq / CTE tezroq |
+| ko‘chirish | — (CTE timeout) | — (CTE timeout) | timeout / timeout |
+| o‘chirish | 0,922 [0,796; 1,033] | 0,819 [0,784; 0,880] | **taqqoslanadigan** / MPTT tezroq |
+
+Mediana (ms, qayta / birinchi): MPTT 699,4 / 559,2, 628,6 / 422,5,
+472,1 / 376,9, 1 023,0 / 877,3, 1 074,3 / 975,5, 26 013,4 / 22 833,5;
+CTE oxiriga 1,68 / 0,91, chapga 2,42 / 0,71, o‘chirish 28 212,4 / 27 894,7.
+
+### (b) parallel bosqich — yaxlitlik D63g tekshiruvi bilan qayta
+
+72 bosqichdan **8 tasida** xulosa o‘zgardi:
+
+- **4 tasi — D63g artefaktining yo‘qolishi**: qulfli variantda MPTT
+  `course_like/100000`, `deep_chain/10000`, `deep_chain/100000`,
+  `random/100000` da birinchi pass'da “buzildi” edi (faqat
+  `differs_from_rebuild`), qayta tekshiruvda **toza**. Endi qulfli variantda
+  **ikkala usul ham to‘qqiz blokning hammasida toza**.
+- **4 tasi — qulfsiz poyganing takror orasidagi farqi**: CTE ning Y1 i
+  `course_like/1000` ×8 da buzildi (birinchi pass'da toza), `deep_chain/1000`
+  ×8 da toza (birinchi pass'da buzilgan); MPTT `deep_chain/1000` ×8 va
+  `deep_chain/10000` ×8 da bu safar Y1 sikli yo‘q (oraliqlar baribir buzilgan).
+
+Qulfsiz variant: **MPTT oraliqlari 27/27 bosqichda buzilgan** (ikkala
+pass'da ham), CTE ning Y1 i **27 dan 1 tasida** buzilgan (ikkala pass'da ham
+bittadan, har xil blokda). O‘tkazuvchanlik uchun asosiy son — birinchi
+pass'niki (D63h); `deep_chain/100000` niki qayta o‘lchangan.
+
+### D63 qoidasi birlashtirilgan ma’lumot bilan
+
+| # | Shart | Bajarildimi | Kataklar |
+|---|---|---|---|
+| 1 | yozish har joyda “CTE tezroq” | **yo‘q** | `deep_chain/1000` ko‘chirish 0,134 va o‘chirish 0,918 (taqqosl.), `deep_chain/10000` ko‘chirish 0,010 va o‘chirish 0,857, `deep_chain/100000` o‘chirish 0,922 (taqqosl.), `random/100000` ko‘chirish 0,758; `deep_chain/100000` ko‘chirish — timeout |
+| 2 | o‘qishda 1,5 barobardan sekin emas | **yo‘q** | 16 katak (birinchi pass'dan, o‘zgarmagan); `deep_chain/100000` ning ikkalasi — timeout |
+| 3 | qulfli parallel yozishdan keyin CTE yaxlitligi | **ha** | 9/9 blok toza |
+
+**Umumiy: H4 qo‘llab-quvvatlanmadi** (birinchi pass'dagi xulosa
+o‘zgarmadi). Alohida qator: qulfsiz parallel yozishda MPTT ning oraliq
+kodlashi 27/27 bosqichda buziladi, qulflangan platforma yo‘lida esa ikkala
+usul ham yaxlit.
 
 
 ---
