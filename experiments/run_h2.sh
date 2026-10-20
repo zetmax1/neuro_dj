@@ -18,6 +18,9 @@
 #                                   # D61, Junyi: experiments.h1 / experiments.h3
 #   experiments/run_h2.sh junyi-quick | junyi-full | junyi-both
 #                                   # both hypotheses of D61, h1 then h3
+#   experiments/run_h2.sh d71-quick | d71-full | d71-both
+#                                   # D71: post-hoc H1 subset/curve and H3 λ
+#                                   # curve, one shared fit (experiments.d71)
 #   experiments/run_h2.sh bench-reselect
 #   experiments/run_h2.sh bench-reselect-parallel | bench-reselect-block
 #                                   # the same two parts of D63h, one at a time
@@ -170,6 +173,7 @@ BOUNDS=experiments.h2_bounds
 FROZEN=experiments.h2_frozen
 H1=experiments.h1
 H3=experiments.h3
+D71=experiments.d71
 BENCH=manage.py
 WRAP=""
 REF=""
@@ -194,6 +198,9 @@ case "$MODE" in
     h3-both)  CHAIN="run h3-quick $H3 --quick $POOL && run h3-full $H3 $POOL" ;;
     junyi-quick) CHAIN="run h1-quick $H1 --quick $POOL && run h3-quick $H3 --quick $POOL" ;;
     junyi-full)  CHAIN="run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
+    d71-quick) CHAIN="run d71-quick $D71 --quick $POOL" ;;
+    d71-full)  CHAIN="run d71-full $D71 $POOL" ;;
+    d71-both)  CHAIN="run d71-quick $D71 --quick $POOL && run d71-full $D71 $POOL" ;;
     junyi-both)  CHAIN="run h1-quick $H1 --quick $POOL && run h3-quick $H3 --quick $POOL \
                         && run h1-full $H1 $POOL && run h3-full $H3 $POOL" ;;
     bench-reselect-parallel|bench-reselect-block)
@@ -230,7 +237,7 @@ case "$MODE" in
                                 && run bench-full $BENCH run_tree_benchmark" ;;
         esac
         ;;
-    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both|bench-quick|bench-full|bench-both|bench-reselect|bench-reselect-parallel|bench-reselect-block}" >&2; exit 2 ;;
+    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both|d71-quick|d71-full|d71-both|bench-quick|bench-full|bench-both|bench-reselect|bench-reselect-parallel|bench-reselect-block}" >&2; exit 2 ;;
 esac
 
 LAUNCHER="${H2_LAUNCHER:-}"

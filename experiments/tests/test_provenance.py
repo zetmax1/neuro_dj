@@ -320,6 +320,21 @@ def test_the_junyi_modes_run_h1_then_h3_with_their_own_logs(tmp_path):
 
 
 @pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
+def test_the_d71_modes_run_the_post_hoc_module_quick_then_full(tmp_path):
+    """D71: one module, its own logs, quick before full; no --reference."""
+    fake = _fake_python(tmp_path, 'echo "args: $*"')
+    _launch(tmp_path, "d71-both", fake, H2_REFERENCE="assist09/20261010-060005")
+
+    logs = tmp_path / "logs"
+    quick = (logs / "h2-d71-quick.log").read_text()
+    full = (logs / "h2-d71-full.log").read_text()
+    assert "args: -u -W ignore -m experiments.d71 --quick" in quick
+    assert "args: -u -W ignore -m experiments.d71\n" in full
+    assert "finished d71-full (exit 0)" in full
+    assert "--reference" not in quick + full
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is not installed")
 def test_a_junyi_mode_passes_no_reference(tmp_path):
     """H1 and H3 reproduce nothing of H2, so --reference has no place there."""
     fake = _fake_python(tmp_path, 'echo "args: $*"')
