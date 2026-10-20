@@ -35,7 +35,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8b-2 — H2: ASSISTments 2009 (D53, D56, D57) | **Bajarildi** — to‘liq natija `experiments/results/assist09/20261009-055443/` (D57); D55 D57 bilan hali ishga tushirilmagan | `7ff7ae2` … `e97621c`, natija `abb1fe4` | — |
 | 8b-3 — H1/H3 kodi, Junyi yuklovchisi, graf nazoratlari, `run_all.py` | **Bajarildi** — H1 `junyi-h1/20261019-102526` (qo‘llab-quvvatlanmadi), H3 `junyi-h3/20261019-122423` (k=3 aniqlanmadi, k=5 qo‘llab-quvvatlanmadi); DBE-KT22 yuklovchisi va annotatsiya vositasi kechiktirildi (D62) | `056f17d` … `ac632d3` | — |
 | 9 — Saqlash usullari benchmarki (H4, D63) | **Bajarildi** — to‘liq pass `20261016-093916` + D63h qayta o‘lchashi (`20261019-161430`, `20261019-163435`, `20261020-050428`); H4 qo‘llab-quvvatlanmadi | `68acf4e` … `ed45931` | — |
-| 10 — Sinovlar, samaradorlik, yakuniy hisobot | Kutilmoqda | — | — |
+| 10 — Sinovlar, samaradorlik, yakuniy hisobot | **Qisman** — 1-qism bajarildi (QADAM 12: Hypothesis, `accounts`, SQL byudjeti, coverage, Locust, frontend tekshiruvi); SQL ≤ 12 va V-F2 50 foydalanuvchida bajarilmadi (D66, QADAM 12); 2-qism — `REMEDIATION_REPORT.md`, `THESIS_MAPPING.md` | `8f1f36f` … `4aee869` | — |
 
 ---
 
@@ -2999,6 +2999,212 @@ usulda olingan).
   governor `powersave`.
 
 
+
+## QADAM 12 — 10-bosqich, 1-qism: xossa testlari, `accounts`, SQL byudjeti, coverage, Locust, frontend (2026-10-20)
+
+Boshlang‘ich holat: `2ce9ad4`, ishchi daraxt toza, Postgres 5433 ishlab turgan.
+Ish davomida mashina bir marta qayta yuklandi (compose `--env-file config/.env
+up -d` bilan qayta ko‘tarildi; `neurolearn`, `_bench`, `_locust` bazalari
+joyida). Qarorlar D65–D68 (yuqorida) har biri o‘z commit'ida.
+
+### Commit'lar
+
+| Commit | Nima |
+|---|---|
+| `8f1f36f` | Hypothesis: sof model va KB servisi + javob yo‘li uchun ikki state machine (SN2, P1-9, D65) |
+| `fbf2f4d` | `accounts`: hisobi tugagan refresh cookie → 401 (500 edi) + 27 ta yangi test (audit 7.1) |
+| `601cea3` | `submit_answer` ichidagi 6 ta qayta o‘qish olib tashlandi; SQL sonlari testda qotirildi (P2-4, V-F1, D66) |
+| `3e71a32` | `.coveragerc` va CI dagi uchta maqsad (7.2, D67) |
+| `5ab628e` | Locust: `seed_load_test`, `locustfile.py`, `load_test.py` (SN3, D68) |
+| `f41bfb0`, `98f7b5f` | Locust natijalari, 1-urinish (50 va 5 foydalanuvchi) — **D48 ga zid, almashtirildi** |
+| `805f967` | `dj5433.sh`: suffiks benchmark bazasiga ham tegadi (ikki pytest bir test bazasini o‘chirib qo‘ymasin) |
+| `80ddcd3`, `0e424d7` | Locust jadvali: har son `metrics.json` da, `tables.fmt` bilan, `tables.write` orqali (D48) |
+| `e836b2f`, `4aee869` | Locust natijalari, qayta (50 va 5 foydalanuvchi) — asosiy natija |
+
+### 0. Boshlang‘ich sonlar (`2ce9ad4`)
+
+| Suite | Natija |
+|---|---|
+| Backend (`scripts/dj5433.sh venv/bin/python -m pytest`) | 1 230 passed, 51 skipped, 13 subtests |
+| `experiments/.venv` — `experiments/tests` | 406 passed, 2 skipped |
+| `benchmarks/tests` | 80 |
+| `verification/tests` | 827 passed, 4 failed (3 ta N/A signali + `test_d48_every_result_has_sha256_commit_seed_and_command`) |
+| Coverage (manba kodi; testlar, migratsiyalar, verification, experiments, scripts chiqarilgan) | `neuro_model` 99 % (503/5), servislar 97 % (932/28), umumiy 92 % (5 521/455) |
+
+### 1. Hypothesis (SN2)
+
+Tuzilishi, invariantlar, sozlamalar va kiritilgan xatolar bilan tekshiruv —
+D65 da. Ikki test, birgalikda ~43 s: sof machine 200 misol × 50 qadam,
+Django machine 40 misol × 20 qadam. Sof machine 4/4, Django machine 6/6
+kiritilgan xatoni ushladi. Topilma D65a: P(L) double'da 1.0 ga yetadi va
+yutuvchi holatga aylanadi; noto‘g‘ri javobning posteriori 1 + 6e-15 —
+yoziladigan qiymatlar [0, 1] da qoladi, model kodi o‘zgartirilmadi.
+
+### 2. `accounts` (audit 7.1)
+
+`accounts/tests/test_accounts.py` — 27 test: ro‘yxatdan o‘tish (standart rol
+— student, `is_staff`/`role`/`groups` so‘rovda e’tiborsiz, takroriy va
+soft-delete qilingan email, mos kelmaydigan, qisqa, raqamli va keng tarqalgan
+parollar), D15/Q0-6 rollar jadvali (6 xil akkaunt: rol, `is_instructor`,
+`is_admin`, o‘qituvchi va admin endpoint'lari bir-biriga mos), profil faqat
+ismni o‘zgartiradi, soft delete parol / access token / refresh cookie'ni
+yopadi, D11 admin yo‘li orqali (rozilik bor → anonimlashtiriladi va login
+bo‘lmaydi; yo‘q → o‘chiriladi), aylantirilgan cookie atributlari
+(httpOnly, Secure, SameSite, path), logout cookie'ni o‘z path'ida
+o‘chiradi, faqat eskirgan jti blacklist'da, cookie'ga mos kelmaydigan CSRF
+token 403. `accounts` jami: 60 → 87 test.
+
+**Topilgan xato (tuzatildi, `fbf2f4d`).** SimpleJWT refresh serializer'i
+foydalanuvchini default manager orqali qidiradi, u soft-delete qilinganlarni
+yashiradi: o‘chirilgan akkauntning refresh cookie'si `/api/accounts/token/refresh/`
+da **500** berardi; nofaol akkaunt esa 401 berib cookie'ni qoldirardi. Endi
+uchala holat (soft-delete, nofaol, hard-delete) 401 `token_not_valid` va cookie
+o‘chiriladi; test har biri uchun.
+
+### 3. SQL byudjeti (V-F1, P2-4)
+
+Sanash va tafsilot — D66. Oldin → keyin (BEGIN/COMMIT sanalmaydi):
+
+| Holat | Oldin | Keyin |
+|---|---|---|
+| oddiy javob | 25 | **19** |
+| M o‘zgaradi, voris ochiladi | 26 | **20** |
+| `review_repeat` | 16 | **11** |
+| kursdagi birinchi javob | 28 | 22 |
+| yangi talabaning birinchi so‘rovi | 34 | 28 |
+| `next_question` | 8 | 7 |
+| `trajectory` | 5 | 5 |
+
+≤ 12 faqat `review_repeat` da bajarildi. Qolgan 19 ta Algoritm 2.4 ning
+alohida o‘qishi/qulfi/yozuvi; 12 ga tushirish qulf, ma’lumot manbai yoki
+yoziladigan narsani o‘zgartirishni talab qiladi (D66 dagi ro‘yxat) — bu
+bosqich shartiga zid, foydalanuvchi qarori kerak. V-F1 yumshoq chegara:
+test aniq sonlarni qotiradi va oshgan holatlar uchun ogohlantirish beradi.
+Natijalar o‘zgarmaganining dalili: 4-bo‘lim etalon testlari, V-D1
+parallellik testi (`test_ledger.py:423`) va verification oracle (pastda) —
+o‘zgarishdan oldingi bilan bir xil.
+
+### 4. Coverage (7.2)
+
+Doira — D67 (`.coveragerc`), CI da majburiy.
+
+| Qism | Oldin | Keyin | Maqsad |
+|---|---|---|---|
+| `neuro_model` | 99 % (503/5) | 99 % (503/5) | ≥ 95 % |
+| servislar (`*/services/*`) | 97 % (932/28) | 97 % (937/28) | ≥ 85 % |
+| umumiy | 92 % (5 521/455) | 90 % (5 794/562) | ≥ 80 % |
+
+Maqsadlar boshidanoq bajarilgan edi, shuning uchun qatorni qoplash uchun test
+qo‘shilmadi; qo‘shilgan testlar 1–3- va 5-bandlarning xatti-harakatini
+tekshiradi. Umumiy son 92 → 90 % ga tushdi, chunki doiraga yangi
+`benchmarks/load_test.py` kirdi (175 qatordan 102 tasi — subprocess
+orkestratsiyasi, faqat haqiqiy yugurishda ishlaydi; uning hisoblovchi
+qismlari — CSV o‘qish, status kodlari, jadval va D48 tekshiruvi —
+`test_load_test.py` da). CI dagi uchala buyruq yakuniy ma’lumotda o‘tadi.
+
+### 5. Locust (SN3, V-F2)
+
+Protokol — D68 (yugurishdan oldin commit qilingan). `DEBUG=False`, bitta
+`runserver` jarayoni, Redis kesh, alohida `neurolearn_locust` bazasi (faqat
+simulyatsiya, D13), V-F2 kursi: 500 mavzu, 1 500 prerekvizit, 5 000 savol.
+
+**Asosiy natija — `experiments/results/locust/20261020-085406` (`0e424d7`, ikkala uchida toza):**
+
+| Endpoint | So‘rovlar | Xatolar | Xato ulushi | p50, ms | p95, ms | RPS |
+|---|---|---|---|---|---|---|
+| login | 50 | 0 | 0 | 1 000 | 2 300 | 0,419 |
+| next_question | 520 | 0 | 0 | 1 700 | 2 600 | 4,363 |
+| submit_answer | 501 | 0 | 0 | 4 500 | 15 000 | 4,203 |
+| trajectory | 536 | 0 | 0 | 2 500 | 3 900 | 4,497 |
+| jami | 1 657 | 0 | 0 | 2 400 | 6 300 | 13,902 |
+
+Muhit: i7-11800H, 16 mantiqiy yadro, governor `powersave`; oldin MemAvailable
+9 257 MB / 15 249 MB, swap bo‘sh 4 095 / 4 095 MB; yuk davomida eng past
+MemAvailable 6 869 MB, swap ishlatilmadi (25 namuna). Server logida 1 647 ta
+200.
+
+**Bir xil protokolning birinchi urinishi — `20261020-070525` (`5ab628e`, toza):**
+3 161 so‘rov, 0 xato, **26,542 RPS**; p50 / p95: next_question 900 / 1 300,
+submit_answer 2 300 / 4 500, trajectory 1 100 / 1 600, login 830 / 1 600.
+Oldin MemAvailable 6 937 MB, swap bo‘sh 1 864 / 4 095 MB.
+
+**Post-hoc, 5 foydalanuvchi** (D68 da yo‘q; xizmat vaqtini navbatdan ajratish
+uchun): `20261020-085659` (`e836b2f`): p50 / p95 next_question 120 / 240,
+submit_answer 170 / 310, trajectory 170 / 310, 9,854 RPS, 0 xato;
+birinchi urinish `20261020-070827`: 67 / 120, 87 / 160, 65 / 150, 12,206 RPS.
+
+O‘qish:
+
+- **Xatolar ulushi hamma yugurishda 0.** Kutilgan 403/404 (`next_question`)
+  server logida 0–5 ta.
+- **50 foydalanuvchida V-F2 mo‘ljali (p95 < 300 ms) bajarilmadi**, ikkala
+  urinishda ham. Sabab — bitta jarayonning to‘yinishi: o‘tkazuvchanlik
+  14–27 RPS da to‘xtaydi, kechikish navbatdan keladi (5 foydalanuvchida
+  xuddi shu so‘rovlar p95 120–310 ms). Bu `runserver` ning bitta jarayoni
+  haqidagi son, production konfiguratsiyasi haqida emas.
+- **Ikki urinish orasidagi 2 barobar farq mashina holatidan.** Qayta
+  yugurish qayta yuklashdan ~10 daqiqa keyin bo‘ldi: Postgres va page cache
+  sovuq, desktop ilovalari ishga tushayotgan edi — metrics'dagi load
+  (0,98 → 4,25) va `busiest_processes` (Chrome, Papers, JetBrains Toolbox,
+  IDE) buni ko‘rsatadi. Birinchi urinishning sonlari to‘g‘ri, faqat
+  `tables.md` D48 ga zid (pastda).
+- Birinchi urinish papkalari (`070525`, `070827`) **o‘zgartirilmadi**
+  (commit qilingan natija). Ularning `tables.md` sida `metrics.json` da yo‘q
+  sonlar bor (300 ms mo‘ljali konstantadan, status kodlari lug‘at kalitlari,
+  `fmt` dan tashqari formatlash) — shuning uchun verification'dagi
+  `test_d48_every_number_in_every_tables_md_is_in_its_metrics_json` va
+  experiments'dagi `test_the_published_results_verify_cell_by_cell` faqat shu
+  ikki papka tufayli yiqiladi. Generator tuzatildi (`80ddcd3`, `0e424d7`),
+  yangi papkalar ikkala tekshiruvdan o‘tadi.
+
+### 6. Frontend (`~/Desktop/neuro/neuro`, `5251c45`, faqat tekshiruv)
+
+| Tekshiruv | Natija |
+|---|---|
+| `npm run lint` | **0 error**, 8 warning — hammasi `react-refresh/only-export-components`: `components/ui/` dagi `badge.tsx:29`, `button.tsx:59`, `form.tsx:129`, `navigation-menu.tsx:111`, `sidebar.tsx:636`, `sonner.tsx:27`, `toggle.tsx:37` va `contexts/AuthContext.tsx:14` |
+| `npx tsc --noEmit` | **0** xato |
+| `npm test` (vitest) | **90 passed**, 14 fayl |
+| `npm run build` | muvaffaqiyatli; ogohlantirish: `Hero3DBackground` chunk'i 850 kB (> 500 kB) |
+
+Spetsifikatsiya (lint 0 error, tsc 0) bajarilgan. Tuzatish talab qilmaydi;
+ixtiyoriy ro‘yxat: 8 ta fast-refresh ogohlantirishi (konstanta/funksiyalarni
+alohida faylga chiqarish) va `Hero3DBackground` ni lazy-chunk'larga bo‘lish.
+Build `dist/` ga yozadi, u `.gitignore` da — frontend daraxti toza qoldi.
+
+### 7. Yakuniy tekshiruvlar (`4aee869`)
+
+| Suite | Natija |
+|---|---|
+| Backend (`coverage run -m pytest`) | 1 269 passed, 51 skipped, 13 subtests, **1 failed** — experiments testlari Django venv'da ham yig‘iladi va o‘sha `test_the_published_results_verify_cell_by_cell` yiqiladi (5-band). Jami 1 270 = 1 230 + 40 yangi test (sof va Django xossa testlari 2, `accounts` 27, SQL byudjeti 3, Locust vositalari 8) |
+| `experiments/.venv` — `experiments/tests` | 405 passed, 2 skipped, **1 failed** — `test_the_published_results_verify_cell_by_cell`, faqat `locust/20261020-070525` va `070827` tufayli (5-band) |
+| `benchmarks/tests` | 88 passed (80 + 8) |
+| `verification/tests` | 826 passed, **5 failed**: boshlang‘ich 4 ta + `test_d48_every_number_in_every_tables_md_is_in_its_metrics_json` (o‘sha ikki papka). SQL o‘zgarishidan keyin, ikki Locust papkasi qo‘shilishidan oldin: 827 / 4 — boshlang‘ich bilan aynan bir xil |
+| `manage.py check` | toza |
+| `makemigrations --check --dry-run` | No changes detected |
+
+`verification/` ga tegilmadi. Uning `test_na_group_f_performance_is_still_unmeasured`
+signali hali o‘tadi, chunki u `verification/tests/test_f_performance.py`
+yo‘qligini tekshiradi — V-F endi o‘lchangan, lekin bu faylni verification
+muallifi yozadi.
+
+### Ochiq qolganlar
+
+1. **SQL ≤ 12** oddiy javob (19) va M o‘zgarishi (20) uchun bajarilmadi — D66
+   dagi variantlardan qaysi biri (agar bo‘lsa) qabul qilinishi foydalanuvchi
+   qarori.
+2. **V-F2 50 foydalanuvchida** bajarilmadi (bitta `runserver` jarayoni
+   to‘yinadi). Bir necha worker'li WSGI server (masalan gunicorn) lock
+   faylga qo‘shilishi kerak — foydalanuvchi qarori; keyin Locust tinch
+   mashinada qayta yugurtiriladi.
+3. **Birinchi Locust papkalari** (`070525`, `070827`) D48 ga zid va ikki
+   tekshiruvni yiqitadi; commit qilingan natija bo‘lgani uchun tegilmadi.
+   `git rm` qilish yoki qoldirish — foydalanuvchi qarori.
+4. **D65a**: `bkt.posterior` ni [0, 1] ga clamp qilish va P(L) ni 1 − ε bilan
+   cheklash taklifi (natijalarni juda oz o‘zgartirishi mumkin).
+5. Frontend: 8 lint ogohlantirishi va 850 kB chunk (tuzatish shart emas).
+6. 10-bosqichning 2-qismi: `REMEDIATION_REPORT.md` va `docs/THESIS_MAPPING.md`.
+
+
 ---
 
 ## Savollar va qarorlar
@@ -3054,6 +3260,10 @@ usulda olingan).
 | D57 | Ko‘p-skill'li masalada keyingi qator shu masalaning javobini ko‘radi (sizish) | D57: bashorat faqat talabaning qat’iy oldingi `order_id`'laridan; order qatorlari bir xil holatdan bashorat qilinadi, yangilanish order'dan keyin. Batafsil — “D57” bo‘limi. 2026-10-08, yangi natijadan oldin |
 | D58 | D55 D57 protokolida qanday ishga tushiriladi va qanday o‘qiladi | D55 tavsifiy, asosiy natija (0,30; 0,10); uchta savol va Elo nuqtaviy farqi; takrorlanish darvozalari (6 xona) va DKT darvozasi (5e-4, metodik tanlov). Batafsil — “D58” bo‘limi. 2026-10-09, natijadan oldin |
 | D59 | D55 ning L-BFGS-B tekshiruvi P0/PT grid'i torligi sababli o‘tmadi; DKT/AKT `problem_id` ni ko‘rmaydi | DEFAULT_GRID: P0 + 0,01; 0,95; PT + 0,005; 0,01; 0,02; 0,03; 0,5 (G/S o‘zgarmaydi); AKT-R (n_pid > 0) qo‘shimcha model; yangi H2 asosiy natija, eski tarixiy; L-BFGS-B 1 % qoladi. Batafsil — “D59” bo‘limi. 2026-10-09, koddan oldin |
+| D65 | Hypothesis xossa testlari qanday quriladi; 2.5-tasdiq double'da qayerda qat’iy tekshiriladi | Ikki state machine (sof va PostgreSQL), qabul/rad production kodi bilan; 2.5 qat’iy shakli 1e-9 < P(L) < 1 − 1e-9 da, kuchsiz shakli hamma joyda; posterior 1e-12 aniqlikda. D65a topilmasi (P(L) = 1.0 yutuvchi holat) — model o‘zgartirilmadi, taklif foydalanuvchiga. Batafsil — “D65” bo‘limi. 2026-10-20 |
+| D66 | `submit_answer` ≤ 12 SQL: nima sanaladi va qulflar/natijalar o‘zgarmasdan qancha kamaytirish mumkin | HTTP + JWT, haqiqiy tranzaksiya, BEGIN/COMMIT sanalmaydi; 6 ta qayta o‘qish olib tashlandi (25 → 19, 26 → 20, 16 → 11); qolgani alohida qaror talab qiladi, V-F1 yumshoq — test ogohlantiradi. Batafsil — “D66” bo‘limi. 2026-10-20 |
+| D67 | Coverage'da “umumiy” va “servislar” nima | `.coveragerc`: backend manba kodi (testlar, migratsiyalar, verification, experiments, scripts chiqarilgan); servislar = `*/services/*`; uchala maqsad CI da majburiy. Batafsil — “D67” bo‘limi. 2026-10-20 |
+| D68 | Locust qanday va qaysi ma’lumotda ishga tushiriladi | Alohida `<db>_locust` baza, faqat simulyatsiya (D13), V-F2 kursi (500/1 500), `DEBUG=False` `runserver`, 50 foydalanuvchi × 2 daqiqa, 403/404 kutilgan javob. Yugurishdan oldin commit qilindi. Batafsil — “D68” bo‘limi. 2026-10-20 |
 
 ---
 
@@ -3207,9 +3417,9 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | EX4 Statistika | B8 | Kutilmoqda (B8) | — |
 | EX5 Benchmark | B9 | Bajarildi (kod) | `benchmarks/` app'i: `MpttNode` va `CteNode`, uchta shakl, 10³–10⁵, oltita amal, parallel yozish (qulfsiz va qulfli), Y1 va oraliq tekshiruvlari, `manage.py run_tree_benchmark` (D63, D63a). Natija alohida bazada, D48 verify bilan |
 | EX6 Rozilik va anonimlashtirish | B8 | Kutilmoqda (B8) | `is_simulated` belgisi qo‘shildi (`332d56f`) |
-| SN1 Unit testlar | B2–B6, B10 | Qisman | B0: 17, B1: 32, B2: 300 ta tasodifiy + 57 ta yangi/qayta yozilgan test (`neuro_model/tests`, `test_tree.py`, `test_kb.py`, `test_dag.py`, `test_kb_concurrency.py`) |
-| SN2 Hypothesis | B10 | Kutilmoqda (B10) | `hypothesis` `requirements-dev.txt` da |
-| SN3 Locust | B10 | Kutilmoqda (B10) | `locust` `requirements-dev.txt` da |
+| SN1 Unit testlar | B2–B6, B10 | Bajarildi | II bob algoritmlari uchun unit va etalon testlar (B2–B6), B10 da xossa testlari (`8f1f36f`), `accounts` (`fbf2f4d`), SQL byudjeti (`601cea3`), Locust vositalari (`5ab628e`, `0e424d7`); backend 1 270 test, coverage `neuro_model` 99 %, servislar 97 %, umumiy 90 % (QADAM 12) |
+| SN2 Hypothesis | B10 | Bajarildi | `neuro_model/tests/test_properties.py`, `curriculum/tests/test_kb_properties.py` — state machine'lar, 6 ta invariant + rad etilgan amal holatni o‘zgartirmaydi; kiritilgan xatolar 4/4 va 6/6 ushlandi (`8f1f36f`, D65) |
+| SN3 Locust | B10 | Bajarildi | `benchmarks/locustfile.py`, `load_test.py`, `seed_load_test` (`5ab628e`, D68); natija `experiments/results/locust/20261020-085406` (50 foydalanuvchi, 0 xato) va post-hoc `085659` (5 foydalanuvchi) (`e836b2f`, `4aee869`). V-F2 mo‘ljali 50 foydalanuvchida bajarilmadi — QADAM 12 |
 
 ### ES (eski muammolar)
 
@@ -3253,10 +3463,10 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | Topilma | Vazifa | Holat | Dalil |
 |---|---|---|---|
 | 7.1 `test_test_session.py:140` 100.0 ni tasdiqlaydi | B5 | Bajarildi | Test endi `p_mastery` ∈ [0,1] ni, bahodan farqli bo‘lishini va `rebuild_student_states` natijasiga teng bo‘lishini tekshiradi |
-| 7.1 Parallellik testi `OperationalError` ni yutadi | B10 | Qisman | `test_bayesian.py::test_concurrent_answer_submissions` endi xatoni yutmaydi; yangi `test_parallel_*` testlari (`888a96f`); to‘liq to‘plam — B10 |
-| 7.1 `accounts` testlari yo‘q | B10 | Qisman | `accounts/tests/test_permissions.py`, `test_security_settings.py` (`f620171`) |
+| 7.1 Parallellik testi `OperationalError` ni yutadi | B10 | Bajarildi | Xatoni yutadigan test olib tashlangan (B1); PostgreSQL'da haqiqiy parallellik: `assessments/tests/test_ledger.py:423` (10 ta parallel `process_submission`, V-D1) va `:462`, `curriculum/tests/test_kb_concurrency.py:48`; ular B10 dagi qulf o‘zgarishidan keyin ham o‘tadi (`601cea3`) |
+| 7.1 `accounts` testlari yo‘q | B10 | Bajarildi | `accounts/tests/test_accounts.py` (27 test: ro‘yxatdan o‘tish, D15/Q0-6 rollar, rozilik maydonlari, D11, JWT cookie, blacklist, CSRF) + mavjud 60 test = 87; topilgan 500 xatosi tuzatildi (`fbf2f4d`) |
 | 7.1 Frontend testi trivial | B7 | Qisman | 9 ta yangi vitest testi (`apiError`, delete natijalari, tutor flag), `2fa1d99`, `7b549fd`; 7-bosqich testlari — B7 |
-| 7.2 Coverage 68% | B10 | Kutilmoqda (B10) | — |
+| 7.2 Coverage 68% | B10 | Bajarildi | `.coveragerc` (D67), CI da majburiy: `neuro_model` 99 % (≥ 95), servislar 97 % (≥ 85), umumiy 90 % (≥ 80) (`3e71a32`, QADAM 12) |
 | 7.2 Lint 71 error | P2-6 (B7) | Bajarildi | lint: 71 error → **0 error** (8 ogohlantirish qoldi: 7 tasi shadcn `ui/` fayllarida, 1 tasi `AuthContext`) (`c2bb542`) |
 | 7.2 tsc 18 xato | P2-6 (B7) | Bajarildi | tsc: 16 xato → **0** (`c2bb542`) |
 | 7.2 Bundle 2.36 MB | B7 | Qisman | Tutor lazy chunk'ga ajratildi: asosiy bundle 2.22 MB (`7b549fd`); marshrutlar bo‘yicha `React.lazy` — B7 |
@@ -3277,7 +3487,7 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | 7.4 Easy-skip N+1 | D8 (B1) | Bajarildi | Funksiya o‘chirildi (`888a96f`) |
 | 7.4 `SubmitTestSession` N+1 | P2-4 (B5) | Bajarildi | `resolve_paper` butun varaqni 2 so‘rovda yuklaydi; test `test_loading_the_paper_is_two_queries_whatever_its_length` |
 | 7.4 Keshlanmagan qayta hisoblashlar | GR1 (B2) | Bajarildi | Versiya kaliti bilan kesh, `79b907c` |
-| 7.4 Bir javobga 12–20 SQL | B10 (byudjet ≤ 12) | Kutilmoqda (B10) | B1 dan keyin o‘lchandi: 25 (birinchi), 20 (keyingi), 15 (`review_repeat`); Q1-14 |
+| 7.4 Bir javobga 12–20 SQL | B10 (byudjet ≤ 12) | Qisman — ≤ 12 faqat `review_repeat` (11) da; oddiy javob 19, M o‘zgarishi 20: qolganini kamaytirish qulf/manba/yozuvni o‘zgartiradi (D66, foydalanuvchi qarori) | 25 → 19, 26 → 20, 16 → 11; aniq sonlar `assessments/tests/test_query_budget.py` da (`601cea3`) |
 
 ### 8.3 (ustuvorliklar ro‘yxati)
 
@@ -3297,11 +3507,11 @@ Commit qisqartmalari: backend `1d6f286` (repo), `b44df84` (config), `f620171` (a
 | P1-6 tree-queries'ga ko‘chirish | B2 | Bajarildi | `79b907c` |
 | P1-7 Kahn, Desc*, κ, kesh | B2 | Bajarildi | `5e5cb09`, `79b907c` |
 | P1-8 Trayektoriya | B6, B7 | Kutilmoqda | — |
-| P1-9 Hypothesis va Locust | B10 | Kutilmoqda (B10) | Paketlar `requirements-dev.txt` da |
+| P1-9 Hypothesis va Locust | B10 | Bajarildi | SN2 va SN3 qatorlari (`8f1f36f`, `5ab628e`, `e836b2f`) |
 | P2-1 Maxfiy qiymatlar va xavfsizlik sozlamalari | B0 | Bajarildi | `b44df84`, `332d56f` |
 | P2-2 Requirements sinxronligi | B0 | Bajarildi | `1d6f286` |
 | P2-3 `InvalidMove` → 400, Redis chidamliligi, prerekvizit API | B0 (Redis), B2 | Bajarildi | Redis (`b44df84`, `f620171`); Y1/400 va prerekvizit API (`79b907c`) |
-| P2-4 N+1 | B2, B5 | Qisman | Sikl tekshiruvi N+1 yo‘q (`79b907c`); `TestsListView`, `SubmitTestSession` — B5 |
+| P2-4 N+1 | B2, B5, B10 | Bajarildi | Sikl tekshiruvi N+1 yo‘q (`79b907c`); `TestsListView`, `SubmitTestSession` — B5; `trajectory` so‘rovlari mavzu soniga bog‘liq emas (`test_trajectory.py`), `submit_answer` dagi qayta o‘qishlar olib tashlandi va sonlar qotirildi (`601cea3`) |
 | P2-5 Rollarni bir xil qilish | B0 (backend), B7 (frontend) | Qisman | `accounts/permissions.py`, `f620171` |
 | P2-6 Frontend lint/tsc, o‘lik kod | B7 | Qisman | `arms_cache` va CI (`a751538`); qolgani B7 |
 | P2-7 Xavfli seed buyruqlari | B0 | Bajarildi | `332d56f` |
