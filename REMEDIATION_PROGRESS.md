@@ -3238,6 +3238,22 @@ kabi) qo‘shiladi.
 
 ---
 
+## D69 — D48 ga zid birinchi Locust papkalari olib tashlanadi (2026-10-20)
+
+Foydalanuvchi qarori (10-bosqich, 2-qism, A1). `experiments/results/locust/20261020-070525`
+(50 foydalanuvchi) va `…/20261020-070827` (5 foydalanuvchi, post-hoc)
+`git rm` qilinadi. Sabab: ularning `tables.md` sida `metrics.json` da yo‘q
+sonlar bor edi (300 ms mo‘ljali konstantadan, status kodlari lug‘at
+kalitlari, `tables.fmt` dan tashqari formatlash) — generator xatosi (D48),
+`80ddcd3` va `0e424d7` da tuzatilgan; ikkala yugurish o‘sha protokol bilan
+qayta o‘tkazilgan (`20261020-085406`, `…085659`). Papkalar tarixda qoladi:
+`070525` — `f41bfb0` da, `070827` — `98f7b5f` da qo‘shilgan
+(`git show f41bfb0 -- experiments/results/locust/20261020-070525`). Ularning
+sonlari QADAM 12 da saqlanib qolgan.
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
