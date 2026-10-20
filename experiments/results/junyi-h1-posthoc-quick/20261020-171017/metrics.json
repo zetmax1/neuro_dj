@@ -1,0 +1,995 @@
+{
+  "report": "h1_posthoc",
+  "spec": "D71",
+  "posthoc": true,
+  "descriptive": true,
+  "status_note": "post-hoc, tavsifiy — D61/D62 ning o‘qish qoidasi va hukmi o‘zgarmaydi",
+  "quick": true,
+  "thesis_result": false,
+  "dataset": {
+    "status": "ok",
+    "name": "junyi",
+    "label": "Junyi Academy (2015)",
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "learners_used": 200,
+    "answers_used": 23238,
+    "skills_used": 345,
+    "log_rows_scanned": 25925992,
+    "log_rows_total": 25925992,
+    "log_learners_total": 247606,
+    "source": {
+      "name": "junyi-problem-log",
+      "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+      "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+      "bytes": 2668566436
+    }
+  },
+  "log": {
+    "name": "junyi-log",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+    "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "sampling": {
+      "level": "learner",
+      "seed": 20261006,
+      "requested": 200,
+      "selected": 200
+    },
+    "cleaning_rules": [
+      "keep only exercises present in the exercise table",
+      "correct is the published first-attempt column; nothing is recomputed",
+      "order by learner, then time_done (µs), then problem_number, then file order",
+      "one answer is one order: order_id is per row (D57)",
+      "review_mode answers are kept; topic_mode and suggested are metadata only",
+      "live is metadata, not a filter"
+    ],
+    "scanned_rows": 25925992,
+    "counts": {
+      "rows": 23238,
+      "learners": 200,
+      "skills": 345,
+      "problems": 864,
+      "correct": 19288
+    },
+    "dropped": {},
+    "flags": {
+      "topic_mode": 7279,
+      "suggested": 5797,
+      "earned_proficiency": 1133,
+      "review_mode": 323,
+      "correct": 19288
+    },
+    "suggested_share": 0.249462
+  },
+  "split": {
+    "scheme": "k-fold by learner, with a validation split of each training fold",
+    "folds": 5,
+    "seed": 20261006,
+    "validation_fraction": 0.2,
+    "learners": 200,
+    "per_fold": [
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 0
+      },
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 1
+      },
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 2
+      },
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 3
+      },
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 4
+      }
+    ]
+  },
+  "replicates": 100,
+  "confidence_percent": 95,
+  "checkpoint": {
+    "enabled": true,
+    "key_digest": "fbbe7bb4a698953b",
+    "resumed_items": 0,
+    "resumed_folds": 0
+  },
+  "reproduction_gate": [
+    {
+      "check": "h1 events",
+      "ours": 918,
+      "reference": 918,
+      "equal": true
+    },
+    {
+      "check": "h1 subset (every prerequisite answered)",
+      "ours": 683,
+      "reference": 683,
+      "equal": true
+    },
+    {
+      "check": "h1 rule probabilistic (flagged, failed)",
+      "ours": [
+        664,
+        83
+      ],
+      "reference": [
+        664,
+        83
+      ],
+      "equal": true
+    },
+    {
+      "check": "h1 rule chapter_two (flagged, failed)",
+      "ours": [
+        665,
+        83
+      ],
+      "reference": [
+        665,
+        83
+      ],
+      "equal": true
+    },
+    {
+      "check": "h1 rule completeness (flagged, failed)",
+      "ours": [
+        683,
+        94
+      ],
+      "reference": [
+        683,
+        94
+      ],
+      "equal": true
+    },
+    {
+      "check": "h1 rule pass_mark (flagged, failed)",
+      "ours": [
+        892,
+        114
+      ],
+      "reference": [
+        892,
+        114
+      ],
+      "equal": true
+    },
+    {
+      "check": "h1 rule earned_proficiency (flagged, failed)",
+      "ours": [
+        640,
+        76
+      ],
+      "reference": [
+        640,
+        76
+      ],
+      "equal": true
+    },
+    {
+      "check": "h3 asl at λ=0.25, first 3 AUC",
+      "ours": 0.752389,
+      "reference": 0.752389,
+      "equal": true
+    },
+    {
+      "check": "h3 asl, first 3 answers",
+      "ours": 5563,
+      "reference": 5563,
+      "equal": true
+    },
+    {
+      "check": "h3 asl at λ=0.25, first 5 AUC",
+      "ours": 0.771061,
+      "reference": 0.771061,
+      "equal": true
+    },
+    {
+      "check": "h3 asl, first 5 answers",
+      "ours": 8455,
+      "reference": 8455,
+      "equal": true
+    },
+    {
+      "check": "h3 grafsiz at λ=0.0, first 3 AUC",
+      "ours": 0.746652,
+      "reference": 0.746652,
+      "equal": true
+    },
+    {
+      "check": "h3 grafsiz, first 3 answers",
+      "ours": 5563,
+      "reference": 5563,
+      "equal": true
+    },
+    {
+      "check": "h3 grafsiz at λ=0.0, first 5 AUC",
+      "ours": 0.766809,
+      "reference": 0.766809,
+      "equal": true
+    },
+    {
+      "check": "h3 grafsiz, first 5 answers",
+      "ours": 8455,
+      "reference": 8455,
+      "equal": true
+    }
+  ],
+  "parameter_fit_workers": 5,
+  "constants": {
+    "tau": 0.95,
+    "delta": 0.1,
+    "pass_mark": 0.6,
+    "failure_share": 0.5,
+    "first_k": [
+      3,
+      5
+    ],
+    "main_k": 3,
+    "tau_curve": [
+      0.0,
+      0.01,
+      0.02,
+      0.05,
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5,
+      0.6,
+      0.7,
+      0.8,
+      0.9,
+      0.95,
+      0.99
+    ]
+  },
+  "labels": {
+    "probabilistic": "ehtimoliy (r ≥ τ)",
+    "chapter_two": "II bob R (M, δ bilan)",
+    "completeness": "bajarilganlik",
+    "pass_mark": "o‘tish bali",
+    "earned_proficiency": "earned_proficiency"
+  },
+  "reference": "experiments/results/junyi-h1-quick/20261019-092712",
+  "events": {
+    "total": 918,
+    "subset": 683,
+    "subset_learners": 73,
+    "subset_share": 0.744009,
+    "with_zero_readiness": 235
+  },
+  "full_rules": [
+    {
+      "rule": "probabilistic",
+      "events": 918,
+      "flagged": 664,
+      "failed": 83,
+      "coverage": 0.723312,
+      "error_share": 0.125
+    },
+    {
+      "rule": "chapter_two",
+      "events": 918,
+      "flagged": 665,
+      "failed": 83,
+      "coverage": 0.724401,
+      "error_share": 0.124812
+    },
+    {
+      "rule": "completeness",
+      "events": 918,
+      "flagged": 683,
+      "failed": 94,
+      "coverage": 0.744009,
+      "error_share": 0.137628
+    },
+    {
+      "rule": "pass_mark",
+      "events": 918,
+      "flagged": 892,
+      "failed": 114,
+      "coverage": 0.971678,
+      "error_share": 0.127803
+    },
+    {
+      "rule": "earned_proficiency",
+      "events": 918,
+      "flagged": 640,
+      "failed": 76,
+      "coverage": 0.697168,
+      "error_share": 0.11875
+    }
+  ],
+  "subset": {
+    "3": {
+      "rules": [
+        {
+          "rule": "probabilistic",
+          "label": "ehtimoliy (r ≥ τ)",
+          "events": 683,
+          "flagged": 664,
+          "failed": 83,
+          "coverage": 0.972182,
+          "error_share": 0.125
+        },
+        {
+          "rule": "chapter_two",
+          "label": "II bob R (M, δ bilan)",
+          "events": 683,
+          "flagged": 665,
+          "failed": 83,
+          "coverage": 0.973646,
+          "error_share": 0.124812
+        },
+        {
+          "rule": "completeness",
+          "label": "bajarilganlik",
+          "events": 683,
+          "flagged": 683,
+          "failed": 94,
+          "coverage": 1.0,
+          "error_share": 0.137628
+        },
+        {
+          "rule": "pass_mark",
+          "label": "o‘tish bali",
+          "events": 683,
+          "flagged": 668,
+          "failed": 83,
+          "coverage": 0.978038,
+          "error_share": 0.124251
+        },
+        {
+          "rule": "earned_proficiency",
+          "label": "earned_proficiency",
+          "events": 683,
+          "flagged": 640,
+          "failed": 76,
+          "coverage": 0.937042,
+          "error_share": 0.11875
+        }
+      ],
+      "equal_coverage": [
+        {
+          "rule": "pass_mark",
+          "tau_per_fold": [
+            0.998826,
+            0.0,
+            0.994599,
+            0.989758,
+            0.818161
+          ],
+          "probabilistic": {
+            "events": 683,
+            "flagged": 662,
+            "failed": 86,
+            "coverage": 0.969253,
+            "error_share": 0.129909
+          },
+          "compared": {
+            "events": 683,
+            "flagged": 668,
+            "failed": 83,
+            "coverage": 0.978038,
+            "error_share": 0.124251
+          },
+          "coverage_gap": -0.008785,
+          "difference": {
+            "estimate": 0.005658,
+            "ci_low": 0.001671,
+            "ci_high": 0.012568,
+            "replicates": 100,
+            "clustered_by_learner": true
+          }
+        },
+        {
+          "rule": "earned_proficiency",
+          "tau_per_fold": [
+            0.999592,
+            0.995673,
+            0.998995,
+            0.998637,
+            0.997403
+          ],
+          "probabilistic": {
+            "events": 683,
+            "flagged": 632,
+            "failed": 79,
+            "coverage": 0.925329,
+            "error_share": 0.125
+          },
+          "compared": {
+            "events": 683,
+            "flagged": 640,
+            "failed": 76,
+            "coverage": 0.937042,
+            "error_share": 0.11875
+          },
+          "coverage_gap": -0.011713,
+          "difference": {
+            "estimate": 0.00625,
+            "ci_low": -0.001167,
+            "ci_high": 0.01614,
+            "replicates": 100,
+            "clustered_by_learner": true
+          }
+        }
+      ],
+      "readiness_auc": {
+        "score": "r_s(w)",
+        "k": 3,
+        "events": 683,
+        "failures": 94,
+        "auc": 0.5763735866777444,
+        "auc_interval": {
+          "estimate": 0.576374,
+          "ci_low": 0.530332,
+          "ci_high": 0.661696,
+          "replicates": 100,
+          "clustered_by_learner": true
+        }
+      }
+    },
+    "5": {
+      "rules": [
+        {
+          "rule": "probabilistic",
+          "label": "ehtimoliy (r ≥ τ)",
+          "events": 683,
+          "flagged": 664,
+          "failed": 67,
+          "coverage": 0.972182,
+          "error_share": 0.100904
+        },
+        {
+          "rule": "chapter_two",
+          "label": "II bob R (M, δ bilan)",
+          "events": 683,
+          "flagged": 665,
+          "failed": 67,
+          "coverage": 0.973646,
+          "error_share": 0.100752
+        },
+        {
+          "rule": "completeness",
+          "label": "bajarilganlik",
+          "events": 683,
+          "flagged": 683,
+          "failed": 78,
+          "coverage": 1.0,
+          "error_share": 0.114202
+        },
+        {
+          "rule": "pass_mark",
+          "label": "o‘tish bali",
+          "events": 683,
+          "flagged": 668,
+          "failed": 67,
+          "coverage": 0.978038,
+          "error_share": 0.100299
+        },
+        {
+          "rule": "earned_proficiency",
+          "label": "earned_proficiency",
+          "events": 683,
+          "flagged": 640,
+          "failed": 61,
+          "coverage": 0.937042,
+          "error_share": 0.095312
+        }
+      ],
+      "equal_coverage": [
+        {
+          "rule": "pass_mark",
+          "tau_per_fold": [
+            0.998826,
+            0.0,
+            0.994599,
+            0.989758,
+            0.818161
+          ],
+          "probabilistic": {
+            "events": 683,
+            "flagged": 662,
+            "failed": 70,
+            "coverage": 0.969253,
+            "error_share": 0.10574
+          },
+          "compared": {
+            "events": 683,
+            "flagged": 668,
+            "failed": 67,
+            "coverage": 0.978038,
+            "error_share": 0.100299
+          },
+          "coverage_gap": -0.008785,
+          "difference": {
+            "estimate": 0.005441,
+            "ci_low": 0.001311,
+            "ci_high": 0.012467,
+            "replicates": 100,
+            "clustered_by_learner": true
+          }
+        },
+        {
+          "rule": "earned_proficiency",
+          "tau_per_fold": [
+            0.999592,
+            0.995673,
+            0.998995,
+            0.998637,
+            0.997403
+          ],
+          "probabilistic": {
+            "events": 683,
+            "flagged": 632,
+            "failed": 64,
+            "coverage": 0.925329,
+            "error_share": 0.101266
+          },
+          "compared": {
+            "events": 683,
+            "flagged": 640,
+            "failed": 61,
+            "coverage": 0.937042,
+            "error_share": 0.095312
+          },
+          "coverage_gap": -0.011713,
+          "difference": {
+            "estimate": 0.005953,
+            "ci_low": -0.001148,
+            "ci_high": 0.015904,
+            "replicates": 100,
+            "clustered_by_learner": true
+          }
+        }
+      ],
+      "readiness_auc": {
+        "score": "r_s(w)",
+        "k": 5,
+        "events": 683,
+        "failures": 78,
+        "auc": 0.5827823691460056,
+        "auc_interval": {
+          "estimate": 0.582782,
+          "ci_low": 0.540147,
+          "ci_high": 0.665502,
+          "replicates": 100,
+          "clustered_by_learner": true
+        }
+      }
+    }
+  },
+  "curve": {
+    "3": {
+      "k": 3,
+      "points": [
+        {
+          "tau": 0.0,
+          "events": 918,
+          "flagged": 918,
+          "failed": 128,
+          "coverage": 1.0,
+          "error_share": 0.139434
+        },
+        {
+          "tau": 0.01,
+          "events": 918,
+          "flagged": 682,
+          "failed": 93,
+          "coverage": 0.742919,
+          "error_share": 0.136364
+        },
+        {
+          "tau": 0.02,
+          "events": 918,
+          "flagged": 682,
+          "failed": 93,
+          "coverage": 0.742919,
+          "error_share": 0.136364
+        },
+        {
+          "tau": 0.05,
+          "events": 918,
+          "flagged": 682,
+          "failed": 93,
+          "coverage": 0.742919,
+          "error_share": 0.136364
+        },
+        {
+          "tau": 0.1,
+          "events": 918,
+          "flagged": 682,
+          "failed": 93,
+          "coverage": 0.742919,
+          "error_share": 0.136364
+        },
+        {
+          "tau": 0.2,
+          "events": 918,
+          "flagged": 677,
+          "failed": 89,
+          "coverage": 0.737473,
+          "error_share": 0.131462
+        },
+        {
+          "tau": 0.3,
+          "events": 918,
+          "flagged": 675,
+          "failed": 88,
+          "coverage": 0.735294,
+          "error_share": 0.13037
+        },
+        {
+          "tau": 0.4,
+          "events": 918,
+          "flagged": 675,
+          "failed": 88,
+          "coverage": 0.735294,
+          "error_share": 0.13037
+        },
+        {
+          "tau": 0.5,
+          "events": 918,
+          "flagged": 675,
+          "failed": 88,
+          "coverage": 0.735294,
+          "error_share": 0.13037
+        },
+        {
+          "tau": 0.6,
+          "events": 918,
+          "flagged": 673,
+          "failed": 86,
+          "coverage": 0.733115,
+          "error_share": 0.127786
+        },
+        {
+          "tau": 0.7,
+          "events": 918,
+          "flagged": 673,
+          "failed": 86,
+          "coverage": 0.733115,
+          "error_share": 0.127786
+        },
+        {
+          "tau": 0.8,
+          "events": 918,
+          "flagged": 670,
+          "failed": 85,
+          "coverage": 0.729847,
+          "error_share": 0.126866
+        },
+        {
+          "tau": 0.9,
+          "events": 918,
+          "flagged": 666,
+          "failed": 84,
+          "coverage": 0.72549,
+          "error_share": 0.126126
+        },
+        {
+          "tau": 0.95,
+          "events": 918,
+          "flagged": 664,
+          "failed": 83,
+          "coverage": 0.723312,
+          "error_share": 0.125
+        },
+        {
+          "tau": 0.99,
+          "events": 918,
+          "flagged": 664,
+          "failed": 83,
+          "coverage": 0.723312,
+          "error_share": 0.125
+        }
+      ],
+      "rules": [
+        {
+          "rule": "completeness",
+          "events": 918,
+          "flagged": 683,
+          "failed": 94,
+          "coverage": 0.744009,
+          "error_share": 0.137628
+        },
+        {
+          "rule": "pass_mark",
+          "events": 918,
+          "flagged": 892,
+          "failed": 114,
+          "coverage": 0.971678,
+          "error_share": 0.127803
+        },
+        {
+          "rule": "earned_proficiency",
+          "events": 918,
+          "flagged": 640,
+          "failed": 76,
+          "coverage": 0.697168,
+          "error_share": 0.11875
+        }
+      ]
+    },
+    "5": {
+      "k": 5,
+      "points": [
+        {
+          "tau": 0.0,
+          "events": 918,
+          "flagged": 918,
+          "failed": 107,
+          "coverage": 1.0,
+          "error_share": 0.116558
+        },
+        {
+          "tau": 0.01,
+          "events": 918,
+          "flagged": 682,
+          "failed": 77,
+          "coverage": 0.742919,
+          "error_share": 0.112903
+        },
+        {
+          "tau": 0.02,
+          "events": 918,
+          "flagged": 682,
+          "failed": 77,
+          "coverage": 0.742919,
+          "error_share": 0.112903
+        },
+        {
+          "tau": 0.05,
+          "events": 918,
+          "flagged": 682,
+          "failed": 77,
+          "coverage": 0.742919,
+          "error_share": 0.112903
+        },
+        {
+          "tau": 0.1,
+          "events": 918,
+          "flagged": 682,
+          "failed": 77,
+          "coverage": 0.742919,
+          "error_share": 0.112903
+        },
+        {
+          "tau": 0.2,
+          "events": 918,
+          "flagged": 677,
+          "failed": 73,
+          "coverage": 0.737473,
+          "error_share": 0.107829
+        },
+        {
+          "tau": 0.3,
+          "events": 918,
+          "flagged": 675,
+          "failed": 72,
+          "coverage": 0.735294,
+          "error_share": 0.106667
+        },
+        {
+          "tau": 0.4,
+          "events": 918,
+          "flagged": 675,
+          "failed": 72,
+          "coverage": 0.735294,
+          "error_share": 0.106667
+        },
+        {
+          "tau": 0.5,
+          "events": 918,
+          "flagged": 675,
+          "failed": 72,
+          "coverage": 0.735294,
+          "error_share": 0.106667
+        },
+        {
+          "tau": 0.6,
+          "events": 918,
+          "flagged": 673,
+          "failed": 70,
+          "coverage": 0.733115,
+          "error_share": 0.104012
+        },
+        {
+          "tau": 0.7,
+          "events": 918,
+          "flagged": 673,
+          "failed": 70,
+          "coverage": 0.733115,
+          "error_share": 0.104012
+        },
+        {
+          "tau": 0.8,
+          "events": 918,
+          "flagged": 670,
+          "failed": 69,
+          "coverage": 0.729847,
+          "error_share": 0.102985
+        },
+        {
+          "tau": 0.9,
+          "events": 918,
+          "flagged": 666,
+          "failed": 68,
+          "coverage": 0.72549,
+          "error_share": 0.102102
+        },
+        {
+          "tau": 0.95,
+          "events": 918,
+          "flagged": 664,
+          "failed": 67,
+          "coverage": 0.723312,
+          "error_share": 0.100904
+        },
+        {
+          "tau": 0.99,
+          "events": 918,
+          "flagged": 664,
+          "failed": 67,
+          "coverage": 0.723312,
+          "error_share": 0.100904
+        }
+      ],
+      "rules": [
+        {
+          "rule": "completeness",
+          "events": 918,
+          "flagged": 683,
+          "failed": 78,
+          "coverage": 0.744009,
+          "error_share": 0.114202
+        },
+        {
+          "rule": "pass_mark",
+          "events": 918,
+          "flagged": 892,
+          "failed": 94,
+          "coverage": 0.971678,
+          "error_share": 0.105381
+        },
+        {
+          "rule": "earned_proficiency",
+          "events": 918,
+          "flagged": 640,
+          "failed": 61,
+          "coverage": 0.697168,
+          "error_share": 0.095312
+        }
+      ]
+    }
+  },
+  "folds": [
+    {
+      "index": 0,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 4508,
+        "test_events": 175,
+        "validation_events": 94
+      }
+    },
+    {
+      "index": 1,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 6476,
+        "test_events": 255,
+        "validation_events": 185
+      }
+    },
+    {
+      "index": 2,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 4329,
+        "test_events": 204,
+        "validation_events": 167
+      }
+    },
+    {
+      "index": 3,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 7064,
+        "test_events": 258,
+        "validation_events": 55
+      }
+    },
+    {
+      "index": 4,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 861,
+        "test_events": 26,
+        "validation_events": 194
+      }
+    }
+  ],
+  "provenance": {
+    "command": "python -m experiments.d71 --quick --workers 5",
+    "code_commit": "f88ded8",
+    "code_dirty": false,
+    "created_at": "2026-10-20T17:10:17.165051+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "split": 20261006,
+      "sample": 20261006,
+      "bootstrap": 20261006
+    },
+    "sources": [
+      {
+        "name": "junyi-exercise-table",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_Exercise_table.csv",
+        "sha256": "13292cc2c809985abbacedaba434e39aeb02a7fcb2a32f17b60c4d3f4d769546",
+        "bytes": 139957
+      },
+      {
+        "name": "junyi-problem-log",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+        "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+        "bytes": 2668566436
+      }
+    ],
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.3.3",
+      "scipy": "1.14.1",
+      "sklearn": "1.6.1",
+      "torch": "2.5.1+cpu",
+      "pyBKT": "1.4.3",
+      "pykt": "0.0.38"
+    },
+    "env": {},
+    "git_start": {
+      "commit": "f88ded8",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-20T17:02:40.018978+00:00",
+      "untracked_results": []
+    },
+    "git_end": {
+      "commit": "f88ded8",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-20T17:10:17.165009+00:00",
+      "untracked_results": []
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  }
+}
