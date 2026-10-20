@@ -197,6 +197,31 @@ def test_audit_probes(api):
 
 
 @pytest.mark.django_db
+def test_a_cycle_between_nodes_without_topics_is_refused(api):
+    """
+    D70: assertion 2.2's counterexample. Between two courses with no topics,
+    or two empty sections, G_L has no edge, so Algorithm 2.1 on G_L saw no
+    cycle and accepted both directions; the second used to surface later as a
+    Y3 error on an unrelated change (a topic added under the second section).
+    """
+    url = "/api/curriculum/instructor/prerequisites/"
+    c1, c2 = make_course("Empty one"), make_course("Empty two")
+    course = make_course("Holder")
+    s1, s2 = make_section("S1", course), make_section("S2", course)
+    for x, y in ((c1, c2), (s1, s2)):
+        assert api.post(url, {"prerequisite": x.pk, "topic": y.pk}, format="json").status_code == 201
+        before = version()
+        response = api.post(url, {"prerequisite": y.pk, "topic": x.pk}, format="json")
+        assert (response.status_code, response.json()["reason"]) == (400, "cycle")
+        assert response.json()["chain"] == [x.pk, y.pk]
+        assert response.json()["edge"] == [y.pk, x.pk]
+        assert version() == before
+    # Without the hidden cycle, both sections take topics.
+    make_topic("under S1", s1)
+    make_topic("under S2", s2)
+
+
+@pytest.mark.django_db
 def test_every_successful_change_bumps_the_version_by_one(api):
     course = make_course("V")
     t1 = make_topic("v1", course)

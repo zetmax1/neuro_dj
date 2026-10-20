@@ -348,6 +348,9 @@ def add_prerequisite(*, prerequisite: Topic | int, topic: Topic | int, weight: f
     1. Y2: x ≠ y, x ∉ Anc(y), y ∉ Anc(x)  → reason "self" / "nested".
     2. BFS from Leaves(y); reaching Leaves(x) means a cycle → reason "cycle"
        with the chain (e.g. [t3, t6, t8] for the new edge t8 → t3).
+    3. D70: BFS from y in G = (N, E_P); reaching x means a cycle between
+       nodes that 2. cannot see (one of them holds no topic) → reason "cycle"
+       with the node chain [y, …, x].
     """
     x = getattr(prerequisite, "pk", prerequisite)
     y = getattr(topic, "pk", topic)
@@ -372,6 +375,17 @@ def add_prerequisite(*, prerequisite: Topic | int, topic: Topic | int, weight: f
                 "cycle",
                 "The prerequisite would close a cycle in the topic graph (Y3).",
                 chain=chain,
+                edge=(x, y),
+            )
+        # D70: a cycle through nodes with no topics yet has no edge in G_L, so
+        # the check above cannot see it; it would surface as a Y3 error on a
+        # later, unrelated change. The node graph G = (N, E_P) refuses it now.
+        node_chain = g.find_node_cycle_chain(snapshot.prerequisites, x, y)
+        if node_chain is not None:
+            raise KBError(
+                "cycle",
+                "The prerequisite would close a cycle between nodes (Y3, D70).",
+                chain=node_chain,
                 edge=(x, y),
             )
         relation = TopicPrerequisite.objects.create(prerequisite_id=x, topic_id=y, weight=weight)

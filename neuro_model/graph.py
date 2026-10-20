@@ -207,6 +207,38 @@ def find_cycle_chain(
     return None
 
 
+def find_node_cycle_chain(prerequisites: Iterable[Prerequisite], x: int, y: int) -> list[int] | None:
+    """
+    D70: would adding (x, y) close a cycle in G = (N, E_P), the graph of the
+    relations between nodes? BFS from y along E_P; reaching x means a path
+    y ⇝ x, which x → y closes. Returns that path [y, …, x], or None.
+    O(|N| + |E_P|).
+
+    Algorithm 2.1 looks at G_L only, and G_L has no edge for a node without
+    topics (Leaves = ∅): a cycle through such a node is invisible to it and
+    surfaces later as a Y3 error on an unrelated change, once the node gets a
+    topic. Assertion 2.2 (G_L acyclic ⇒ G acyclic) holds exactly when every
+    node on the cycle has a topic, so this check refuses only what G_L misses.
+    """
+    out_by_node: dict[int, list[int]] = defaultdict(list)
+    for rel in prerequisites:
+        out_by_node[rel.source].append(rel.target)
+    prev: dict[int, int | None] = {y: None}
+    queue: deque[int] = deque([y])
+    while queue:
+        node = queue.popleft()
+        if node == x:
+            chain = [node]
+            while prev[chain[-1]] is not None:
+                chain.append(prev[chain[-1]])  # type: ignore[arg-type]
+            return list(reversed(chain))
+        for nxt in sorted(out_by_node.get(node, ())):
+            if nxt not in prev:
+                prev[nxt] = node
+                queue.append(nxt)
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Algorithm 2.2 and derived quantities
 # ---------------------------------------------------------------------------

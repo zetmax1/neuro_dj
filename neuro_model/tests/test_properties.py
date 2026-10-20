@@ -11,7 +11,8 @@ exactly as the KB service and the answer path decide.
 
 After every accepted operation:
 
-- G_L has no cycle (an independent DFS, not Algorithm 2.2 checking itself);
+- G_L has no cycle (an independent DFS, not Algorithm 2.2 checking itself),
+  and neither has the node graph G = (N, E_P) (D70);
 - the Algorithm 2.2 order holds every topic once and respects every edge;
 - the counters Algorithm 2.3 keeps incrementally equal ``recompute_counters``;
 - every probability is in [0, 1];
@@ -253,6 +254,13 @@ class KnowledgeBaseMachine(RuleBasedStateMachine):
             assert (chain is not None) == closes, "Algorithm 2.1 disagrees with G_L"
             if chain is not None:
                 raise Refused
+            # D70: a cycle in G = (N, E_P) through a node with no topic.
+            node_chain = g.find_node_cycle_chain(self.rels, x, y)
+            nodes = sorted(self.parent)
+            closes_g = has_cycle(nodes, [(p.source, p.target) for p in candidate])
+            assert (node_chain is not None) == closes_g, "D70's check disagrees with G"
+            if node_chain is not None:
+                raise Refused
             self.rels = candidate
             self.next_rel += 1
 
@@ -437,6 +445,8 @@ class KnowledgeBaseMachine(RuleBasedStateMachine):
         assert sorted(order) == topics
         rank = {t: i for i, t in enumerate(order)}
         assert all(rank[a] < rank[b] for a, b in edges)
+        # D70: the node graph is acyclic too, not only G_L.
+        assert not has_cycle(sorted(self.parent), [(p.source, p.target) for p in self.rels])
 
     def counters_equal_their_recomputation(self):
         _, _, _, pre, _ = self.graph()

@@ -16,7 +16,8 @@ After every accepted operation, read back from the database:
 - the tree is a forest of courses, topics are leaves and hold every question
   (Y1, Y4), and no relation joins a node and its ancestor (Y2);
 - G_L recomputed with SQL (django-tree-queries' CTE for Leaves) equals the
-  snapshot's, and has no cycle (Y3; an independent DFS);
+  snapshot's, and has no cycle (Y3; an independent DFS); neither has the
+  node graph G = (N, E_P) over the active nodes (D70);
 - the Algorithm 2.2 order holds every active topic once and respects every edge;
 - the KB version moved by exactly one for a KB change and not at all otherwise;
 - counters: ``missing_count`` equals its recomputation from the M flags, for
@@ -316,8 +317,13 @@ class World:
                         weights[(a, b)] = max(weights.get((a, b), 0.0), w)
         assert {e: le.weight for e, le in snapshot.edges.items()} == weights
 
-        # Y3 and Algorithm 2.2.
+        # Y3 and Algorithm 2.2; D70: the node graph G = (N, E_P) as well.
         assert not has_cycle(sorted(topics), weights)
+        node_edges = [
+            (x, y) for x, y in TopicPrerequisite.objects.values_list("prerequisite_id", "topic_id")
+            if x in active and y in active
+        ]
+        assert not has_cycle(sorted(active), node_edges), "a cycle between nodes (D70)"
         assert sorted(snapshot.order) == sorted(topics)
         rank = {t: i for i, t in enumerate(snapshot.order)}
         assert all(rank[a] < rank[b] for a, b in weights)
