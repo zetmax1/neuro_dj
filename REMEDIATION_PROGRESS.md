@@ -2881,6 +2881,72 @@ ga clamp qilish va P(L) ni 1 − ε bilan cheklash — bu natijalarni (juda kam
 bo‘lsa ham) o‘zgartirishi mumkin, shuning uchun alohida qaror kerak.
 
 
+
+## D66 — `submit_answer` SQL byudjeti: nima sanaladi, nima qilindi, nega ≤ 12 emas (10-bosqich, 2026-10-20)
+
+**Sanash.** `assessments/tests/test_query_budget.py`: HTTP orqali, haqiqiy JWT
+bilan (foydalanuvchi so‘rovi sanaladi) va haqiqiy tranzaksiyada
+(`transaction=True`; oddiy test tranzaksiyasida view'ning `atomic` i SAVEPOINT
+juftiga aylanadi, production'da esa u yo‘q). Django yuborgan har bir buyruq
+sanaladi, faqat BEGIN/COMMIT dan tashqari (har yozuvchi so‘rovda bor, hech bir
+reja ularni olib tashlay olmaydi); so‘rov ichidagi SAVEPOINT juftlari
+(`get_or_create`) sanaladi. Har holatning aniq soni testda qotirilgan;
+o‘zgarsa, test qaysi buyruqlar ishlaganini chiqaradi.
+
+| Holat | Oldin (`2ce9ad4`) | Keyin |
+|---|---|---|
+| kursdagi birinchi javob (θ qatori yaratiladi) | 28 | 22 |
+| oddiy javob (M o‘zgarmaydi) | 25 | **19** |
+| M o‘zgaradi va voris ochiladi | 26 | **20** |
+| `review_repeat` | 16 | **11** |
+| yangi talabaning birinchi so‘rovi (holat qatorlari yaratiladi) | 34 | 28 |
+| `next_question` (byudjetsiz) | 8 | 7 |
+| `trajectory` (byudjetsiz; N+1 yo‘qligi `test_trajectory.py` da) | 5 | 5 |
+
+**Olib tashlangan 6 ta qayta o‘qish** — barchasi bir tranzaksiya ichida allaqachon
+qo‘lda bo‘lgan qiymatni qayta o‘qish edi:
+
+1. `check_open` holatlarni `states_for` bilan ikkinchi marta o‘qirdi → endi
+   `process_submission` o‘qigan `states` beriladi;
+2. `record_attempt` (talaba, mavzu) advisory lock'ini qayta olardi → `lock_held=True`
+   (lock orchestrator'da olingan va tranzaksiya oxirigacha turadi; qulflar
+   to‘plami va tartibi o‘zgarmadi — Q1-14 da qayd etilgan no-op so‘rov);
+3. `record_attempt` KB versiyasini qayta o‘qirdi → orchestrator'ning snapshot'i
+   beriladi. Bu to‘g‘riroq ham: READ COMMITTED da parallel KB o‘zgarishi
+   kelsa, ledger'dagi `course_id` θ qatorining kursidan farq qilishi mumkin edi;
+   endi bir javobning hamma qiymati bitta snapshot'dan;
+4–6. `get_next_question` mavzuni, KB versiyasini va θ ni qayta o‘qirdi →
+   orchestrator ularni beradi (θ — Elo hozirgina yozgan qiymat, DB'dagi bilan
+   bir xil double).
+
+`next_question` view'ida ham `check_open` va tanlash bitta snapshot'dan (8 → 7).
+Algoritm 2.4 tartibi, qulflar va natijalar o‘zgarmadi: 4-bo‘lim etalon
+testlari, V-D1 parallellik testi (`test_ledger.py:423`, 10 ta parallel
+`process_submission`) va verification oracle o‘tadi (QADAM 12).
+
+**Nega ≤ 12 emas.** Qolgan 19 ta (oddiy javob): JWT foydalanuvchisi; choice +
+savol + mavzu; KB versiyasi; advisory lock; holatlar; D25 oynasi; `TopicModelParams`;
+P(L) ledger'dan; θ qatori FOR UPDATE; savol FOR UPDATE; θ UPDATE; b UPDATE;
+holat qatori FOR UPDATE; holat UPDATE; `max(attempt_no)`; ledger INSERT; history
+INSERT; keyingi savol; uning variantlari. Har biri Algoritm 2.4 ning alohida
+o‘qishi, qulfi yoki yozuvi. 12 ga tushirish uchun quyidagilardan kamida 7 tasi
+kerak — har biri qulfni, ma’lumot manbasini yoki yoziladigan narsani
+o‘zgartiradi, ya’ni bu bosqichning “qulflar va natijalar o‘zgarmasin” shartiga
+zid va alohida qaror talab qiladi:
+
+- P(L) ni ledger o‘rniga holat qatoridan olish (D35 dagi qayta qurish kafolati) — −1;
+- D25 oynasi va `max(attempt_no)` ni bitta ledger so‘roviga birlashtirish — −1;
+- `TopicModelParams` ni snapshot bilan keshlash (kalibrlashda bekor qilish) — −1;
+- θ va b yozuvlarini bitta CTE buyrug‘iga birlashtirish — −1;
+- `UserKnowledgeHistory` qatorini olib tashlash yoki ledger ustidagi view qilish — −1;
+- keyingi savolni javobdan ajratish yoki bitta so‘rovda olish — −1…−2;
+- JWT foydalanuvchisini DB'siz ishlatish (o‘chirilgan akkaunt darhol bloklanmaydi) — −1.
+
+V-F1 verification spetsifikatsiyasida yumshoq chegara (“buzilsa ham FAIL emas,
+ogohlantirish”), shuning uchun test qotirilgan sonlar bilan o‘tadi va
+byudjetdan oshgan holatlar uchun ogohlantirish chiqaradi.
+
+
 ---
 
 ## Savollar va qarorlar

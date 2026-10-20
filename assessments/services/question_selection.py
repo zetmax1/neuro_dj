@@ -13,7 +13,7 @@ from django.db.models.functions import Abs
 from django.utils import timezone
 
 from curriculum.models import Topic
-from curriculum.services.graph import get_snapshot
+from curriculum.services.graph import KBSnapshot, get_snapshot
 
 from assessments.models import (
     AssessmentAttempt,
@@ -40,7 +40,14 @@ def ability_of(*, user, course_id: int) -> float:
     return 0.0 if theta is None else theta
 
 
-def get_next_question(*, user, topic_id: int) -> Optional[Question]:
+def get_next_question(
+    *,
+    user,
+    topic_id: int,
+    topic: Topic | None = None,
+    snapshot: KBSnapshot | None = None,
+    theta: float | None = None,
+) -> Optional[Question]:
     """
     The next question for this learner on this topic: the one whose difficulty
     is closest to their ability, ``|b_q − θ_s|``, ties broken by id.
@@ -53,9 +60,14 @@ def get_next_question(*, user, topic_id: int) -> Optional[Question]:
     repeat is logged as review_repeat and does not update P(L) (D25), so it is
     served only when nothing else is left. Questions already answered
     correctly are not served again. Archived topics are not answerable.
+
+    The answer path already holds the active ``topic``, the ``snapshot`` and the
+    learner's ``theta`` it has just written, and passes them in; the values are
+    the ones this function would read.
     """
-    topic: Topic = Topic.objects.get(pk=topic_id, is_archived=False)
-    snapshot = get_snapshot()
+    if topic is None:
+        topic = Topic.objects.get(pk=topic_id, is_archived=False)
+    snapshot = snapshot or get_snapshot()
     # Questions belong to topics only (Y4): the candidates are Leaves(n).
     topic_ids: list[int] = sorted(snapshot.leaves_of(topic.pk))
 
@@ -71,7 +83,8 @@ def get_next_question(*, user, topic_id: int) -> Optional[Question]:
         answered_at__gte=timezone.now() - review_window(),
     )
 
-    theta = ability_of(user=user, course_id=snapshot.root_of(topic.pk))
+    if theta is None:
+        theta = ability_of(user=user, course_id=snapshot.root_of(topic.pk))
 
     return (
         Question.objects

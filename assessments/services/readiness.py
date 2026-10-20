@@ -168,13 +168,23 @@ class Blocked:
         return {"missing": [dict(item) for item in self.missing]}
 
 
-def check_open(*, user, topic_id: int, snapshot: KBSnapshot | None = None) -> Blocked | None:
+def check_open(
+    *,
+    user,
+    topic_id: int,
+    snapshot: KBSnapshot | None = None,
+    states: dict[int, StudentTopicState] | None = None,
+) -> Blocked | None:
     """
     None when the learner may answer this topic, otherwise the unmet
     prerequisites. A started topic is always answerable (TY5).
+
+    ``states`` lets a caller that has just loaded them with ``states_for``
+    (under the same snapshot) pass them in instead of reading them again.
     """
     snapshot = snapshot or get_snapshot()
-    states = states_for(user=user, snapshot=snapshot)
+    if states is None:
+        states = states_for(user=user, snapshot=snapshot)
     state = states.get(topic_id)
     if state is None or state.is_started or not state.is_closed:
         return None

@@ -19,7 +19,7 @@ from django.db import connection, transaction
 from django.db.models import Max
 from django.utils import timezone
 
-from curriculum.services.graph import get_snapshot
+from curriculum.services.graph import KBSnapshot, get_snapshot
 
 from assessments.models import (
     AssessmentAttempt,
@@ -113,6 +113,8 @@ def record_attempt(
     trace: ModelTrace | None = None,
     session: TestSessionResult | None = None,
     answered_at: datetime | None = None,
+    snapshot: KBSnapshot | None = None,
+    lock_held: bool = False,
 ) -> AssessmentAttempt:
     """
     Append one answer to the ledger and return the new row.
@@ -122,6 +124,12 @@ def record_attempt(
     ``kb_version`` from the KB snapshot), and ``attempt_no`` is the next number for
     (user, topic). Must run inside the caller's transaction so the row commits
     or rolls back together with the state update it belongs to.
+
+    A caller that already holds this (learner, topic) lock in the current
+    transaction and has the snapshot the answer was processed under passes
+    ``lock_held=True`` and ``snapshot``: the lock is not taken a second time (it
+    is held until the transaction ends anyway) and the course comes from the
+    same snapshot as everything else the answer recorded.
     """
     _require_transaction()
     if source not in AttemptSource.values or source == AttemptSource.LEGACY:
@@ -137,8 +145,9 @@ def record_attempt(
 
     question: Question = choice.question
     topic = question.topic
-    lock_learner_topics(user.pk, [topic.pk])
-    snapshot = get_snapshot()
+    if not lock_held:
+        lock_learner_topics(user.pk, [topic.pk])
+    snapshot = snapshot or get_snapshot()
     if topic.pk not in snapshot:
         raise ValueError(f"Topic {topic.pk} is archived or unknown; it cannot be answered.")
     trace = trace or ModelTrace()

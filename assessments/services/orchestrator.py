@@ -119,6 +119,8 @@ class AnswerOutcome:
     is_correct: bool
     state: StudentTopicState
     opened: tuple[int, ...]
+    # θ_s after this answer; None for a review_repeat, which does not move it.
+    theta: float | None = None
 
     @property
     def counted(self) -> bool:
@@ -155,7 +157,7 @@ def apply_one_answer(
         # D25: logged, but not an observation — no trace, no state movement.
         attempt = ledger.record_attempt(
             user=user, choice=choice, source=source, session=session,
-            answered_at=answered_at,
+            answered_at=answered_at, snapshot=snapshot, lock_held=True,
         )
         return AnswerOutcome(
             attempt=attempt,
@@ -199,6 +201,8 @@ def apply_one_answer(
             was_ready=was.was_ready,
         ),
         answered_at=answered_at,
+        snapshot=snapshot,
+        lock_held=True,
     )
     UserKnowledgeHistory.objects.create(
         user=user,
@@ -221,6 +225,7 @@ def apply_one_answer(
         is_correct=choice.is_correct,
         state=readiness_result.state,
         opened=readiness_result.opened,
+        theta=applied.theta,
     )
 
 
@@ -273,7 +278,7 @@ def process_submission(
 
     # --- Step 3: a closed topic is not answerable --------------------------
     states = readiness.states_for(user=user, snapshot=snapshot)
-    blocked = readiness.check_open(user=user, topic_id=topic.pk, snapshot=snapshot)
+    blocked = readiness.check_open(user=user, topic_id=topic.pk, snapshot=snapshot, states=states)
     if blocked is not None:
         raise TopicClosed(blocked)
 
@@ -289,7 +294,9 @@ def process_submission(
     state = outcome.state
 
     # --- Step 9: Pick next question (read-only) ----------------------------
-    next_question = get_next_question(user=user, topic_id=topic.pk)
+    next_question = get_next_question(
+        user=user, topic_id=topic.pk, topic=topic, snapshot=snapshot, theta=outcome.theta,
+    )
 
     return SubmissionResult(
         is_correct=is_correct,

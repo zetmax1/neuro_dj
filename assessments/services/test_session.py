@@ -205,7 +205,7 @@ def submit(*, user, topic_id, answers: Sequence[dict]) -> Outcome:
 
     snapshot = get_snapshot()
     states = readiness.states_for(user=user, snapshot=snapshot)
-    blocked = readiness.check_open(user=user, topic_id=topic.pk, snapshot=snapshot)
+    blocked = readiness.check_open(user=user, topic_id=topic.pk, snapshot=snapshot, states=states)
     if blocked is not None:
         raise TopicClosed(blocked)
 

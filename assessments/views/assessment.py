@@ -253,12 +253,15 @@ class NextQuestionView(APIView):
             )
 
         try:
-            blocked = readiness.check_open(user=request.user, topic_id=topic_id)
+            # One snapshot for the readiness check and the selection.
+            snapshot = get_snapshot()
+            blocked = readiness.check_open(user=request.user, topic_id=topic_id, snapshot=snapshot)
             if blocked is not None:
                 return _closed_response(blocked)
             question: Question | None = get_next_question(
                 user=request.user,
                 topic_id=topic_id,
+                snapshot=snapshot,
             )
         except Topic.DoesNotExist:
             return Response(
@@ -267,7 +270,7 @@ class NextQuestionView(APIView):
             )
 
         if question is None:
-            topic_ids = sorted(get_snapshot().leaves_of(topic_id))
+            topic_ids = sorted(snapshot.leaves_of(topic_id))
             has_questions = Question.objects.filter(topic_id__in=topic_ids, is_active=True).exists()
 
             if not has_questions:
