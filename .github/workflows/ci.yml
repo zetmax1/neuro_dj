@@ -49,3 +49,8 @@ jobs:
         run: python manage.py makemigrations --check --dry-run
       - name: Tests (PostgreSQL)
         run: coverage run -m pytest && coverage report
+      # Stage 10 targets (D67); the scope is .coveragerc's.
+      - name: Coverage targets
+        run: |
+          coverage report --include='neuro_model/*' --fail-under=95
+          coverage report --include='*/services/*' --fail-under=85

@@ -2947,6 +2947,22 @@ ogohlantirish”), shuning uchun test qotirilgan sonlar bilan o‘tadi va
 byudjetdan oshgan holatlar uchun ogohlantirish chiqaradi.
 
 
+
+## D67 — Coverage doirasi (10-bosqich, 2026-10-20)
+
+`.coveragerc` (yangi): **umumiy** = backend'ning o‘z manba kodi — `accounts`,
+`analytics`, `assessments`, `curriculum`, `benchmarks`, `config`, `neuro_model`.
+Chiqarilgan: testlar, migratsiyalar, `verification/` (mustaqil suite),
+`experiments/` (o‘z venv'ida, alohida suite), `scripts/`, `manage.py`,
+`conftest.py` va `benchmarks/locustfile.py` (faqat Locust ichida ishlaydi).
+**Servislar** = `*/services/*` (`assessments/services`, `curriculum/services`).
+CI endi uchala maqsadni ham majburiy qiladi: `fail_under = 80` (umumiy),
+`--include='neuro_model/*' --fail-under=95`, `--include='*/services/*'
+--fail-under=85`. Oldin CI `coverage report` ni konfiguratsiyasiz chaqirardi —
+test fayllari ham hisobga kirib, son ma’nosiz edi (audit 7.2 dagi 68 % ham shu
+usulda olingan).
+
+
 ---
 
 ## Savollar va qarorlar
