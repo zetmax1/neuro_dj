@@ -7,6 +7,10 @@ Each test below asserts two things:
 
 So these tests start failing the moment a stage lands, which is the signal that
 the matching verification group must be written instead of skipped.
+
+Since 2026-10-20 every stage (0-10) has landed. The signals that fired were
+turned into checks that their group exists; the only N/A left is G's browser
+part, which still has no harness.
 """
 
 from __future__ import annotations
@@ -30,33 +34,38 @@ def _stage_status(stage: int) -> str:
     raise AssertionError(f"stage {stage} is missing from the status table of {PROGRESS}")
 
 
-@pytest.mark.parametrize("stage", [0, 1, 2, 3, 4, 5, 6, 7])
+@pytest.mark.parametrize("stage", range(11))
 def test_implemented_stages(stage):
     """
-    Stages 0-7 are done, so groups A, B, C, D and the static part of G were
-    really checked rather than recorded as N/A.
+    Every stage, 0-10, is done, so every group was really checked rather than
+    recorded as N/A.
 
-    Stages 3-7 moved here on 2026-10-12: they had been in
-    ``test_pending_stages`` since the suite was written, and when they landed
-    the five signals fired at once. That is what the signals are for, and the
-    groups they guarded are now in ``test_a_student_model.py``,
-    ``test_a_mutation_model.py``, ``test_c_api_scenarios.py``,
-    ``test_d_parallel_answers.py`` and ``test_g_frontend_contract.py``.
+    Stages 3-7 moved here on 2026-10-12 and stages 8-10 on 2026-10-20: each
+    had been in ``test_pending_stages`` and fired when it landed. The cell of
+    8, 9 and 10 carries a note after the status ("Bajarildi — 8a va
+    8b-1…8b-3; ..."), so the status is the first word, not the whole cell.
+    The groups they guarded: A in ``test_a_*``, C/D in ``test_c_api_scenarios.py``
+    and ``test_d_parallel_answers.py``, G (static) in ``test_g_frontend_contract.py``,
+    E in ``test_e_*`` (V-E4: ``test_e4_run_all.py``), F in ``test_f_performance.py``,
+    H in ``test_h_tree_benchmark.py``.
     """
-    assert _stage_status(stage) == "Bajarildi"
+    status = _stage_status(stage)
+    assert status.split(" — ")[0].strip() == "Bajarildi", status
 
 
-@pytest.mark.parametrize("stage", [8, 9, 10])
-def test_pending_stages(stage):
+def test_no_stage_is_pending():
     """
-    What is still pending: 8 (experiments and consent — 8a and 8b-1/8b-2 are
-    done inside it, which is why the row reads neither "Bajarildi" nor
-    "Qisman" for the whole stage), 9 (the storage benchmark) and 10 (the final
-    report). When one of these lands, its group below must be written.
+    The former ``test_pending_stages`` (8, 9, 10). Nothing in the status table
+    may read "Kutilmoqda" any more, and the table names exactly stages 0-10:
+    a new pending stage would show up here and need its own group.
     """
-    assert _stage_status(stage) == "Kutilmoqda", (
-        f"stage {stage} is no longer pending; the N/A groups must be re-verified"
-    )
+    stages = []
+    for line in PROGRESS.read_text(encoding="utf-8").splitlines():
+        match = re.match(r"\|\s*(\d+)\s*—[^|]*\|\s*([^|]+?)\s*\|", line)
+        if match:
+            stages.append(int(match.group(1)))
+            assert "Kutilmoqda" not in match.group(2), line
+    assert sorted(stages) == list(range(11)), stages
 
 
 def test_group_a_is_verified_now_that_the_student_model_exists():
@@ -111,19 +120,15 @@ def test_groups_c_and_d_are_verified_now_that_readiness_and_trajectory_exist():
     assert (checks / "test_d_parallel_answers.py").exists()
 
 
-def test_na_group_e_pipeline_run_all_is_not_implemented():
+def test_group_e_pipeline_is_verified_now_that_run_all_exists():
     """
-    V-E3 (pyKT preprocess reads the export) and V-E4 (``run_all.py --quick``
-    on simulated data). Closed in part by D47 (2026-10-06): the former signal
-    ``test_na_group_e_experiments_and_consent_are_not_implemented`` fired when
-    8a and 8b-1 landed; V-E1/V-E2 are now verified in
-    ``test_e_consent_export.py`` and the 8b-1/8b-2 checks (D48, D50, D52,
-    split) in ``test_e_experiments.py`` and ``verification/neural/``.
-
-    What is still pending is the end-to-end pipeline of V-E3/V-E4, which
-    stage 8 delivers as ``experiments/run_all.py``. This fails when it lands.
+    The former signal ``test_na_group_e_pipeline_run_all_is_not_implemented``
+    fired when ``experiments/run_all.py`` landed (8b-3, D62-12). V-E4 is now
+    checked in ``test_e4_run_all.py``: the dispatcher's plan per dataset, the
+    committed ``--quick`` results of each hypothesis it runs, and their markers.
     """
-    assert not (Path(settings.BASE_DIR) / "experiments" / "run_all.py").exists()
+    assert (Path(settings.BASE_DIR) / "experiments" / "run_all.py").exists()
+    assert (Path(__file__).parent / "test_e4_run_all.py").exists()
 
 
 def test_na_group_g_browser_checks_have_no_harness():
@@ -145,26 +150,26 @@ def test_na_group_g_browser_checks_have_no_harness():
     assert (Path(__file__).parent / "test_g_frontend_contract.py").exists()
 
 
-def test_na_group_h_benchmark_command_is_not_implemented():
-    """V-H1 (stage 9)."""
+def test_group_h_is_verified_now_that_the_benchmark_exists():
+    """
+    The former signal ``test_na_group_h_benchmark_command_is_not_implemented``
+    (stage 9). V-H1 and the H4 checks of the final verification are in
+    ``test_h_tree_benchmark.py``.
+    """
     from django.core.management import get_commands
 
-    assert "run_tree_benchmark" not in get_commands()
+    assert "run_tree_benchmark" in get_commands()
+    assert (Path(__file__).parent / "test_h_tree_benchmark.py").exists()
 
 
-def test_na_group_f_performance_is_still_unmeasured():
+def test_group_f_is_verified_now_that_it_is_measured():
     """
-    V-F1/V-F2 (stage 6). The old form of this test asserted that
-    ``str(get_resolver().url_patterns)`` does not contain "trajectory", which
-    says nothing either way: the top level holds ``include()`` objects, so the
-    name of a nested route never appears in that string and the assertion held
-    even after stage 6 landed. Stage 6 is done now and the endpoints exist, so
-    V-F is no longer blocked — it is simply not measured yet, and no number for
-    it may be reported until it is.
+    The former signal ``test_na_group_f_performance_is_still_unmeasured``, which
+    asserted that ``test_f_performance.py`` did not exist. V-F1 (the query
+    budget, measured here independently) and V-F2 (the Locust table against its
+    ``metrics.json``) are in that file now.
     """
     from django.urls import reverse
 
-    assert reverse("assessments:trajectory"), "stage 6 has landed; V-F can be measured"
-    assert not (Path(__file__).parent / "test_f_performance.py").exists(), (
-        "V-F1/V-F2 have been written — remove this signal and report the numbers"
-    )
+    assert reverse("assessments:trajectory")
+    assert (Path(__file__).parent / "test_f_performance.py").exists()

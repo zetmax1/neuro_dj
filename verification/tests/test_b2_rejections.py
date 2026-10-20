@@ -200,9 +200,14 @@ def test_v_b2_kind_rules(two_sections):
 @pytest.fixture
 def empty_sections(db):
     """
-    Three sections with a prerequisite ring between them. While the sections hold
-    no topics the ring produces no E_L edge at all, so each relation is legal on
-    its own -- the cycle only appears once the sections gain topics.
+    Three sections A -> B -> C and the relation c1 -> A from the topic of C.
+
+    The node graph G = (N, E_P) has no cycle: c1 is a child of C, not C itself,
+    and a tree edge is not a prerequisite. So every relation is legal on its own
+    under D70, which since 2026-10-20 refuses a ring of relations between empty
+    nodes (the former fixture, A -> B -> C -> A, was exactly such a hidden cycle).
+    While A and B hold no topics none of this inherits an E_L edge; the cycle of
+    G_L only appears once they gain topics: a1 -> b1 -> c1 -> a1.
     """
     from curriculum.services import kb
 
@@ -210,28 +215,54 @@ def empty_sections(db):
     ids = {"course": course.pk}
     for name in ("A", "B", "C"):
         ids[name] = kb.create_node(name=name, slug=f"ring-{name}", parent=course, kind="section").pk
-    for x, y in (("A", "B"), ("B", "C"), ("C", "A")):
+    ids["c1"] = kb.create_node(name="c1", slug="ring-c1", parent=ids["C"], kind="topic").pk
+    for x, y in (("A", "B"), ("B", "C"), ("c1", "A")):
         kb.add_prerequisite(prerequisite=ids[x], topic=ids[y])
     return ids
 
 
 def test_v_b2_adding_a_topic_that_closes_a_cycle_is_rejected(empty_sections, snapshot_now):
-    """The third topic turns the section ring into a cycle of G_L; it must be refused."""
-    from curriculum.models import Topic
+    """The topic that turns the relations into a cycle of G_L must be refused."""
+    from curriculum.models import Topic, TopicPrerequisite
     from curriculum.services import kb
 
     ids = empty_sections
     assert snapshot_now().edges == {}, "empty sections inherit nothing"
 
-    kb.create_node(name="a1", slug="ring-a1", parent=ids["A"], kind="topic")
-    kb.create_node(name="b1", slug="ring-b1", parent=ids["B"], kind="topic")
+    b1 = kb.create_node(name="b1", slug="ring-b1", parent=ids["B"], kind="topic")
+    assert set(snapshot_now().edges) == {(b1.pk, ids["c1"])}
 
     before_version, before_count = _version(), Topic.objects.count()
+    before_relations = TopicPrerequisite.objects.count()
     with pytest.raises(kb.KBError) as exc:
-        kb.create_node(name="c1", slug="ring-c1", parent=ids["C"], kind="topic")
+        kb.create_node(name="a1", slug="ring-a1", parent=ids["A"], kind="topic")
     assert exc.value.reason == "cycle"
-    assert not Topic.objects.filter(slug="ring-c1").exists()
+    assert not Topic.objects.filter(slug="ring-a1").exists()
     assert Topic.objects.count() == before_count
+    assert TopicPrerequisite.objects.count() == before_relations
+    assert _version() == before_version
+    assert set(snapshot_now().edges) == {(b1.pk, ids["c1"])}
+
+
+def test_v_b2_the_former_ring_of_empty_sections_is_refused_at_the_third_relation(db):
+    """
+    D70: the relation that closes A -> B -> C -> A between empty sections is
+    refused with ``cycle``, before any topic exists, and leaves nothing behind.
+    """
+    from curriculum.models import TopicPrerequisite
+    from curriculum.services import kb
+
+    course = kb.create_node(name="Ring0", slug="ring0", kind="course")
+    ids = {name: kb.create_node(name=name, slug=f"ring0-{name}", parent=course, kind="section").pk
+           for name in ("A", "B", "C")}
+    kb.add_prerequisite(prerequisite=ids["A"], topic=ids["B"])
+    kb.add_prerequisite(prerequisite=ids["B"], topic=ids["C"])
+
+    before_version, before_relations = _version(), TopicPrerequisite.objects.count()
+    with pytest.raises(kb.KBError) as exc:
+        kb.add_prerequisite(prerequisite=ids["C"], topic=ids["A"])
+    assert exc.value.reason == "cycle"
+    assert TopicPrerequisite.objects.count() == before_relations
     assert _version() == before_version
 
 

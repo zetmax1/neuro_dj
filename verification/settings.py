@@ -15,6 +15,12 @@ from config.settings import DATABASES as _DEV_DATABASES
 DATABASES = {"default": dict(_DEV_DATABASES["default"])}
 DATABASES["default"]["TEST"] = {"NAME": "neurolearn_verify"}
 
+# Stage 9's benchmark app is routed to its own alias (D63). The H4 checks build
+# and deliberately corrupt trees there, in a test database of their own: the
+# benchmark database itself (``<db>_bench``) is never opened.
+DATABASES["benchmark"] = dict(_DEV_DATABASES["benchmark"])
+DATABASES["benchmark"]["TEST"] = {"NAME": "neurolearn_verify_bench"}
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",

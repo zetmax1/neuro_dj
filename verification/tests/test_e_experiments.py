@@ -12,7 +12,8 @@ stage 8 ("Ajratish"), without reading the implementer's tests.
   the specification and with the published ``metrics.json``.
 - **D48** — every number in every ``tables.md`` under ``experiments/results/``
   must be a number in the ``metrics.json`` next to it; every result carries a
-  sha256 and a commit, and the sha256 is the file's.
+  sha256 and a commit, and the sha256 is the file's. A generated result (tree
+  benchmark, Locust) carries its generator, seed and parameters instead.
 - **Split** — learner folds, checked on the real learners and through
   ``h2.run_fold`` itself with spy models.
 
@@ -413,25 +414,158 @@ def test_d48_the_checker_catches_a_hand_written_number(kind, pattern):
     assert _unbacked_numbers(edited, metrics) == [replacement], (original, replacement)
 
 
+# Results whose input is generated, not read (D63: "the benchmark's input is not
+# a file but a generator"; D68: the Locust course is seeded). There is no input
+# file to hash, so D48's "sha256 of the source" is replaced by what reproduces
+# the input: the generator (its code at the run's commit), the seed and the
+# parameters, each named in the result itself. Decided by the verifier on
+# 2026-10-20 (REMEDIATION_REPORT §8 left the criterion to the verifier).
+TREE_PARAMETERS = ("shapes", "sizes", "parallel_workers", "warmups", "repeats",
+                   "timeout", "parallel_seconds", "parallel_repeats", "seed")
+LOCUST_PARAMETERS = ("users", "spawn_rate", "duration_s", "server", "debug", "correct_rate")
+
+
+def _generated_kind(metrics: dict) -> str | None:
+    if metrics.get("report") == "tree_benchmark":
+        return "tree_benchmark"
+    if {"run", "endpoints", "v_f2"} <= set(metrics):
+        return "locust"
+    return None
+
+
+def _git(*args: str) -> bytes:
+    import subprocess
+
+    return subprocess.run(["git", "-C", str(REPO), *args], capture_output=True, check=True).stdout
+
+
+def _tracked_at(commit: str, path: Path) -> bytes | None:
+    """The file as it was at ``commit``, or None when git does not track it there."""
+    import subprocess
+
+    try:
+        relative = path.resolve().relative_to(REPO.resolve())
+    except ValueError:
+        return None
+    try:
+        return _git("show", f"{commit}:{relative.as_posix()}")
+    except subprocess.CalledProcessError:
+        return None
+
+
+def _tree_digest(parent_list) -> str:
+    """D63's identity of a generated tree: sha256 of the parent indices, root blank."""
+    text = ",".join("" if parent is None else str(parent) for parent in parent_list)
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def _check_generated_tree_benchmark(where, metrics: dict, prov: dict) -> None:
+    from benchmarks import generator
+
+    commit = prov["code_commit"]
+    settings_block = metrics["settings"]
+    for name in TREE_PARAMETERS:
+        assert settings_block.get(name) not in (None, [], ""), f"{where}: parameter {name} missing"
+    assert prov["seeds"].get("trees") == settings_block["seed"], f"{where}: tree seed"
+    assert "run_tree_benchmark" in prov["command"] and f"--seed {settings_block['seed']}" in prov["command"]
+    assert _tracked_at(commit, REPO / "benchmarks" / "generator.py"), f"{where}: no generator at {commit}"
+
+    trees = metrics["trees"]
+    assert trees, f"{where}: no generated tree recorded"
+    built = {(t["shape"], t["size"]) for t in trees}
+    measured = {(c["shape"], c["size"]) for c in metrics.get("cells", [])}
+    measured |= {(p["shape"], p["size"]) for p in metrics.get("parallel", [])}
+    assert measured <= built, f"{where}: cells without a recorded tree: {measured - built}"
+
+    # The generator at the run's commit is the one in the tree today, so the
+    # recorded digests can be regenerated from (shape, size, seed) alone.
+    same = _git("diff", "--name-only", commit, "HEAD", "--", "benchmarks/generator.py").strip() == b""
+    for tree in trees:
+        assert re.fullmatch(r"[0-9a-f]{64}", tree["sha256"]), (where, tree)
+        assert tree["seed"] == settings_block["seed"] and tree["nodes"] == tree["size"], (where, tree)
+        if same:
+            spec = generator.TreeSpec(shape=tree["shape"], size=tree["size"], seed=tree["seed"])
+            assert _tree_digest(generator.parents(spec)) == tree["sha256"], (where, tree)
+
+
+def _check_generated_locust(where, metrics: dict, prov: dict) -> None:
+    run = metrics["run"]
+    for name in LOCUST_PARAMETERS:
+        assert run.get(name) not in (None, ""), f"{where}: parameter {name} missing"
+    course = run["course"]
+    assert course["topics"] > 0 and course["prerequisites"] > 0 and course["questions"] > 0, where
+    assert prov["seeds"].get("seed_load_test") is not None, f"{where}: no seed for the course"
+    generators = {source["name"]: source for source in prov["sources"]}
+    assert {"seed_load_test", "locustfile"} <= set(generators), f"{where}: generator not named"
+
+
 def test_d48_every_result_has_sha256_commit_seed_and_command():
+    """
+    Every result: a commit that git knows, the command and a seed. A result
+    read from a file names the file's sha256 (and the file, where it is on the
+    machine, still has it). A generated result (tree benchmark, Locust) names
+    its generator, seed and parameters instead; a source it does list is a code
+    file, compared with the blob at the run's commit rather than with today's.
+    """
     for directory in _result_dirs():
         metrics = json.loads((directory / "metrics.json").read_text(encoding="utf-8"))
         prov = metrics["provenance"]
         where = directory.relative_to(REPO)
         assert re.fullmatch(r"[0-9a-f]{7,40}", prov.get("code_commit") or ""), f"{where}: no commit"
+        assert _git("cat-file", "-t", prov["code_commit"]).strip() == b"commit", f"{where}: unknown commit"
         assert prov.get("command"), f"{where}: no command"
         assert prov.get("seeds"), f"{where}: no seed"
-        assert prov.get("sources"), f"{where}: no source"
-        for source in prov["sources"]:
+        kind = _generated_kind(metrics)
+        if kind is None:
+            assert prov.get("sources"), f"{where}: no source"
+        elif kind == "tree_benchmark":
+            _check_generated_tree_benchmark(where, metrics, prov)
+        else:
+            _check_generated_locust(where, metrics, prov)
+        for source in prov.get("sources") or []:
             assert re.fullmatch(r"[0-9a-f]{64}", source.get("sha256") or ""), f"{where}: {source}"
             path = Path(source["path"])
-            if path.exists():
+            blob = _tracked_at(prov["code_commit"], path)
+            if blob is not None:
+                assert hashlib.sha256(blob).hexdigest() == source["sha256"], (
+                    f"{where}: sha256 of {path} at {prov['code_commit']} differs"
+                )
+            elif path.exists():
                 assert _sha256(path) == source["sha256"], f"{where}: sha256 of {path} changed"
         # Every per-dataset result row of status ok names its source's hash.
         rows = [v for v in metrics.values() if isinstance(v, list)]
         for entry in (e for group in rows for e in group if isinstance(e, dict)):
             if entry.get("status") == "ok" and "source" in entry:
                 assert re.fullmatch(r"[0-9a-f]{64}", entry["source"].get("sha256") or ""), (where, entry.get("name"))
+
+
+def test_d48_the_generated_criterion_still_catches_a_missing_seed_or_parameter():
+    """The relaxed criterion is not vacuous: drop a seed, a parameter or a tree and it fails."""
+    directory = RESULTS / "tree-benchmark" / "20261016-093916"
+    if not directory.exists():
+        pytest.skip("tree-benchmark natijasi yo'q")
+    metrics = json.loads((directory / "metrics.json").read_text(encoding="utf-8"))
+    where = directory.relative_to(REPO)
+
+    for breaking in ("seed", "repeats", "tree", "digest"):
+        broken = json.loads(json.dumps(metrics))
+        if breaking == "seed":
+            broken["provenance"]["seeds"]["trees"] = 1
+        elif breaking == "repeats":
+            broken["settings"].pop("repeats")
+        elif breaking == "tree":
+            broken["trees"] = [t for t in broken["trees"] if t["size"] != 1000]
+        else:
+            broken["trees"][0]["sha256"] = "0" * 64
+        with pytest.raises(AssertionError):
+            _check_generated_tree_benchmark(where, broken, broken["provenance"])
+
+    locust = RESULTS / "locust" / "20261020-100901"
+    if locust.exists():
+        metrics = json.loads((locust / "metrics.json").read_text(encoding="utf-8"))
+        metrics["provenance"]["seeds"] = {}
+        with pytest.raises(AssertionError):
+            _check_generated_locust(locust.relative_to(REPO), metrics, metrics["provenance"])
 
 
 def _results_of(report: str) -> list[Path]:

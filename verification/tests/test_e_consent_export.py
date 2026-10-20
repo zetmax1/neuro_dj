@@ -698,3 +698,44 @@ def test_d11_retention_with_and_without_consent(world, tmp_path):
     for text in files.values():
         for part in alice_identity:
             assert part.lower() not in text.lower()
+
+
+# ---------------------------------------------------------------------------
+# V-E3 — pyKT's own reader on the exported file (final verification, 2026-10-20)
+# ---------------------------------------------------------------------------
+
+PYKT_PYTHON = Path(__file__).resolve().parents[2] / "experiments" / ".venv" / "bin" / "python"
+PYKT_READ = """
+import json, sys
+from pykt.preprocess.split_datasets import read_data
+df, keys = read_data(sys.argv[1], min_seq_len=1)
+print(json.dumps({"learners": len(df), "uids": sorted(df["uid"]),
+                  "interactions": sum(len(r.split(",")) for r in df["responses"]),
+                  "keys": sorted(keys)}))
+"""
+
+
+def test_v_e3_pykt_reads_the_exported_sequences_without_error(world, exported, tmp_path):
+    """
+    V-E3: "pyKT formatidagi fayl pyKT preprocess tomonidan xatosiz o'qiladi,
+    qatorlar soni metadata bilan mos keladi". The reader is pykt-toolkit's own
+    ``pykt.preprocess.split_datasets.read_data`` (0.0.38, ``experiments/.venv``),
+    which takes six lines per learner: uid, questions, concepts, responses,
+    timestamps, usetimes ("NA" where absent).
+    """
+    import subprocess
+
+    if not PYKT_PYTHON.exists():
+        pytest.skip(f"experiments/.venv yo'q: {PYKT_PYTHON}")
+    path = tmp_path / "pykt_sequences.txt"
+    path.write_text(exported["pykt_sequences.txt"], encoding="utf-8")
+    done = subprocess.run([str(PYKT_PYTHON), "-I", "-c", PYKT_READ, str(path)], capture_output=True, text=True)
+    assert done.returncode == 0, done.stderr[-2000:]
+    out = done.stdout.strip().splitlines()
+    read = json.loads(out[-1])
+    meta = json.loads(exported["metadata.json"])
+    pseudonyms = sorted({r["pseudonym"] for r in _csv_rows(exported["attempts.csv"])})
+    assert not any("error" in line for line in out[:-1]), out[:-1]
+    assert read["uids"] == pseudonyms, read
+    assert read["learners"] == meta["counts"]["learners"]
+    assert read["interactions"] == meta["counts"]["rows"]
