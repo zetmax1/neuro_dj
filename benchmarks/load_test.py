@@ -1,18 +1,23 @@
 """
 benchmarks/load_test.py — the Locust load test, end to end (stage 10, SN3, V-F2).
 
-    scripts/dj5433.sh venv/bin/python -m benchmarks.load_test            # 50 users, 2 minutes
-    scripts/dj5433.sh venv/bin/python -m benchmarks.load_test --quick    # 5 users, 20 s; a smoke test
+    scripts/dj5433.sh venv/bin/python -m benchmarks.load_test --workers W       # gunicorn, 50 users, 2 min
+    scripts/dj5433.sh venv/bin/python -m benchmarks.load_test --server runserver
+    scripts/dj5433.sh venv/bin/python -m benchmarks.load_test --probe           # a warm worker's RSS
+    scripts/dj5433.sh venv/bin/python -m benchmarks.load_test --quick ...       # 5 users, 20 s; a smoke test
 
 1. Records the checkout (D54) and the machine's memory and swap before anything runs.
 2. Uses a database of its own, ``<DATABASE_URL name>_locust`` on the same
    server (created if missing, never dropped): migrated, then seeded by
    ``seed_load_test`` with the V-F2 course and simulated learners only (D13).
    The development database is opened only to create that one.
-3. Starts the API with ``DEBUG=False`` on Django's threaded ``runserver``
-   (``--noreload``; no WSGI server is pinned in requirements.lock), Redis
-   cache index 3, the login throttle raised so fifty logins from one address
-   are not refused.
+3. Starts the API with ``DEBUG=False`` — on gunicorn with ``--workers`` sync
+   workers (D68a; the main result) or on Django's threaded ``runserver``
+   (``--noreload``; the first runs, kept as a supplement) — with Redis cache
+   index 3 and the login throttle raised so fifty logins from one address are
+   not refused. ``--probe`` starts one gunicorn worker, warms it with one
+   learner's requests and prints its resident memory: the number D68a's
+   worker count is computed from.
 4. Runs ``benchmarks/locustfile.py`` headless and samples memory every 5 s.
 5. Writes ``experiments/results/locust/<ts>/``: ``metrics.json``, ``tables.md``,
    ``env.txt`` and Locust's CSV files. The table goes through
@@ -48,6 +53,7 @@ from experiments.tables import fmt
 ROOT = Path(__file__).resolve().parent.parent
 PYTHON = sys.executable
 LOCUST = str(Path(PYTHON).with_name("locust"))
+GUNICORN = str(Path(PYTHON).with_name("gunicorn"))
 ENDPOINTS = ("login", "next_question", "submit_answer", "trajectory")
 V_F2_TARGET_MS = 300  # V-F2: local p95 below 300 ms (a soft target)
 LOCUST_ROUNDING_ABOVE_MS = 100  # Locust keeps two significant digits above this
@@ -113,6 +119,111 @@ def run(args: list[str], env: dict) -> str:
     if done.returncode != 0:
         raise SystemExit(f"{' '.join(args)} failed:\n{done.stdout}\n{done.stderr}")
     return done.stdout
+
+
+def server_command(server: str, workers: int | None, port: int) -> list[str]:
+    if server == "runserver":
+        return [PYTHON, "manage.py", "runserver", f"127.0.0.1:{port}", "--noreload"]
+    return [
+        GUNICORN, "config.wsgi:application", "--workers", str(workers),
+        "--bind", f"127.0.0.1:{port}", "--timeout", "120",
+        # The access log in the shape server_statuses() reads.
+        "--access-logfile", "-", "--access-logformat", '"%(r)s" %(s)s %(B)s',
+    ]
+
+
+def server_label(server: str, workers: int | None) -> str:
+    if server == "runserver":
+        return "django runserver (threaded, one process, --noreload)"
+    from importlib.metadata import version
+
+    return f"gunicorn {version('gunicorn')}, {workers} sync workers"
+
+
+# D68a: the machine the main result may be measured on.
+QUIET_MIN_AVAILABLE_MB = 6 * 1024
+QUIET_MAX_SWAP_USED_MB = 200
+QUIET_MAX_PROCESS_CPU = 10.0  # % of one CPU over a 2 s sample
+
+
+def busy_now(threshold: float = QUIET_MAX_PROCESS_CPU) -> list[dict]:
+    """
+    Processes above ``threshold`` % CPU over a 2-second sample — what is
+    competing right now. ``ps``' %CPU is a lifetime average and called a
+    just-started server 239 %; ``top``'s second frame is the interval itself.
+    """
+    try:
+        output = subprocess.run(
+            ["top", "-b", "-n", "2", "-d", "2", "-w", "200"],
+            capture_output=True, text=True, timeout=30, check=True,
+        ).stdout
+    except (subprocess.SubprocessError, OSError):
+        return []
+    frame = output.split("\ntop - ")[-1].splitlines()
+    header = next(i for i, line in enumerate(frame) if line.lstrip().startswith("PID"))
+    columns = frame[header].split()
+    cpu, command = columns.index("%CPU"), columns.index("COMMAND")
+    out = []
+    for line in frame[header + 1:]:
+        parts = line.split(None, len(columns) - 1)
+        if len(parts) < len(columns):
+            continue
+        try:
+            value = float(parts[cpu].replace(",", "."))
+        except ValueError:
+            continue
+        if value >= threshold:
+            out.append({"cpu_percent": value, "command": parts[command]})
+    return sorted(out, key=lambda row: -row["cpu_percent"])
+
+
+def quiet_machine(memory: dict[str, int], busy: list[dict]) -> list[str]:
+    """What keeps this machine from D68a's conditions; empty when it is quiet."""
+    problems = []
+    if memory["MemAvailable"] < QUIET_MIN_AVAILABLE_MB:
+        problems.append(f"MemAvailable {memory['MemAvailable']} MB < {QUIET_MIN_AVAILABLE_MB} MB")
+    swap_used = memory["SwapTotal"] - memory["SwapFree"]
+    if swap_used >= QUIET_MAX_SWAP_USED_MB:
+        problems.append(f"swap used {swap_used} MB >= {QUIET_MAX_SWAP_USED_MB} MB")
+    if busy:
+        problems.append("busy: " + ", ".join(f"{b['command']} {b['cpu_percent']}%" for b in busy))
+    return problems
+
+
+def rss_mb(pid: int) -> int:
+    for line in Path(f"/proc/{pid}/status").read_text().splitlines():
+        if line.startswith("VmRSS:"):
+            return int(line.split()[1]) // 1024
+    return 0
+
+
+def probe(base: str, server_pid: int, email: str, password: str, course: str) -> dict:
+    """One learner's requests through a single worker, then its resident memory."""
+    import requests
+
+    session = requests.Session()
+    csrf = session.get(f"{base}/api/accounts/csrf/", timeout=30)
+    login = session.post(
+        f"{base}/api/accounts/token/", json={"email": email, "password": password},
+        headers={"X-CSRFToken": csrf.json()["csrfToken"]},
+        cookies={"csrftoken": csrf.cookies.get("csrftoken", "")}, timeout=30,
+    )
+    session.headers["Authorization"] = f"Bearer {login.json()['access']}"
+    for _ in range(20):
+        head = session.get(f"{base}/api/learning/trajectory/?course={course}", timeout=60).json()["next"]
+        question = session.get(f"{base}/api/assessments/next_question/?topic_id={head['topic_id']}", timeout=60)
+        if question.status_code == 200:
+            body = question.json()
+            session.post(
+                f"{base}/api/assessments/submit_answer/",
+                json={"question_id": body["id"], "choice_id": body["choices"][0]["id"]}, timeout=60,
+            )
+    children = Path(f"/proc/{server_pid}/task/{server_pid}/children").read_text().split()
+    return {
+        "master_rss_mb": rss_mb(server_pid),
+        "worker_rss_mb": [rss_mb(int(pid)) for pid in children],
+        "requests": 1 + 1 + 20 * 3,
+    }
 
 
 def wait_until_up(base: str, seconds: float = 60.0) -> None:
@@ -226,9 +337,19 @@ def main(argv: list[str] | None = None) -> Path:
     parser.add_argument("--spawn-rate", type=float, default=5.0)
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--quick", action="store_true", help="5 users for 20 s, under locust-quick/.")
+    parser.add_argument("--server", choices=("gunicorn", "runserver"), default="gunicorn")
+    parser.add_argument("--workers", type=int, default=None, help="gunicorn sync workers (D68a).")
+    parser.add_argument("--allow-busy", action="store_true",
+                        help="Run although D68a's quiet-machine conditions fail (recorded).")
+    parser.add_argument("--probe", action="store_true",
+                        help="One warm gunicorn worker's RSS; writes no result.")
     args = parser.parse_args(argv)
     if args.quick:
         args.users, args.minutes = 5, 1 / 3
+    if args.probe:
+        args.server, args.workers, args.users = "gunicorn", 1, 1
+    if args.server == "gunicorn" and not args.workers:
+        parser.error("--workers is required with gunicorn (D68a computes it)")
 
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
     sys.path.insert(0, str(ROOT))
@@ -240,8 +361,13 @@ def main(argv: list[str] | None = None) -> Path:
 
     git_start = GitState.capture()
     memory_before = meminfo()
+    busy_before = busy_now()
     print(f"MemAvailable {memory_before['MemAvailable']} MB, "
-          f"swap free {memory_before['SwapFree']} / {memory_before['SwapTotal']} MB", flush=True)
+          f"swap free {memory_before['SwapFree']} / {memory_before['SwapTotal']} MB, "
+          f"busy {busy_before}", flush=True)
+    problems = quiet_machine(memory_before, busy_before)
+    if problems and not (args.quick or args.probe or args.allow_busy):
+        raise SystemExit("load_test: the machine is not quiet (D68a): " + "; ".join(problems))
 
     url, database = locust_database_url(os.environ["DATABASE_URL"])
     created = ensure_database(database)
@@ -259,7 +385,7 @@ def main(argv: list[str] | None = None) -> Path:
         "LOAD_TEST_LEARNERS": str(args.users),
     }
     run([PYTHON, "manage.py", "migrate", "--noinput"], child)
-    out = results_dir("locust-quick" if args.quick else "locust")
+    out = results_dir("locust-quick" if args.quick or args.probe else "locust")
     child["LOAD_TEST_TAG"] = out.name  # fresh learners for every run
     seeded = run([
         PYTHON, "manage.py", "seed_load_test",
@@ -268,17 +394,25 @@ def main(argv: list[str] | None = None) -> Path:
     summary = dict(re.findall(r"(\w+)=(\d+)", seeded.strip().splitlines()[-1]))
     child["LOAD_TEST_COURSE"] = summary["course"]
 
-    out.mkdir(parents=True, exist_ok=True)
     base = f"http://127.0.0.1:{args.port}"
+    if not args.probe:
+        out.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile("w+", suffix=".log", delete=False) as log:
         server_log = Path(log.name)
     with open(server_log, "w") as log:
         server = subprocess.Popen(
-            [PYTHON, "manage.py", "runserver", f"127.0.0.1:{args.port}", "--noreload"],
+            server_command(args.server, args.workers, args.port),
             env=child, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
         )
     try:
         wait_until_up(base)
+        if args.probe:
+            measured = probe(
+                base, server.pid, f"load-{out.name}-00@simulated.invalid", password, summary["course"],
+            )
+            print(measured)
+            server_log.unlink(missing_ok=True)
+            return out
         environment_start = environment.capture("default")
         memory_at_start = meminfo()
         sampler = MemorySampler()
@@ -328,7 +462,9 @@ def main(argv: list[str] | None = None) -> Path:
             "duration_s": duration,
             "wall_s": round(wall, 1),
             "locust_exit_code": locust.returncode,
-            "server": "django runserver (threaded, one process, --noreload)",
+            "server": server_label(args.server, args.workers),
+            "server_kind": args.server,
+            "workers": args.workers if args.server == "gunicorn" else 1,
             "debug": False,
             "cache": f"Redis ({REDIS_URL})",
             "db_conn_max_age": int(child.get("DB_CONN_MAX_AGE", "0")),
@@ -347,6 +483,8 @@ def main(argv: list[str] | None = None) -> Path:
         "environment": {
             **environment_start,
             "memory_before": memory_before,
+            "busy_before": busy_before,
+            "quiet_machine_problems": problems,
             "memory_at_load_start": memory_at_start,
             "memory_during": memory_during,
             "at_end": environment.at_end(),

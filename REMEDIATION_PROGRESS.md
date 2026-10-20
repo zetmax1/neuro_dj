@@ -3390,6 +3390,32 @@ Darvozalar:
    subquery'lar, `ArraySubquery` + `JSONObject`, `UPDATE … CASE`.
 
 
+## D68a — Locust'ning asosiy natijasi gunicorn'da (foydalanuvchi qarori, 2026-10-20, yugurishdan oldin)
+
+- `gunicorn==26.2.0` (PyPI'da 2026-08-24; majburiy bog‘liqligi yo‘q)
+  `requirements.txt` ga va hash'lari bilan `requirements.lock` ga qo‘shildi.
+  `experiments/.venv` lock'i o‘zgarmaydi.
+- **Asosiy natija:** gunicorn, `config.wsgi:application`, W sync worker,
+  `DEBUG=False`, 50 foydalanuvchi, 2 daqiqa, D68 dagi qolgan hamma narsa
+  (baza, kurs, oqim, Redis, throttle) o‘zgarmaydi; V-F2 chegarasi
+  (p95 < 300 ms) o‘zgarmaydi. `runserver` natijalari (`085406`, `085659`) —
+  qo‘shimcha.
+- **W.** Ish yuki Python'da CPU'ga bog‘liq (snapshot, tayyorlik, Algoritm 2.4),
+  Locust (bitta gevent jarayoni) va Postgres o‘sha mashinada: shuning uchun
+  har fizik yadroga bitta sync worker (I/O uchun mo‘ljallangan 2n + 1 yuk
+  generatori va bazani siqib qo‘yadi), giper-oqimlar ularga qoladi.
+  W = min(C_fizik, ⌊(MemAvailable_min − R) / RSS_worker⌋):
+  C_fizik = 8 (`lscpu`: 1 soket × 8 yadro × 2 oqim); MemAvailable_min = 6 GB
+  (yugurish sharti); R = 2 GB (Postgres, Locust, OS uchun zaxira);
+  RSS_worker = 124 MB — `load_test --probe` (1 worker, bitta o‘quvchining 62
+  so‘rovidan keyin; master 28 MB). ⌊4 096 / 124⌋ = 33, demak **W = 8**.
+- **Shartlar** (`load_test` o‘zi tekshiradi, bajarilmasa ishga tushmaydi):
+  MemAvailable ≥ 6 GB, swap ishlatilgani < 200 MB, 2 soniyalik `top`
+  namunasida ≥ 10 % CPU ishlatayotgan boshqa jarayon yo‘q; namuna ro‘yxati
+  `metrics.json` ga (`busy_before`) yoziladi. `ps` ning umr bo‘yi o‘rtachasi
+  (D68 da `busiest_processes`) endi bu qaror uchun ishlatilmaydi.
+
+
 ## D69 — D48 ga zid birinchi Locust papkalari olib tashlanadi (2026-10-20)
 
 Foydalanuvchi qarori (10-bosqich, 2-qism, A1). `experiments/results/locust/20261020-070525`

@@ -17,3 +17,5 @@ openpyxl==3.1.5
 python-docx==1.2.0
 Pillow==12.3.0
 sqlparse==0.5.5
+# The WSGI server of the stage 10 load test (D68a); no required dependencies.
+gunicorn==26.2.0

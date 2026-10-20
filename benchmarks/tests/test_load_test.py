@@ -159,3 +159,19 @@ def test_every_number_in_tables_md_is_a_value_in_metrics_json(tmp_path):
     assert result_tables.verify(markdown, metrics) == []
     assert "| submit_answer | 200 | 2 | 0.01 | 110 | 250 | 1.67 |" in markdown
     assert markdown.startswith("> **Ogohlantirish (D54):**")
+
+
+def test_the_quiet_machine_conditions_of_d68a():
+    calm = {"MemTotal": 15249, "MemAvailable": 7000, "SwapTotal": 4095, "SwapFree": 4000}
+    assert load_test.quiet_machine(calm, []) == []
+    tight = dict(calm, MemAvailable=6000, SwapFree=3800)
+    problems = load_test.quiet_machine(tight, [{"cpu_percent": 48.0, "command": "chrome"}])
+    assert len(problems) == 3
+    assert "6144 MB" in problems[0] and "295 MB" in problems[1] and "chrome 48.0%" in problems[2]
+
+
+def test_gunicorn_runs_the_wsgi_app_with_the_access_log_the_report_reads():
+    argv = load_test.server_command("gunicorn", 8, 8765)
+    assert argv[1:4] == ["config.wsgi:application", "--workers", "8"]
+    assert argv[argv.index("--access-logformat") + 1] == '"%(r)s" %(s)s %(B)s'
+    assert load_test.server_command("runserver", None, 8765)[-2:] == ["127.0.0.1:8765", "--noreload"]
