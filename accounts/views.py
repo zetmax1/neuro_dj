@@ -5,6 +5,7 @@ from django.middleware.csrf import get_token
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils.decorators import method_decorator
 from rest_framework import generics, permissions, status
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -81,7 +82,11 @@ class CookieTokenRefreshView(APIView):
 
     No body: the refresh token is read from the httpOnly cookie, rotated, and
     the new one is set in its place while the old one is blacklisted. A
-    missing, expired or blacklisted token answers 401 and clears the cookie.
+    missing, expired or blacklisted token answers 401 and clears the cookie,
+    and so does a token whose account is gone: SimpleJWT looks the user up
+    through the default manager, which hides soft-deleted accounts, and its
+    ``DoesNotExist`` used to escape as a 500 (stage 10); a deactivated account
+    raises ``AuthenticationFailed``, which kept the cookie.
     """
 
     permission_classes = [permissions.AllowAny]
@@ -98,7 +103,7 @@ class CookieTokenRefreshView(APIView):
         serializer = TokenRefreshSerializer(data={"refresh": token})
         try:
             serializer.is_valid(raise_exception=True)
-        except (TokenError, InvalidToken):
+        except (TokenError, InvalidToken, AuthenticationFailed, User.DoesNotExist):
             response = Response(
                 {"detail": "Session expired.", "code": "token_not_valid"},
                 status=status.HTTP_401_UNAUTHORIZED,
