@@ -3257,6 +3257,24 @@ o‘zgartirmasligi kutiladi, lekin bu qarorni foydalanuvchi qabul qiladi.
 Junyi — parametrlar saqlanmagan, sanalmadi (protokolda yozilgan).
 
 
+### D65a — qaror: clamp qo‘llanadi (foydalanuvchi, 2026-10-20, o‘zgarishdan oldin)
+
+Asos: to‘liq qayta o‘ynashda P(L)′ 1 744 901 × 2 yangilanishning hech birida
+o‘zgarmadi, bashorat esa yangilanishdan oldingi P(L) dan olinadi; “0 bo‘lmasa
+to‘xta” qoidasi natijaga ta’sirni nazarda tutgan, o‘lchov uni 0 ko‘rsatdi.
+Qo‘shimcha shartlar:
+
+1. clamp'dan keyin `clamp_count.py` yangi kod bilan qayta yuguradi va barcha
+   338 001 × 2 test bashorati hamda har bir P(L)′ eski (clamp'siz) kod
+   natijasi bilan **bit-aniq** teng ekanini `assert` bilan tasdiqlaydi;
+2. xom posterior manfiy bo‘lgan holatlar soni; ular uchun P(L)′ farqining
+   analitik chegarasi va kuzatilgan maksimum;
+3. Junyi: parametrlar saqlanmagan, qayta o‘ynalmaydi — analitik chegara bilan
+   “hisobot aniqligida (6 xona) o‘zgarish yo‘q, qayta ishga tushirish talab
+   qilinmaydi”;
+4. THESIS_MAPPING: F6 — raqamli himoya (θ clamp kabi).
+
+
 ## D69 — D48 ga zid birinchi Locust papkalari olib tashlanadi (2026-10-20)
 
 Foydalanuvchi qarori (10-bosqich, 2-qism, A1). `experiments/results/locust/20261020-070525`
