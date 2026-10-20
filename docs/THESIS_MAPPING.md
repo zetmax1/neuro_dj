@@ -264,13 +264,45 @@ o‘zgarmaydi, va jadval shuni ko‘rsatish uchun ikkisini birga chiqaradi.
 | Sikl topilsa SCC'lar birlashtiriladi va qayd etiladi (D52) | `components.strongly_connected`, `condense` | `::test_a_cyclic_graph_is_merged_by_its_components_and_recorded` |
 | Inkremental tayyorlik `|Succ(v)|`, to‘liq — hammasi (D52) | `graph_report.benchmark_readiness` → `neuro_model.readiness` | `::test_the_incremental_update_touches_the_successors_and_the_rebuild_all_of_them` |
 
-## 10. Keyingi bosqichlar
+## 10. Yakuniy xarita (10-bosqich)
 
-| Ish | Bosqich |
-|---|---|
-| H1/H3 kodi, DBE yuklovchisi, graf nazoratlari, annotatsiya vositasi | 8b-3 |
-| Saqlash usullari benchmarki | 9 |
-| Yakuniy sinovlar va hisobot | 10 |
+### 10.1 II bob elementlari → kod → test
+
+| Element | Kod (fayl:funksiya) | Test |
+|---|---|---|
+| Algoritm 2.1 — relatsiya qo‘shish, sikl zanjiri | `neuro_model/graph.py:find_cycle_chain`; servis `curriculum/services/kb.py:add_prerequisite` | `neuro_model/tests/test_graph.py`, `test_graph_random.py` (brute force), `test_properties.py` (Hypothesis: zanjir ⇔ G_L da sikl), `curriculum/tests/test_kb_properties.py` |
+| Algoritm 2.2 — `(pos, id)` kalitli Kahn, `lev` | `neuro_model/graph.py:topological_order` | `test_graph_random.py`, `test_properties.py` (tartib har qirraga mos), `test_kb_properties.py` (SQL'dan qurilgan G_L bilan) |
+| Algoritm 2.3 — inkremental tayyorlik | `neuro_model/readiness.py:propagate`, `assessments/services/readiness.py:apply_answer` | `assessments/tests/test_readiness.py`, `test_properties.py` va `test_kb_properties.py` (hisoblagichlar = `recompute_counters`) |
+| Algoritm 2.4 — bitta javob, qat’iy tartib | `neuro_model/student.py:observe`; `assessments/services/student_model.py:apply_answer`, `orchestrator.py:apply_one_answer` | `neuro_model/tests/test_student.py`, `assessments/tests/test_student_model.py`, `test_answer_path_golden.py` (D66a) |
+| Algoritm 2.5 — trayektoriya, A/B/C/D | `neuro_model/trajectory.py:trajectory`; `assessments/services/trajectory.py:for_learner` | `neuro_model/tests/test_trajectory.py`, `assessments/tests/test_trajectory.py` |
+| BKT: p̂, P(L\|x), PT o‘tishi | `neuro_model/bkt.py:predict`, `posterior`, `transition` | `test_student.py` (4-bo‘lim ketma-ketligi, 2.5) |
+| P(G), P(S) — θ va b orqali | `neuro_model/irt.py:guess`, `slip` | `test_student.py::test_guess_slip_table` |
+| Elo: θ, b, K(n) | `neuro_model/elo.py:update`, `k_factor` | `test_student.py` (Elo qadami, F1) |
+| P(L0), m̄, c = τ − C_OFFSET | `neuro_model/init.py:initial_mastery` | `test_student.py::test_initial_mastery_reference_values` |
+| M (τ/δ gisterezis), R_s(w), r_s(w), `missing_count` | `neuro_model/readiness.py:mastered_flag`, `is_ready`, `readiness_score`, `missing_count` | `neuro_model/tests/test_readiness.py` |
+| κ (tartib ziddiyatlari), ortiqcha qirralar, Desc* | `neuro_model/graph.py:order_conflicts`, `redundant_edges`, `descendant_bitsets` | `test_graph_random.py` |
+| 2.5-tasdiq | `neuro_model/bkt.py:posterior` (xossa) | `test_student.py::test_assertion_2_5_*`, `test_properties.py` (har qabul qilingan javobdan keyin), `test_kb_properties.py` (har ledger qatori) |
+| 2.1–2.4, 2.6-tasdiqlar | — | II bob matni repoda yo‘q (spetsifikatsiya faqat 2.5 ni ta’riflaydi) — raqamlar bo‘yicha xaritalanmadi. Shu xossalar testlangan: Algoritm 2.1 ning to‘g‘riligi, 2.2 tartibi, 2.3 = to‘liq qayta hisoblash, TY5, Y1–Y4 (yuqoridagi qatorlar); raqamlarni bog‘lash uchun II bob matni kerak |
+| Y1 — ko‘chirishda o‘z avlodiga emas | `curriculum/services/kb.py:update_node` (`move_into_subtree`) | `curriculum/tests/test_tree.py`, `test_kb_properties.py` |
+| Y2 — x ≠ y, ajdod-avlod emas | `neuro_model/graph.py:is_nested`; `kb.add_prerequisite`, `_check_nesting` | `curriculum/tests/test_kb.py`, `test_properties.py`, `test_kb_properties.py` |
+| Y3 — G_L asiklik | `kb.add_prerequisite` (2.1), `kb._fresh` (2.2) | `test_kb_concurrency.py`, `test_properties.py`, `test_kb_properties.py` (mustaqil DFS) |
+| Y4 — savollar faqat `topic` da | `assessments/models.py:Question.clean/save`, `kb._validate_tree_rules` | `curriculum/tests/test_kb.py::test_questions_only_on_topics`, `test_kb_properties.py` |
+| TY5 — boshlangan mavzu yopilmaydi | `neuro_model/readiness.py:next_status` + DB cheklovi | `assessments/tests/test_readiness.py`, `test_properties.py`, `test_kb_properties.py` |
+| TY6 — `kb_version` mos kelmasa qayta hisoblash | `assessments/services/readiness.py:resync` | `test_readiness.py::test_ty6_*`, `test_kb_properties.py` (resync'dan oldin va keyin) |
+| V-F1 — `submit_answer` ≤ 12 SQL | `assessments/services/*` (D66, D66a) | `assessments/tests/test_query_budget.py` (12 / 12 / 8) |
+| V-F2 — p95 < 300 ms | `benchmarks/load_test.py`, `benchmarks/locustfile.py` | natija `experiments/results/locust/20261020-100901` (D68a) |
+
+### 10.2 Gipotezalar — yakuniy holat
+
+| Gipoteza | Natija papkasi | Holat |
+|---|---|---|
+| H1 — ehtimoliy tayyorlik qoidasi boshqa qoidalardan yaxshiroq (Junyi) | `junyi-h1/20261019-102526` | **qo‘llab-quvvatlanmadi** (bajarilganlik bilan farq aniqlanmadi, o‘tish bali qoidasi yaxshiroq) |
+| H2 — BKT+IRT BKT dan yaxshi (D53) va DKT bilan taqqoslanadigan (D56), ASSISTments 2009 | `assist09/20261010-060005` | **ikkala kontrast bajarildi**: +0,016 [0,016; 0,017]; −0,003 [−0,005; −0,001] ≥ −0,01. D55 (uch chegara) va D60 (muzlatilgan b) da mustahkam. Elo/Rasch hammadan yuqori (0,762) — cheklov sifatida |
+| H3 — haqiqiy graf nazoratlardan yaxshiroq (BKT+IRT+Pre, Junyi) | `junyi-h3/20261019-122423` | **k = 3 aniqlanmadi, k = 5 qo‘llab-quvvatlanmadi** (tasodifiy grafdan yaxshi, teskari bilan farq aniqlanmadi, grafsizdan yomonroq) |
+| H4 — CTE MPTT dan yozishda tezroq, o‘qishda ≤ 1,5× sekin, parallel yozishda yaxlit | `tree-benchmark/20261016-093916` + D63h | **qo‘llab-quvvatlanmadi** (chuqur zanjirda yozish, deyarli hamma o‘qish kataklari); qulfli yo‘lda ikkala usul yaxlit |
+| V-F2 — lokal p95 < 300 ms (500 mavzu, 1 500 prerekvizit) | `locust/20261020-100901` | **bajarildi** gunicorn 8 worker, 50 foydalanuvchi: p95 190 / 210 / 280 ms (`next_question` / `submit_answer` / `trajectory`); bitta `runserver` jarayonida bajarilmagan (qo‘shimcha) |
+
+Barcha sonlar `REMEDIATION_REPORT.md` dagi `experiments/report_values.py` blokida `metrics.json` dan olinadi va `--check` bilan tekshiriladi.
 
 ---
 
@@ -329,3 +361,20 @@ Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
   PT ≈ 0,0076 da yotgani uchun D55 ning L-BFGS-B tekshiruvi (1 %) o‘tmadi.
   Ilova (`calibrate_bkt`) ham shu grid bilan ishlaydi. Grid chetidagi ulushlar
   har H2 natijasida (§6) yoziladi.
+
+### F6 — Posterior va P(L)′ [0, 1] ga clamp qilinadi (D65a)
+
+- **Nima.** `neuro_model/bkt.py` dagi `posterior()` natijani `min(1, max(0, …))`
+  bilan qaytaradi; `transition()` avvaldan clamp qiladi.
+- **Nega.** Raqamli himoya (F1 dagi θ clamp kabi). P(L) double'da aynan 1.0 ga
+  yaxlitlangach, noto‘g‘ri javobning posteriori P·S / (1 − fl(1 − S)) = 1 + O(1e-15)
+  bo‘lardi (Hypothesis topgan, D65).
+- **Ta’siri.** Yo‘q: posterior > 1 bo‘lgan har holatda o‘tish clamp'i P(L)′ ni
+  baribir 1.0 qilardi; bashorat yangilanishdan oldingi P(L) dan. H2 da (D55
+  checkpoint parametrlari bilan) BKT 1 177, BKT+IRT 370 marta ishlaydi;
+  338 001 × 2 bashorat va 1 744 901 × 2 P(L)′ eski kod bilan bit-aniq teng
+  (`experiments/clamp_count.py`). Manfiy posterior bo‘lmaydi (surat ≥ 0,
+  maxraj ≥ 1e-12). P(L) = 1.0 holati yutuvchi bo‘lib qoladi — 1 − ε chegarasi
+  qo‘shilmadi (foydalanuvchi qarori).
+- **Test.** `neuro_model/tests/test_student.py::test_the_posterior_is_clamped_once_p_l_has_rounded_to_one`,
+  `test_properties.py` (posterior qat’iy [0, 1] da).
