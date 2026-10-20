@@ -3349,6 +3349,47 @@ son 19 qoladi, sababi yoziladi):
 4. So‘rovlar soni testda qotiriladi (≤ 12).
 
 
+### D66a — bajarildi, hamma darvoza o‘tdi (2026-10-20)
+
+| Holat | D66 dan oldin | D66 | D66a |
+|---|---|---|---|
+| oddiy javob | 25 | 19 | **12** |
+| M o‘zgaradi, voris ochiladi | 26 | 20 | **12** |
+| `review_repeat` | 16 | 11 | **8** |
+| kursdagi birinchi javob (bir martalik) | 28 | 22 | 15 |
+| yangi talabaning birinchi so‘rovi (bir martalik) | 34 | 28 | 21 |
+| `next_question` | 8 | 7 | 6 |
+| `trajectory` | 5 | 5 | 5 |
+
+Oddiy javobning 12 ta buyrug‘i va vazifasi: (1) JWT foydalanuvchisi;
+(2) choice + savol + mavzu + KB versiyasi; (3) (talaba, mavzu) advisory lock;
+(4) holat qatorlari; (5) `answer_context` — D25 oynasi, `TopicModelParams`,
+ledger'dagi P(L), `max(attempt_no)`; (6) θ qatori `FOR UPDATE`; (7) savol
+`FOR UPDATE`; (8) θ va b_q UPDATE (CTE); (9) holat qatori `FOR UPDATE`;
+(10) holat UPDATE (M o‘zgarsa vorislar bilan birga); (11) ledger + history
+INSERT (CTE); (12) keyingi savol variantlari bilan. Qulflar (3), (6), (7),
+(9) — o‘sha tartibda, o‘sha tranzaksiyada.
+
+Darvozalar:
+1. **Oltin solishtirish** (`206dad2` da o‘zgarishdan oldin yozilgan): 241
+   javob, ledger 253 qator, history 214, holat 18, θ 3, savol 120, test
+   sessiyasi 4, KB versiyasi va har qadam DTO'si — maydonma-maydon teng.
+2. Backend: **1 273 passed**, 51 skipped, 13 subtests, 0 failed (4-bo‘lim
+   etalonlari, Hypothesis machine'lari, V-D1 parallel testlari, `accounts`,
+   oltin test ichida).
+3. `verification/`: o‘zgarishdan oldin 826 passed / 5 failed, keyin 826 /
+   o‘sha 5 (`test_d48_every_result_has_sha256_commit_seed_and_command`,
+   `test_pending_stages[9]`, `test_pending_stages[10]`,
+   `test_na_group_e_pipeline_run_all_is_not_implemented`,
+   `test_na_group_h_benchmark_command_is_not_implemented`).
+4. Xom SQL ikkita: `student_model.WRITE_THETA_AND_B_SQL` va
+   `ledger.INSERT_WITH_HISTORY_SQL` — literal, parametrlangan, har birida
+   nega ORM emasligi izohi; `test_raw_sql_names_the_models_columns_and_tables`
+   ularni modellarga solishtiradi, ledger skan testi xom INSERT'ni ham
+   qidiradi. Qolgan birlashtirishlar ORM: skalyar subquery, korrelyatsiyalangan
+   subquery'lar, `ArraySubquery` + `JSONObject`, `UPDATE … CASE`.
+
+
 ## D69 — D48 ga zid birinchi Locust papkalari olib tashlanadi (2026-10-20)
 
 Foydalanuvchi qarori (10-bosqich, 2-qism, A1). `experiments/results/locust/20261020-070525`

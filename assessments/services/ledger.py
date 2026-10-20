@@ -41,6 +41,13 @@ _REVIEWABLE_SOURCES = frozenset({AttemptSource.ADAPTIVE, AttemptSource.TEST_SESS
 
 
 @dataclass(frozen=True)
+class HistoryEntry:
+    """The ``UserKnowledgeHistory`` row written with a counted answer."""
+    calculated_mastery: float
+    algorithm_used: str
+
+
+@dataclass(frozen=True)
 class ModelTrace:
     """Quantities the student model used for one answer (all optional)."""
     p_before: float | None = None
@@ -94,15 +101,20 @@ def answered_recently(*, user, question: Question, at: datetime | None = None) -
     ).exists()
 
 
-def classify_source(*, user, question: Question, requested: str) -> str:
+def classify_source(*, user, question: Question, requested: str, recent: bool | None = None) -> str:
     """
     D25: an adaptive or test-session answer to a question the learner answered
     within the review window is a ``review_repeat``. It is logged but never
     updates P(L) and never enters the experiments. Call under the topic lock.
+
+    ``recent`` is ``answered_recently`` already read under that lock
+    (``student_model.answer_context``, D66a); None reads it here.
     """
-    if requested in _REVIEWABLE_SOURCES and answered_recently(user=user, question=question):
-        return AttemptSource.REVIEW_REPEAT
-    return requested
+    if requested not in _REVIEWABLE_SOURCES:
+        return requested
+    if recent is None:
+        recent = answered_recently(user=user, question=question)
+    return AttemptSource.REVIEW_REPEAT if recent else requested
 
 
 def record_attempt(
@@ -115,6 +127,8 @@ def record_attempt(
     answered_at: datetime | None = None,
     snapshot: KBSnapshot | None = None,
     lock_held: bool = False,
+    last_attempt_no: int | None = None,
+    history: HistoryEntry | None = None,
 ) -> AssessmentAttempt:
     """
     Append one answer to the ledger and return the new row.
@@ -129,7 +143,12 @@ def record_attempt(
     transaction and has the snapshot the answer was processed under passes
     ``lock_held=True`` and ``snapshot``: the lock is not taken a second time (it
     is held until the transaction ends anyway) and the course comes from the
-    same snapshot as everything else the answer recorded.
+    same snapshot as everything else the answer recorded. Such a caller may
+    also pass ``last_attempt_no``, read under that lock before any write of
+    this answer (D66a); the next number is then that plus one.
+
+    ``history`` writes the answer's ``UserKnowledgeHistory`` row in the same
+    statement as the ledger row (D66a), with ``created_at`` = ``answered_at``.
     """
     _require_transaction()
     if source not in AttemptSource.values or source == AttemptSource.LEGACY:
@@ -142,6 +161,8 @@ def record_attempt(
         raise ValueError(f"source={source!r} answers do not belong to a test session.")
     if trace is not None and source == AttemptSource.REVIEW_REPEAT:
         raise ValueError("review_repeat answers are not model observations.")
+    if last_attempt_no is not None and not lock_held:
+        raise ValueError("last_attempt_no is only valid under a lock the caller holds.")
 
     question: Question = choice.question
     topic = question.topic
@@ -154,13 +175,15 @@ def record_attempt(
     if trace.kb_version is None:
         # The KB version the answer was given under (TY6, experiments).
         trace = replace(trace, kb_version=snapshot.version)
-    last_no = (
-        AssessmentAttempt.objects
-        .filter(user=user, topic=topic)
-        .aggregate(last=Max("attempt_no"))["last"]
-    ) or 0
+    if last_attempt_no is None:
+        last_attempt_no = (
+            AssessmentAttempt.objects
+            .filter(user=user, topic=topic)
+            .aggregate(last=Max("attempt_no"))["last"]
+        ) or 0
+    last_no = last_attempt_no
 
-    return AssessmentAttempt.objects.create(
+    fields = dict(
         user=user,
         question=question,
         selected_choice=choice,
@@ -173,3 +196,66 @@ def record_attempt(
         answered_at=answered_at or timezone.now(),
         **asdict(trace),
     )
+    if history is None:
+        return AssessmentAttempt.objects.create(**fields)
+    return _insert_with_history(AssessmentAttempt(**fields), history)
+
+
+# Raw SQL, because the ORM cannot insert into two tables in one statement
+# (D66a): the history row needs the ledger row's id, which a data-modifying
+# CTE hands over inside the statement. The column lists are literals (no
+# string building); ``ATTEMPT_COLUMNS`` and ``HISTORY_COLUMNS`` are checked
+# against the models by a test. ``AssessmentAttempt.save()`` only refuses
+# updates, and the table's CHECK and FK constraints apply to this INSERT as
+# to any other. This module stays the only writer of the ledger.
+ATTEMPT_COLUMNS: tuple[str, ...] = (
+    "user_id", "question_id", "selected_choice_id", "is_correct", "answered_at",
+    "topic_id", "course_id", "attempt_no", "source", "session_id",
+    "p_before", "p_hat", "p_after", "guess_used", "slip_used",
+    "theta_before", "theta_after", "b_before", "b_after",
+    "readiness_score", "was_ready", "engine_version", "kb_version",
+)
+HISTORY_COLUMNS: tuple[str, ...] = (
+    "user_id", "topic_id", "calculated_mastery", "algorithm_used", "attempt_id", "created_at",
+)
+INSERT_WITH_HISTORY_SQL = """
+WITH attempt AS (
+    INSERT INTO assessments_assessmentattempt (
+        user_id, question_id, selected_choice_id, is_correct, answered_at,
+        topic_id, course_id, attempt_no, source, session_id,
+        p_before, p_hat, p_after, guess_used, slip_used,
+        theta_before, theta_after, b_before, b_after,
+        readiness_score, was_ready, engine_version, kb_version
+    ) VALUES (
+        %s, %s, %s, %s, %s,
+        %s, %s, %s, %s, %s,
+        %s, %s, %s, %s, %s,
+        %s, %s, %s, %s,
+        %s, %s, %s, %s
+    )
+    RETURNING id, user_id, topic_id, answered_at
+)
+INSERT INTO assessments_userknowledgehistory (
+    user_id, topic_id, calculated_mastery, algorithm_used, attempt_id, created_at
+)
+SELECT user_id, topic_id, %s, %s, id, answered_at FROM attempt
+RETURNING attempt_id
+"""
+
+
+def _insert_with_history(attempt: AssessmentAttempt, history: HistoryEntry) -> AssessmentAttempt:
+    """INSERT ``attempt`` and its history row in one statement; return it saved."""
+    by_column = {field.column: field for field in AssessmentAttempt._meta.concrete_fields}
+    values = [
+        by_column[column].get_db_prep_save(by_column[column].pre_save(attempt, True), connection)
+        for column in ATTEMPT_COLUMNS
+    ]
+    with connection.cursor() as cursor:
+        cursor.execute(
+            INSERT_WITH_HISTORY_SQL,
+            [*values, history.calculated_mastery, history.algorithm_used],
+        )
+        attempt.pk = cursor.fetchone()[0]
+    attempt._state.adding = False
+    attempt._state.db = connection.alias
+    return attempt

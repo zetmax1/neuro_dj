@@ -8,8 +8,9 @@ from __future__ import annotations
 
 from typing import Optional
 
+from django.contrib.postgres.expressions import ArraySubquery
 from django.db.models import Exists, F, OuterRef, QuerySet
-from django.db.models.functions import Abs
+from django.db.models.functions import Abs, JSONObject
 from django.utils import timezone
 
 from curriculum.models import Topic
@@ -17,6 +18,7 @@ from curriculum.services.graph import KBSnapshot, get_snapshot
 
 from assessments.models import (
     AssessmentAttempt,
+    Choice,
     DifficultyLevel,
     Question,
     UserAbility,
@@ -86,17 +88,41 @@ def get_next_question(
     if theta is None:
         theta = ability_of(user=user, course_id=snapshot.root_of(topic.pk))
 
-    return (
+    question = (
         Question.objects
         .filter(topic_id__in=topic_ids, is_active=True)
         .exclude(pk__in=answered_correctly_ids)
         .annotate(answered_recently=Exists(answered_recently))
         .annotate(information=Abs(F("irt_difficulty") - theta))
+        .annotate(choice_rows=ArraySubquery(
+            Choice.objects.filter(question=OuterRef("pk")).order_by("id")
+            .values(row=JSONObject(**{name: name for name in CHOICE_COLUMNS}))
+        ))
         .select_related("topic")
-        .prefetch_related("choices")
         .order_by("answered_recently", "information", "id")
         .first()
     )
+    if question is not None:
+        _prefetch_choices(question)
+    return question
+
+
+# The choices come with the question as a JSON array (D66a) instead of a
+# second, prefetching query; they are the rows prefetch_related("choices")
+# loaded, in its order (Choice.Meta.ordering = id), and are put where it
+# put them, so ``question.choices.all()`` reads no database.
+CHOICE_COLUMNS: tuple[str, ...] = tuple(f.attname for f in Choice._meta.concrete_fields)
+
+
+def _prefetch_choices(question: Question) -> None:
+    choices = [
+        Choice.from_db(question._state.db, CHOICE_COLUMNS, [row[name] for name in CHOICE_COLUMNS])
+        for row in question.choice_rows
+    ]
+    cached = Choice.objects.filter(question=question)
+    cached._result_cache = choices
+    cached._prefetch_done = True
+    question._prefetched_objects_cache = {"choices": cached}
 
 
 def get_stratified_test_questions(*, topic_id: int) -> list[Question]:

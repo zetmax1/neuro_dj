@@ -176,14 +176,19 @@ def clear_local_cache() -> None:
     _instance_token = None
 
 
-def get_snapshot() -> KBSnapshot:
+def get_snapshot(version: int | None = None) -> KBSnapshot:
     """
     The snapshot of the current committed KB version.
+
+    ``version`` is that version when the caller has already read it in the
+    same request — the answer path reads it in the statement that loads the
+    choice (D66a) — so it is not read twice.
 
     Never call this inside a KB write transaction: such a snapshot would see
     uncommitted rows. The KB service uses ``build_snapshot`` instead.
     """
-    version = KnowledgeBaseVersion.current()
+    if version is None:
+        version = KnowledgeBaseVersion.current()
     local = getattr(_local, "snapshot", None)
     if local is not None and local.version == version:
         return local

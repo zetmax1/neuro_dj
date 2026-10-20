@@ -16,7 +16,7 @@ Coordinates the full answer-submission lifecycle inside a single
     7. Run Algorithm 2.3 (``readiness.apply_answer``): recompute M, and when
        it changed, move the counters of the immediate successors.
     8. Append the answer to the ledger with everything the model used, and
-       link the history entry to it.
+       its history entry, in one statement (D66a).
     9. Select the next adaptive question.
 
 The order inside step 6 is fixed by 3.3: P(G) and P(S) come from the θ and b
@@ -42,8 +42,9 @@ from datetime import datetime
 from typing import Optional
 
 from django.db import transaction
+from django.db.models import Subquery
 
-from curriculum.models import Topic
+from curriculum.models import KnowledgeBaseVersion, Topic
 from curriculum.services.graph import get_snapshot
 
 from assessments.models import (
@@ -52,7 +53,6 @@ from assessments.models import (
     Choice,
     Question,
     StudentTopicState,
-    UserKnowledgeHistory,
 )
 from assessments.models import AssessmentAttempt
 from assessments.services import ledger, readiness, student_model
@@ -152,12 +152,20 @@ def apply_one_answer(
     question: Question = choice.question
     topic: Topic = question.topic
 
-    source = ledger.classify_source(user=user, question=question, requested=requested_source)
+    # The D25 window, the parameters, P(L) and max(attempt_no) in one read,
+    # under the lock the caller holds and before this answer writes (D66a).
+    context = student_model.answer_context(
+        user=user, topic_id=topic.pk, question_id=question.pk, snapshot=snapshot,
+    )
+    source = ledger.classify_source(
+        user=user, question=question, requested=requested_source, recent=context.recent,
+    )
     if source == AttemptSource.REVIEW_REPEAT:
         # D25: logged, but not an observation — no trace, no state movement.
         attempt = ledger.record_attempt(
             user=user, choice=choice, source=source, session=session,
             answered_at=answered_at, snapshot=snapshot, lock_held=True,
+            last_attempt_no=context.last_attempt_no,
         )
         return AnswerOutcome(
             attempt=attempt,
@@ -177,6 +185,7 @@ def apply_one_answer(
         question=question,
         is_correct=choice.is_correct,
         snapshot=snapshot,
+        context=context,
     )
     readiness_result = readiness.apply_answer(
         user=user,
@@ -203,14 +212,11 @@ def apply_one_answer(
         answered_at=answered_at,
         snapshot=snapshot,
         lock_held=True,
-    )
-    UserKnowledgeHistory.objects.create(
-        user=user,
-        topic=topic,
-        calculated_mastery=applied.mastery,
-        algorithm_used=AlgorithmChoice.THESIS_HYBRID,
-        attempt=attempt,
-        created_at=attempt.answered_at,
+        last_attempt_no=context.last_attempt_no,
+        history=ledger.HistoryEntry(
+            calculated_mastery=applied.mastery,
+            algorithm_used=AlgorithmChoice.THESIS_HYBRID,
+        ),
     )
 
     if readiness_result.opened:
@@ -256,9 +262,14 @@ def process_submission(
         raise ValueError(f"process_submission does not accept source={source!r}.")
 
     # --- Step 1: Fetch & validate (single query with select_related) -------
+    # The KB version rides along as a scalar subquery, so the snapshot below
+    # costs no statement of its own (D66a).
     choice: Choice = (
         Choice.objects
         .select_related("question", "question__topic")
+        .annotate(kb_version=Subquery(
+            KnowledgeBaseVersion.objects.filter(pk=1).values("version")[:1]
+        ))
         .get(pk=choice_id, question_id=question_id, question__topic__is_archived=False)
     )
     question: Question = choice.question
@@ -268,7 +279,7 @@ def process_submission(
     # One snapshot for the whole submission: the course of the ability row, the
     # prerequisites of P(L0), the readiness counters and the ledger's
     # kb_version all come from it, so they cannot disagree with each other.
-    snapshot = get_snapshot()
+    snapshot = get_snapshot(version=choice.kb_version)
 
     # --- Step 2: Serialise this learner's answers on this topic ------------
     # The advisory lock is taken before the state row lock (same order as the

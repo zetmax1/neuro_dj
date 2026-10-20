@@ -31,18 +31,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from django.conf import settings
-from django.db import transaction
-from django.db.models import F
+from django.db import connection, transaction
+from django.db.models import Exists, OuterRef, Subquery
+from django.utils import timezone
 
+from curriculum.models import Topic
 from curriculum.services.graph import KBSnapshot, get_snapshot
 
 from assessments.models import (
+    AssessmentAttempt,
     AttemptSource,
     Question,
     TopicModelParams,
     UserAbility,
 )
-from assessments.services.ledger import ModelTrace
+from assessments.services.ledger import ModelTrace, review_window
 from neuro_model import student
 from neuro_model.init import Prerequisite
 
@@ -139,6 +142,63 @@ def latest_mastery(*, user, topic_ids) -> dict[int, float]:
     return {topic_id: p_after for topic_id, p_after in rows}
 
 
+@dataclass(frozen=True)
+class AnswerContext:
+    """
+    What one answer reads from the ledger and the parameter table (D66a).
+
+    One statement instead of four — the D25 window, ``TopicModelParams``, the
+    engine's last P(L) and ``max(attempt_no)``. It is taken under the
+    learner's (user, topic) advisory lock and before any write of the answer,
+    so every value is the one the four separate reads returned.
+    """
+    recent: bool                 # D25: this question answered inside the review window
+    last_attempt_no: int         # max(attempt_no) for (learner, topic); 0 for none
+    params: dict[int, student.TopicParams]
+    mastery: dict[int, float]    # ``latest_mastery`` for the topic and Pre(w)
+
+
+def answer_context(*, user, topic_id: int, question_id: int, snapshot: KBSnapshot) -> AnswerContext:
+    """The topic and its predecessors, each row with its correlated reads."""
+    ids = (topic_id, *snapshot.pre.get(topic_id, ()))
+    mine = AssessmentAttempt.objects.filter(user=user, topic_id=OuterRef("pk"))
+    observed = mine.filter(
+        p_after__isnull=False,
+        engine_version__startswith=ENGINE_NAME,
+        source__in=OBSERVED_SOURCES,
+    )
+    fitted = TopicModelParams.objects.filter(topic_id=OuterRef("pk"))
+    recent = AssessmentAttempt.objects.filter(
+        user=user, question_id=question_id, answered_at__gte=timezone.now() - review_window(),
+    )
+    rows = (
+        Topic.objects.filter(pk__in=ids).order_by()
+        .annotate(
+            fitted=Exists(fitted),
+            p0=Subquery(fitted.values("p0")[:1]),
+            pt=Subquery(fitted.values("pt")[:1]),
+            g0=Subquery(fitted.values("g0")[:1]),
+            s0=Subquery(fitted.values("s0")[:1]),
+            last_p=Subquery(observed.order_by("-attempt_no").values("p_after")[:1]),
+            last_no=Subquery(mine.order_by("-attempt_no").values("attempt_no")[:1]),
+            recent=Exists(recent),
+        )
+        .values_list("pk", "fitted", "p0", "pt", "g0", "s0", "last_p", "last_no", "recent")
+    )
+    fallback = default_params()
+    params = {pk: fallback for pk in ids}
+    mastery: dict[int, float] = {}
+    is_recent, last_no = False, 0
+    for pk, has_params, p0, pt, g0, s0, last_p, last, recent_flag in rows:
+        if has_params:
+            params[pk] = student.TopicParams(p0=p0, pt=pt, g0=g0, s0=s0)
+        if last_p is not None:
+            mastery[pk] = last_p
+        if pk == topic_id:
+            is_recent, last_no = recent_flag, last or 0
+    return AnswerContext(recent=is_recent, last_attempt_no=last_no, params=params, mastery=mastery)
+
+
 def prerequisites_of(
     *,
     topic_id: int,
@@ -170,6 +230,30 @@ def prerequisites_of(
 # One answer
 # ---------------------------------------------------------------------------
 
+# Raw SQL, because the ORM cannot update two models in one statement (D66a).
+# The two rows were locked FOR UPDATE just before, so this takes no new lock;
+# the columns and values are exactly those of the two QuerySet.update() calls
+# it replaces (theta_updated_at is auto_now, which QuerySet.update() never
+# set either). Parametrised; the table names are literals, checked against
+# the models by a test.
+WRITE_THETA_AND_B_SQL = """
+WITH ability AS (
+    UPDATE assessments_userability
+    SET theta = %s, n_answers = n_answers + 1
+    WHERE id = %s
+)
+UPDATE assessments_question
+SET irt_difficulty = %s, n_answers = n_answers + 1
+WHERE id = %s
+"""
+
+
+def write_theta_and_b(*, ability_id: int, theta: float, question_id: int, b_q: float) -> None:
+    """θ_s and n_s, b_q and n_q after one answer, in one statement."""
+    with connection.cursor() as cursor:
+        cursor.execute(WRITE_THETA_AND_B_SQL, [theta, ability_id, b_q, question_id])
+
+
 @dataclass(frozen=True)
 class AppliedAnswer:
     """What the engine concluded, ready for the state row and the ledger."""
@@ -188,12 +272,15 @@ def apply_answer(
     is_correct: bool,
     snapshot: KBSnapshot | None = None,
     overrides: student.Flags | None = None,
+    context: AnswerContext | None = None,
 ) -> AppliedAnswer:
     """
     Algorithm 2.4 for one answer: read, compute, write θ and b_q.
 
     Returns the quantities the ledger records. The caller holds the
-    transaction and has already locked the learner's state row.
+    transaction and has already locked the learner's state row. ``context``
+    is ``answer_context`` taken by the caller under the same lock; without it
+    the parameters and P(L) are read here (``rebuild_student_states``).
     """
     if not transaction.get_connection().in_atomic_block:
         raise RuntimeError("apply_answer must run inside transaction.atomic().")
@@ -203,8 +290,11 @@ def apply_answer(
 
     # --- read -------------------------------------------------------------
     pre_ids = tuple(snapshot.pre.get(topic.pk, ()))
-    params = params_for((topic.pk, *pre_ids))
-    mastery = latest_mastery(user=user, topic_ids=(topic.pk, *pre_ids))
+    if context is not None:
+        params, mastery = context.params, context.mastery
+    else:
+        params = params_for((topic.pk, *pre_ids))
+        mastery = latest_mastery(user=user, topic_ids=(topic.pk, *pre_ids))
 
     ability, _created = (
         UserAbility.objects
@@ -235,11 +325,9 @@ def apply_answer(
     # --- write ------------------------------------------------------------
     # n_answers counts model observations, so it moves even when the flags
     # freeze θ and b: K(n) must shrink for the learner either way.
-    UserAbility.objects.filter(pk=ability.pk).update(
-        theta=result.theta_after, n_answers=F("n_answers") + 1,
-    )
-    Question.objects.filter(pk=item.pk).update(
-        irt_difficulty=result.b_after, n_answers=F("n_answers") + 1,
+    write_theta_and_b(
+        ability_id=ability.pk, theta=result.theta_after,
+        question_id=item.pk, b_q=result.b_after,
     )
 
     return AppliedAnswer(

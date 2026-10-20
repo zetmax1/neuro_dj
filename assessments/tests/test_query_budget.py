@@ -8,16 +8,15 @@ Counted: every statement Django sends except BEGIN and COMMIT, which every
 writing request has and no query plan can remove. SAVEPOINT pairs inside the
 request (``get_or_create``) are counted.
 
-``submit_answer`` has a budget of 12 (V-F1). The exact count of every case is
-pinned, so a change that adds a query fails here and says which ones it ran.
+``submit_answer`` has a budget of 12 (V-F1), met by every recurring case
+since D66a. The exact count of every case is pinned, so a change that adds a
+query fails here and says which ones it ran.
 ``next_question`` and ``trajectory`` have no budget; their counts are pinned the
 same way, and the trajectory's independence of the course size is checked in
 ``test_trajectory.py``.
 """
 
 from __future__ import annotations
-
-import warnings
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -134,15 +133,10 @@ def test_submit_answer_stays_within_the_budget(api, course):
     assert response.json()["source"] == "review_repeat"
     expect(repeat, EXPECTED["review_repeat"], "a review_repeat")
 
-    # V-F1 is a soft threshold (NEUROLEARN_VERIFICATION.md, F): over it is a
-    # warning with the exact numbers, not a failure. Why the recurring cases
-    # stay above 12: D66 in REMEDIATION_PROGRESS.md.
-    over = {
-        label: EXPECTED[label] for label in ("steady", "mastery_flip", "review_repeat")
-        if EXPECTED[label] > SUBMIT_BUDGET
-    }
-    if over:
-        warnings.warn(f"submit_answer over the V-F1 budget of {SUBMIT_BUDGET}: {over}", stacklevel=1)
+    # V-F1: every case that recurs is within the budget (D66a). The one-off
+    # first answer in a course (θ row created) is pinned above, not budgeted.
+    for label in ("steady", "mastery_flip", "review_repeat"):
+        assert EXPECTED[label] <= SUBMIT_BUDGET, f"{label} is over the V-F1 budget"
 
 
 def test_the_first_request_of_a_new_learner_also_materialises_the_states(api, course):
@@ -171,11 +165,11 @@ def test_next_question_and_trajectory_counts(api, course):
 
 
 EXPECTED = {
-    "cold": 28,
-    "first_in_course": 22,
-    "steady": 19,
-    "mastery_flip": 20,
-    "review_repeat": 11,
-    "next_question": 7,
+    "cold": 21,
+    "first_in_course": 15,
+    "steady": 12,
+    "mastery_flip": 12,
+    "review_repeat": 8,
+    "next_question": 6,
     "trajectory": 5,
 }

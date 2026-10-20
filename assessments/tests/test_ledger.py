@@ -50,6 +50,8 @@ WRITE_PATTERNS = [
         r"\.(attempts|assessment_attempts|course_attempts|selections)"
         r"\.(create|bulk_create|get_or_create|update_or_create)\b"
     ),
+    # D66a writes ledger rows with raw SQL too; that may only happen here as well.
+    re.compile(r"INSERT\s+INTO\s+\"?assessments_assessmentattempt", re.IGNORECASE),
 ]
 
 
@@ -72,6 +74,28 @@ def test_only_the_ledger_creates_attempts():
         if any(p.search(line) for p in WRITE_PATTERNS)
     ]
     assert offenders == []
+
+
+def test_raw_sql_names_the_models_columns_and_tables():
+    """
+    D66a's statements are literals, not built from the models; this keeps them
+    in step: a new column or a renamed table fails here, not in production.
+    """
+    from assessments.models import AssessmentAttempt, UserAbility, UserKnowledgeHistory
+    from assessments.services import student_model
+
+    def columns(model):
+        return tuple(f.column for f in model._meta.concrete_fields if not f.primary_key)
+
+    assert ledger.ATTEMPT_COLUMNS == columns(AssessmentAttempt)
+    assert ledger.HISTORY_COLUMNS == columns(UserKnowledgeHistory)
+    sql = " ".join(ledger.INSERT_WITH_HISTORY_SQL.split())
+    assert f"INSERT INTO {AssessmentAttempt._meta.db_table} ( {', '.join(ledger.ATTEMPT_COLUMNS)} )" in sql
+    assert f"INSERT INTO {UserKnowledgeHistory._meta.db_table} ( {', '.join(ledger.HISTORY_COLUMNS)} )" in sql
+    assert sql.count("%s") == len(ledger.ATTEMPT_COLUMNS) + 2
+    theta_sql = " ".join(student_model.WRITE_THETA_AND_B_SQL.split())
+    assert f"UPDATE {UserAbility._meta.db_table} SET theta = %s" in theta_sql
+    assert f"UPDATE {Question._meta.db_table} SET irt_difficulty = %s" in theta_sql
 
 
 def test_removed_fabricating_helpers_are_gone():

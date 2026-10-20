@@ -32,6 +32,7 @@ from dataclasses import dataclass
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Case, F, Value, When
 from django.utils import timezone
 
 from curriculum.models import Topic
@@ -313,14 +314,11 @@ def apply_answer(
         missing=state.missing_count,
     )
     state.kb_version = snapshot.version
-    state.save(update_fields=[
-        "p_mastery", "mastered_flag", "status", "attempts", "correct",
-        "accuracy", "started_at", "kb_version", "updated_at",
-    ])
     states[topic_id] = state
 
     if new_flag == previous_flag:
         # Step 2: nothing downstream can have changed.
+        state.save(update_fields=ANSWERED_FIELDS)
         return Applied(state=state, opened=(), closed=(), flag_changed=False)
 
     propagation = r.propagate(
@@ -343,10 +341,7 @@ def apply_answer(
         successor_state.kb_version = snapshot.version
         touched.append(successor_state)
 
-    if touched:
-        StudentTopicState.objects.bulk_update(
-            touched, ["missing_count", "status", "kb_version"],
-        )
+    _write_answer_and_successors(state, touched)
 
     return Applied(
         state=state,
@@ -354,3 +349,33 @@ def apply_answer(
         closed=propagation.closed,
         flag_changed=True,
     )
+
+
+# What one answer writes on its own row, and on each successor's (Algorithm 2.3).
+ANSWERED_FIELDS = [
+    "p_mastery", "mastered_flag", "status", "attempts", "correct",
+    "accuracy", "started_at", "kb_version", "updated_at",
+]
+SUCCESSOR_FIELDS = ("missing_count", "status", "kb_version")
+
+
+def _write_answer_and_successors(state: StudentTopicState, touched: list[StudentTopicState]) -> None:
+    """
+    The answered row and its successors in one UPDATE (D66a) instead of a save
+    and a bulk_update. Each row gets exactly the columns those two wrote — the
+    answered row ANSWERED_FIELDS, a successor SUCCESSOR_FIELDS — and every other
+    column is written back from the row itself (``ELSE column``), never from a
+    copy in memory, so nothing another transaction wrote is overwritten.
+    """
+    state.updated_at = timezone.now()  # what save()'s auto_now would have set
+    model_field = StudentTopicState._meta.get_field
+    rows = {state.pk: (state, ANSWERED_FIELDS)}
+    rows.update({s.pk: (s, SUCCESSOR_FIELDS) for s in touched})
+    columns = {}
+    for name in dict.fromkeys([*ANSWERED_FIELDS, *SUCCESSOR_FIELDS]):
+        whens = [
+            When(pk=pk, then=Value(getattr(row, name), output_field=model_field(name)))
+            for pk, (row, names) in rows.items() if name in names
+        ]
+        columns[name] = Case(*whens, default=F(name), output_field=model_field(name))
+    StudentTopicState.objects.filter(pk__in=rows).update(**columns)
