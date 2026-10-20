@@ -2821,6 +2821,68 @@ usul ham yaxlit.
 
 ---
 
+## D65 — Hypothesis xossa testlari: tuzilishi va topilgani (10-bosqich, 2026-10-20)
+
+**Ikki state machine.** Sof model — `neuro_model/tests/test_properties.py`;
+PostgreSQL'dagi haqiqiy yozuvchilar — `curriculum/tests/test_kb_properties.py`.
+Ikkalasi ham Hypothesis `RuleBasedStateMachine`: tasodifiy daraxt (kurs = ildiz,
+topic = barg), tasodifiy prerekvizitlar va amallar ketma-ketligi. Amalni
+qabul qilish yoki rad etishni testning o‘zi emas, production kodi hal qiladi:
+sof tomonda `is_nested`, `find_cycle_chain` (Algoritm 2.1), `topological_order`
+(Algoritm 2.2) va talabaning holati (TY1–TY4); Django tomonda `kb.*` servisi
+(`KBError`), `process_submission` (`TopicClosed`) va arxivlangan mavzu uchun
+400 yo‘li.
+
+- Amallar: prerekvizit qo‘shish / o‘chirish / vaznini o‘zgartirish (yaroqsiz ω
+  ham), tugunni ko‘chirish, tartibini o‘zgartirish, yangi topic/section,
+  arxivlash (Django), javoblar seriyasi (aralash yoki bir xil javoblar ketma-
+  ketligi; Django'da 4 tadan 3 tasi interfeys taklif qilgan ochiq mavzudan).
+- Har qabul qilingan amaldan keyin: G_L'da sikl yo‘q (Algoritm 2.2 dan
+  mustaqil DFS); topologik tartib barcha faol topic'larni bir martadan
+  o‘z ichiga oladi va har bir qirraga mos; `missing_count` M bayroqlaridan
+  qayta hisoblanganiga teng (Django'da ikki marta: resync'dan **oldin**
+  inkremental Algoritm 2.3 yozgan qatorlar va `states_for` dan keyin hamma
+  qatorlar, TY6); attempts / correct / accuracy, θ va b_q ning javob sonlari
+  ledger'dan sanalganiga teng; ehtimolliklar [0, 1] da, θ ±4 ichida;
+  2.5-tasdiq; TY5 va holatlar jadvali. Django'da qo‘shimcha: Y1, Y2, Y4,
+  G_L SQL'dan (django-tree-queries CTE bilan Leaves) qayta qurilib snapshot
+  bilan solishtiriladi, KB versiyasi KB amalida aniq 1 ga, javobda 0 ga oshadi.
+- Rad etilgan amal: Django'da KB versiyasi, tugunlar, relatsiyalar, holat
+  qatorlari, ledger id'lari, θ va b_q — hammasi amaldan oldingisiga teng; sof
+  tomonda funksiyalarga mashinaning o‘z lug‘atlari beriladi, shuning uchun
+  kirishni o‘zgartirgan funksiya ushlanadi.
+- Deterministik: `derandomize=True`, `database=None` (diskda `.hypothesis/`
+  yo‘q). Sof: 200 misol × 50 qadam (~6 s); Django: 40 misol × 20 qadam, har
+  misol bitta savepoint ichida va oxirida rollback (~37 s).
+
+**Testning o‘zi tekshirildi (ataylab kiritilgan xatolar, commit qilinmagan).**
+Sof machine 4 tadan 4 tasini ushladi: `propagate` hisoblagichlarni
+qaytarmaydi; TY5 buzilgan (`next_status` boshlangan mavzuni yopadi); Algoritm
+2.1 sikl topmaydi; ochiq mavzuni qayta yopish shoxi yo‘q. Django machine 6
+tadan 6 tasini: `propagate`; TY5; Algoritm 2.1 ham, `_fresh()` himoyasi ham
+o‘chirilgan; versiya ikki marta oshadi; TY6 `resync` o‘chirilgan; rad etilgan
+`add_prerequisite` oldin bitta qatorni yozib qo‘yadi. Bir yugurishdagi qamrov:
+sof — 12 512 qabul qilingan amal, 649 ta M o‘zgarishi, 56 ochilish, 26 yopilish;
+Django — 1 164 qabul qilingan javob, 75 M o‘zgarishi, 5 ochilish.
+
+**Topilma: P(L) = 1.0 (D65a).** Hypothesis birinchi yugurishdayoq qisqartirib
+berdi: PT = 0,5 bo‘lgan mavzuda ~8 ta to‘g‘ri javobdan keyin P(L) double'da
+aynan 1.0 ga yaxlitlanadi; shundan keyingi noto‘g‘ri javobda posterior
+P·S / (1 − fl(1 − S)) = **1,000000000000006**. PT o‘tishi uni 1.0 ga clamp
+qiladi, shuning uchun ledger'ga yoziladigan hech bir qiymat [0, 1] dan
+chiqmaydi (`posterior` faqat xotiradagi `StepResult` da). Lekin P(L) = 1.0
+**yutuvchi holat**: undan keyin hech qanday javob P(L) ni τ − δ dan pastga
+tushira olmaydi (matematik jihatdan P(L) < 1 bo‘lishi kerak edi). Model
+kodiga tegilmadi (II bob formulalari). Test shuni aniq ifodalaydi: yoziladigan
+qiymatlar qat’iy [0, 1] da, posterior 1e-12 aniqlikda; 2.5 ning qat’iy shakli
+1e-9 < P(L) < 1 − 1e-9 da (double o‘zgarishni ajrata oladigan joyda), kuchsiz
+shakli hamma joyda. Taklif (foydalanuvchi qarori): `bkt.posterior` ni [0, 1]
+ga clamp qilish va P(L) ni 1 − ε bilan cheklash — bu natijalarni (juda kam
+bo‘lsa ham) o‘zgartirishi mumkin, shuning uchun alohida qaror kerak.
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
