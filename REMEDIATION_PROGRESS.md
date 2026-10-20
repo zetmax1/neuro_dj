@@ -2963,6 +2963,42 @@ test fayllari ham hisobga kirib, son ma’nosiz edi (audit 7.2 dagi 68 % ham shu
 usulda olingan).
 
 
+
+## D68 — Locust protokoli (10-bosqich, 2026-10-20, to‘liq yugurishdan oldin)
+
+- **Ma’lumot (D13).** Alohida baza `<DATABASE_URL nomi>_locust` (shu Postgres
+  serverida, yo‘q bo‘lsa yaratiladi, hech qachon o‘chirilmaydi). `seed_load_test`
+  unda kamida bitta simulyatsiya qilinmagan akkaunt bo‘lsa, ishlamaydi.
+  O‘quvchilar — `load-<run>-NN@simulated.invalid`, `is_simulated=True`, har
+  yugurish o‘z yangi akkauntlari bilan (oldingi yugurishning progressi
+  o‘tmaydi); parol har yugurishda generatsiya qilinadi va hech qayerga
+  yozilmaydi. Dev baza faqat `CREATE DATABASE` uchun ochiladi.
+- **Kurs (V-F2).** 500 topic (25 section × 20), 1 500 prerekvizit (topic →
+  keyingi topic, ±40 o‘rin ichida; G_L qurilishi bo‘yicha asiklik), har
+  topic'da 10 savol (b ∈ [−1,5; 1,5], 4 variant). Hammasi `kb.*` servisi
+  orqali (Algoritm 2.1 va versiya har relatsiyada ishlaydi).
+- **Server.** `manage.py runserver --noreload` (bitta jarayon, threaded):
+  `requirements.lock` da WSGI server yo‘q, lock fayllar esa o‘zgarmaydi.
+  **`DEBUG=False`**, Redis kesh (indeks 3), `DB_CONN_MAX_AGE=0` (standart),
+  login throttle 100 000/minute (standart 5/minute — bitta IP dan 50 login
+  aks holda 429 bo‘ladi; bu yuk testi uchun yagona o‘zgartirilgan sozlama).
+- **Oqim.** CSRF → login → (`next_question` → `submit_answer` → `trajectory`)
+  takrorlanadi; har so‘rovdan keyin 0,5–1,5 s kutish; javoblarning 75 % to‘g‘ri;
+  o‘rganiladigan mavzu — trayektoriyaning boshi (Algoritm 2.5). `next_question`
+  ning 403/404 javoblari API mo‘ljallagan javob — muvaffaqiyat deb sanaladi va
+  o‘quvchi boshqa mavzuga o‘tadi; boshqa har qanday non-2xx — xato.
+- **Yuk.** 50 foydalanuvchi, 5/s bilan ishga tushadi, 2 daqiqa, headless; shu
+  paytda boshqa test yoki benchmark ishlamaydi. Oldin MemAvailable va swap
+  yoziladi, yuk davomida har 5 s da namuna olinadi.
+- **Natija.** `experiments/results/locust/<ts>/`: har endpoint uchun p50, p95,
+  xato ulushi, RPS; server logidagi status kodlari; muhit (CPU, governor,
+  xotira, Postgres sozlamalari); D54 provenance. V-F2 mo‘ljali (p95 < 300 ms)
+  yumshoq — natija baholanadi, FAIL emas.
+- **Cheklovlar.** `runserver` production server emas (bitta jarayon); Locust
+  100 ms dan yuqori vaqtlarni ikki muhim raqamgacha yaxlitlaydi; CPU
+  governor `powersave`.
+
+
 ---
 
 ## Savollar va qarorlar

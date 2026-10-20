@@ -11,6 +11,10 @@
 # credentials never reach the terminal or a unit's environment: they are read
 # inside the process that needs them.
 #
+# NEUROLEARN_DB_SUFFIX (optional) appends to the database name, e.g. "_alt" so a
+# second pytest run gets its own test database (test_<db>_alt) instead of
+# colliding with one already running.
+#
 # BENCHMARK_DATABASE_URL names the separate database stage 9 writes to (D63).
 # Create it once:
 #   docker exec neurolearn-postgres-1 bash -c \
@@ -26,7 +30,7 @@ export DJANGO_ENV_FILE=""
 export SECRET_KEY="${SECRET_KEY:-benchmark-local-only}"
 export DEBUG="${DEBUG:-False}"
 export SECURE_SSL_REDIRECT=False
-export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@127.0.0.1:5433/${PGDATABASE}"
+export DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@127.0.0.1:5433/${PGDATABASE}${NEUROLEARN_DB_SUFFIX:-}"
 export BENCHMARK_DATABASE_URL="postgres://${PGUSER}:${PGPASSWORD}@127.0.0.1:5433/${PGDATABASE}_bench"
 unset PGPASSWORD
 
