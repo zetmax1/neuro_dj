@@ -46,6 +46,7 @@ PYTHON = sys.executable
 LOCUST = str(Path(PYTHON).with_name("locust"))
 ENDPOINTS = ("login", "next_question", "submit_answer", "trajectory")
 V_F2_TARGET_MS = 300  # V-F2: local p95 below 300 ms (a soft target)
+LOCUST_ROUNDING_ABOVE_MS = 100  # Locust keeps two significant digits above this
 REDIS_URL = "redis://127.0.0.1:6380/3"
 
 
@@ -142,15 +143,19 @@ def read_stats(prefix: Path) -> dict[str, dict]:
     return out
 
 
-def server_statuses(log: Path) -> dict[str, int]:
-    """Status codes the server logged, as a check on Locust's own counts."""
+def server_statuses(log: Path) -> list[dict[str, int]]:
+    """
+    Status codes the server logged, as a check on Locust's own counts. A list
+    of records rather than a {code: count} mapping: every number tables.md
+    shows has to be a value in metrics.json (D48), and keys are not values.
+    """
     pattern = re.compile(r'" (\d{3}) \d+$')
-    counts: Counter[str] = Counter()
+    counts: Counter[int] = Counter()
     for line in log.read_text(errors="replace").splitlines():
         match = pattern.search(line)
         if match:
-            counts[match.group(1)] += 1
-    return dict(sorted(counts.items()))
+            counts[int(match.group(1))] += 1
+    return [{"status": code, "count": n} for code, n in sorted(counts.items())]
 
 
 def tables(metrics: dict) -> str:
@@ -170,10 +175,10 @@ def tables(metrics: dict) -> str:
         if row is None:
             continue
         lines.append(
-            f"| {name} | {row['requests']} | {row['failures']} | {row['error_share']:.2%} "
+            f"| {name} | {row['requests']} | {row['failures']} | {row['error_share']:.4f} "
             f"| {row['p50_ms']:.0f} | {row['p95_ms']:.0f} | {row['rps']:.2f} |"
         )
-    lines += ["", f"V-F2 mo‘ljali (p95 < {V_F2_TARGET_MS} ms, yumshoq):"]
+    lines += ["", f"V-F2 mo‘ljali (p95 < {metrics['v_f2_target_ms']} ms, yumshoq):"]
     for name, verdict in metrics["v_f2"].items():
         lines.append(f"- `{name}`: {verdict}")
     env = metrics["environment"]
@@ -193,14 +198,16 @@ def tables(metrics: dict) -> str:
         f"- Yuk davomida: eng past MemAvailable {env['memory_during'].get('min_mem_available_mb')} MB, "
         f"eng past SwapFree {env['memory_during'].get('min_swap_free_mb')} MB "
         f"({env['memory_during'].get('samples')} namuna)",
-        f"- Server logidagi status kodlari: {metrics['server_statuses']}",
+        "- Server logidagi status kodlari: "
+        + ", ".join(f"{s['status']} — {s['count']}" for s in metrics["server_statuses"]),
         "",
         "## Manba",
         "",
         f"- commit `{metrics['provenance']['code_commit']}`, "
         f"dirty={metrics['provenance']['code_dirty']}",
         f"- buyruq: `{metrics['provenance']['command']}`",
-        "- p50/p95 — Locust'ning o‘zi: 100 ms dan yuqorida vaqtlar ikki muhim raqamgacha yaxlitlangan.",
+        f"- p50/p95 — Locust'ning o‘zi: {metrics['locust_rounding_above_ms']} ms dan yuqorida "
+        "vaqtlar ikki muhim raqamgacha yaxlitlangan.",
     ]
     return "\n".join(lines) + "\n"
 
@@ -326,6 +333,8 @@ def main(argv: list[str] | None = None) -> Path:
             "correct_rate": 0.75,
         },
         "endpoints": endpoints,
+        "v_f2_target_ms": V_F2_TARGET_MS,
+        "locust_rounding_above_ms": LOCUST_ROUNDING_ABOVE_MS,
         "v_f2": v_f2,
         "server_statuses": statuses,
         "environment": {
