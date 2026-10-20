@@ -14,6 +14,12 @@ P(L|1) > P(L) and P(L|0) < P(L). After the PT transition P(L) can rise even on
 a wrong answer — classical BKT behaviour, documented by a test rather than
 corrected.
 
+Both the posterior and P(L)′ are clamped to [0, 1] (D65a, a numerical
+safeguard like θ's clamp, F6). Once P(L) has rounded to exactly 1.0, a wrong
+answer gives P·S / (1 − fl(1 − S)) = 1 + O(1e-15); the transition already
+mapped that back to 1.0, so the clamp changes no P(L)′ — checked bit for bit
+over H2 (``experiments/clamp_count.py``).
+
 All functions are pure.
 """
 
@@ -42,7 +48,7 @@ def predict(*, p_l: float, guess: float, slip: float) -> float:
 
 
 def posterior(*, p_l: float, guess: float, slip: float, is_correct: bool) -> float:
-    """P(L | x) by Bayes' rule, before the learning transition."""
+    """P(L | x) by Bayes' rule, before the learning transition, clamped to [0, 1]."""
     p_hat = predict(p_l=p_l, guess=guess, slip=slip)
     if is_correct:
         numerator, denominator = p_l * (1.0 - slip), p_hat
@@ -50,7 +56,7 @@ def posterior(*, p_l: float, guess: float, slip: float, is_correct: bool) -> flo
         numerator, denominator = p_l * slip, 1.0 - p_hat
     if denominator < _EPSILON:
         return p_l
-    return numerator / denominator
+    return min(1.0, max(0.0, numerator / denominator))
 
 
 def transition(*, posterior: float, pt: float) -> float:

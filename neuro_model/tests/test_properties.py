@@ -450,14 +450,11 @@ class KnowledgeBaseMachine(RuleBasedStateMachine):
             assert st_.p_l is None or 0.0 <= st_.p_l <= 1.0
         if self.last is not None:
             step, _ = self.last
-            # Everything the ledger records is a probability, exactly.
-            for value in (step.p_before, step.p_hat, step.p_after, step.guess, step.slip):
+            # Hypothesis found that once P(L) has rounded to exactly 1.0, a
+            # wrong answer gave a posterior of 1 + O(1e-15) (D65a); it is
+            # clamped now, so every quantity is a probability exactly.
+            for value in (step.p_before, step.p_hat, step.posterior, step.p_after, step.guess, step.slip):
                 assert 0.0 <= value <= 1.0
-            # The posterior is not recorded. Hypothesis found that once P(L)
-            # has rounded to exactly 1.0, a wrong answer gives
-            # P·S / (1 − fl(1 − S)) = 1 + O(1e-15); the PT transition clamps
-            # it back, so P(L)′ is 1.0 again (D65).
-            assert -ROUNDING <= step.posterior <= 1.0 + ROUNDING
 
     def assertion_2_5_holds_for_the_last_answer(self):
         if self.last is None:

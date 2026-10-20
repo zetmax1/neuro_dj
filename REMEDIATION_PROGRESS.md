@@ -3275,6 +3275,36 @@ Qo‘shimcha shartlar:
 4. THESIS_MAPPING: F6 — raqamli himoya (θ clamp kabi).
 
 
+### D65a — bajarildi (2026-10-20)
+
+`neuro_model/bkt.py::posterior` endi `min(1, max(0, …))` qaytaradi
+(`transition` avvaldan clamp qiladi). `experiments/.venv/bin/python -m
+experiments.clamp_count` (61 s) — har model ikki marta: yangi kod va
+clamp'siz eski posterior bilan; `assert` bilan:
+
+| Model | Test bashoratlari | P(L)′ | Bit-aniq teng | posterior > 1 | posterior < 0 | max \|ΔP(L)′\| |
+|---|---|---|---|---|---|---|
+| BKT | 338 001 | 1 744 901 | ha / ha | 1 177 | 0 | 0.0 |
+| BKT+IRT (λ=0) | 338 001 | 1 744 901 | ha / ha | 370 | 0 | 0.0 |
+
+**Manfiy posterior — analitik chegara.** Surat P·(1 − S) yoki P·S ≥ 0
+(P, S ∈ [0, 1]), maxraj p̂ yoki 1 − p̂ ≥ 1e-12 (aks holda P qaytariladi), demak
+xom posterior < 0 bo‘la olmaydi; bo‘lganda ham (−ε) |ΔP(L)′| = ε(1 − PT) ≤ ε.
+Kuzatilgan: 0 holat, maksimum 0. **posterior > 1** da ikkala yo‘lda ham
+P(L)′ = 1.0 (o‘tish clamp'i), farq aynan 0.
+
+**Junyi (H1, H3).** Per-skill parametrlar saqlanmagan — qayta o‘ynalmaydi.
+Yuqoridagi chegaraga ko‘ra clamp faqat xom posterior > 1 da ishlaydi va u
+yerda P(L)′ ikkala kodda ham 1.0; bashorat yangilanishdan oldingi P(L) dan.
+Shuning uchun hisobot aniqligida (6 xona) o‘zgarish yo‘q, qayta ishga
+tushirish talab qilinmaydi. Commit qilingan H2, D55, D60, H1, H3 natijalari
+o‘zgarmaydi.
+
+Testlar: `test_the_posterior_is_clamped_once_p_l_has_rounded_to_one`
+(`test_student.py`); Hypothesis machine'dagi posterior endi qat’iy [0, 1] da
+tekshiriladi. `neuro_model` + 4-bo‘lim etalonlari + Django machine: 555 passed.
+
+
 ## D69 — D48 ga zid birinchi Locust papkalari olib tashlanadi (2026-10-20)
 
 Foydalanuvchi qarori (10-bosqich, 2-qism, A1). `experiments/results/locust/20261020-070525`

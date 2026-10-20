@@ -246,6 +246,17 @@ def test_assertion_2_5_holds_for_every_bounded_item():
             assert bkt.posterior(p_l=0.6, guess=guess, slip=slip, is_correct=False) < 0.6
 
 
+def test_the_posterior_is_clamped_once_p_l_has_rounded_to_one():
+    """
+    D65a: the case Hypothesis found. With P(L) = 1.0 exactly, a wrong answer's
+    posterior P·S / (1 − fl(1 − S)) overshoots 1 (here by one ulp).
+    """
+    raw = 1.0 * 0.1 / (1.0 - bkt.predict(p_l=1.0, guess=0.2, slip=0.1))
+    assert raw > 1.0, "the unclamped formula overshoots for this slip"
+    assert bkt.posterior(p_l=1.0, guess=0.2, slip=0.1, is_correct=False) == 1.0
+    assert bkt.step(p_l=1.0, guess=0.2, slip=0.1, pt=0.5, is_correct=False).p_after == 1.0
+
+
 def test_pt_can_raise_p_l_after_a_wrong_answer():
     """
     Documented classical-BKT behaviour, not a defect: the transition applies
