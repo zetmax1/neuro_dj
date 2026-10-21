@@ -621,28 +621,33 @@ ikki buyruq ishlatadigan kodga tegmaydi.
 `verification/` ga tegilmadi; faqat ishga tushirildi
 (`scripts/dj5433.sh venv/bin/python -m pytest --ds=verification.settings verification/tests`).
 
-**Tekshiruvchining sonlari** (`verification/REPORT.md`, `85ac91e`): oldingi
-7 ta xatoni (N/A signallari, D48 mezoni, D70 fixture'i) tekshiruvchi yopdi;
-`verification/tests` **936 passed, 1 failed, 1 xfailed**, `verification/neural`
-62 passed, 3 skipped. Ikki nuqson:
+**Tekshiruvchining yopish sonlari** (`verification/REPORT.md`, `c60d00e`,
+2026-10-21): `verification/tests` **951 passed, 0 failed, 0 xfailed, 0 skipped**;
+`verification/neural` **62 passed, 3 skipped** (skip'lar — D57 izolyatsiyasi,
+populyatsiya parametrli 3 model uchun ataylab). Test soni 938 → 951
+(+12 `test_e_d71_posthoc.py`, +1 N-1 qamrovi).
+
+**Oldingi tekshiruv** (`85ac91e`): oldingi 7 ta xatoni (N/A signallari, D48
+mezoni, D70 fixture'i) tekshiruvchi yopdi; `verification/tests` 936 passed,
+1 failed, 1 xfailed, `verification/neural` 62 passed, 3 skipped. Ikki nuqson:
 
 | Nuqson | Holat | Tuzatish |
 |---|---|---|
 | N-1 (V-E3): pyKT eksporti 5 qator yozadi, pyKT 0.0.38 `read_data` 6 qator o‘qiydi | **tuzatildi** (`cdd8826`) | oltinchi qator `NA`; test eksportni pyKT'ning o‘z o‘quvchisi bilan o‘qiydi |
 | N-2 (V-H1): `measurements.csv` da mediana, p95, SQL soni, o‘zgargan qatorlar yo‘q | **tuzatildi** (`3ed55e9`) | to‘rt ustun; per-takror SQL soni va o‘zgargan qatorlar saqlanadi |
 
-**Tuzatishlardan keyin** (shu sessiyada ishga tushirildi, D71 natijalaridan keyin):
-`verification/tests` **934 passed, 3 failed, 1 xfailed**. V-E3 testi endi o‘tadi.
-Uchala FAIL — tekshiruvchining yordamchi funksiyasi `_pykt_blocks`
-(`verification/tests/test_e_consent_export.py:105`, “a pyKT block is five lines”):
-u N-1 dan oldingi 5 qatorli formatni taxmin qiladi — N-1 ning kutilgan oqibati
-(`test_v_e1_the_only_learner_identifier_is_the_pseudonym`,
-`test_v_e2_sources_and_archived_topic_in_every_file`,
-`test_v_e2_counts_agree_across_the_files`). N-2 ning strict xfail testi hamon
-xfail: u commit qilingan eski `tree-benchmark-quick/20261012-131931` CSV'sini
-o‘qiydi, commit qilingan natijalar esa qayta yozilmaydi — yangi `--quick`
-natijasi paydo bo‘lgandagina XPASS bo‘ladi. Bularni yangilash — tekshiruvchining ishi.
+**Tuzatishlardan keyin, yopishgacha** (`852e1e3`, eskirgan oraliq holat):
+`verification/tests` 934 passed, 3 failed, 1 xfailed edi. Uchala FAIL —
+tekshiruvchining yordamchi funksiyasi `_pykt_blocks`
+(`verification/tests/test_e_consent_export.py:105`) N-1 dan oldingi 5 qatorli
+blokni taxmin qilgani; N-2 ning strict xfail testi commit qilingan eski
+`tree-benchmark-quick/20261012-131931` CSV'sini o‘qigani. Yopish tekshiruvida
+(`c60d00e`) tekshiruvchi ikkalasini o‘zi yopdi: `_pykt_blocks` pyKT 0.0.38 ning
+6 qatorli blokiga moslashtirildi (modul 28 passed), N-2 testi esa `tmp_path` da
+kichik yangi `run_tree_benchmark --quick` run'ini tekshiradigan oddiy testga
+aylandi va o‘tadi.
 
-Qolgan suite'lar (o‘sha holatda): backend **1 298 passed**, 51 skipped,
-13 subtests, 0 failed; `experiments/.venv` — `experiments/tests` **415 passed**,
-2 skipped; `report_values --check` — 177 son, 0 farq.
+Qolgan suite'lar (`c60d00e` hisobotidagi sonlar): backend **1 298 passed**,
+51 skipped, 13 subtests, 0 failed; `experiments/.venv` — `experiments/tests`
+**415 passed**, 2 skipped; `benchmarks/tests` **92 passed**;
+`report_values --check` — 177 son, 9 bo‘lim, 0 farq.
