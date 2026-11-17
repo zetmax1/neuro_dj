@@ -12,6 +12,8 @@
 
 > **Foydalanuvchi ko‘rsatmasi, 1-bosqich (asl matn):** Backend ildiziga NEUROLEARN_UI_ADDENDUM.md faylini qo‘shdim. Uni to‘liq o‘qi: undagi D20–D29 qarorlari endi NEUROLEARN_REMEDIATION.md ning bir qismi. Fayldagi 4-bo‘lim jadvalida qaysi backend qismi qaysi bosqichda kerakligi yozilgan: ularni o‘sha bosqichlarda bajar va REMEDIATION_PROGRESS.md dagi bog‘liqlik matritsasiga qo‘sh. 0-bosqichdagi Q0-5, Q0-6, Q0-7 qarorlarini tasdiqlayman. Endi 1-bosqichni boshla.
 
+> **Foydalanuvchi ko‘rsatmasi, NEUROLEARN_YAKUNIY 1-bosqich (asl matn):** NEUROLEARN_YAKUNIY.md shu faylning 1-bosqichini bajar
+
 Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/neuro`). Push qilinmagan.
 
 ## Bosqichlar holati
@@ -36,6 +38,7 @@ Branch: `thesis-model` (backend `~/Desktop/neuro_dj`, frontend `~/Desktop/neuro/
 | 8b-3 — H1/H3 kodi, Junyi yuklovchisi, graf nazoratlari, `run_all.py` | **Bajarildi** — H1 `junyi-h1/20261019-102526` (qo‘llab-quvvatlanmadi), H3 `junyi-h3/20261019-122423` (k=3 aniqlanmadi, k=5 qo‘llab-quvvatlanmadi); DBE-KT22 yuklovchisi va annotatsiya vositasi kechiktirildi (D62) | `056f17d` … `ac632d3` | — |
 | 9 — Saqlash usullari benchmarki (H4, D63) | **Bajarildi** — to‘liq pass `20261016-093916` + D63h qayta o‘lchashi (`20261019-161430`, `20261019-163435`, `20261020-050428`); H4 qo‘llab-quvvatlanmadi | `68acf4e` … `ed45931` | — |
 | 10 — Sinovlar, samaradorlik, yakuniy hisobot | **Bajarildi** — QADAM 12 va 13: Hypothesis, `accounts`, SQL ≤ 12 (D66a), coverage, Locust/V-F2 (D68a), D65a, `REMEDIATION_REPORT.md`, `docs/THESIS_MAPPING.md` | `8f1f36f` … QADAM 13 commit'lari | — |
+| Y1 — Repozitoriy tartibi va xavfsizlik (`NEUROLEARN_YAKUNIY.md` 1-bosqich) | **Mahalliy bajarildi; push foydalanuvchida** — QADAM 16 | QADAM 16 | `9e00ad4` |
 
 ---
 
@@ -3822,6 +3825,81 @@ yoki tarixni tozalash foydalanuvchi qarori.
 `REMEDIATION_REPORT.md`: §3 ga D71 papkalari, §4 (3, 9-xavf), §8 (tekshiruvchi
 sonlari va tuzatishlardan keyingi holat). `docs/THESIS_MAPPING.md`: 10.2 dagi H1
 va H3 qatorlarida D71 havolalari va D71 jadvali.
+
+
+## QADAM 16 — `NEUROLEARN_YAKUNIY.md` 1-bosqich: repozitoriy tartibi va xavfsizlik (2026-11-17)
+
+Natijalarga ta’sir qilmaydi: `neuro_model/`, `experiments/`, natija papkalari,
+`verification/` va migratsiyalarga tegilmadi. Tarix qayta yozilmadi.
+
+### Teglar va `main`
+
+| | Backend (`neuro_dj`) | Frontend (`neuro`) |
+|---|---|---|
+| `thesis-v1-frozen` (annotatsiyali) | `6692a99` | `7166fe7` |
+| `main` ajdodmi (`merge-base --is-ancestor main thesis-model`) | ha (`f1f4dde`) | ha (`bd3d917`) |
+| `main` fast-forward (mahalliy) | `f1f4dde` → `6692a99`, keyin shu bosqich commit'lari | `bd3d917` → `7166fe7`, keyin shu bosqich commit'i |
+
+Frontend teg qo‘yilgan paytda `thesis-model` `origin` dan 2 commit oldinda edi
+(`64bbf29` D24, `7166fe7` D15): teg mahalliy uchga qo‘yildi. Push agent
+ruxsatnomasida rad etildi — teglar va branch'larni foydalanuvchi push qiladi.
+
+### Eski `SECRET_KEY`
+
+Tarixdagi qattiq yozilgan kalit bitta (barcha commit'lardagi `settings.py`
+bo‘yicha), `bb80ec4` da qo‘shilgan, `b44df84` da olib tashlangan; eski `main`
+(`f1f4dde`) da ham shu kalit. Ishlatilmasligining dalili:
+
+- HEAD'dagi kuzatiladigan fayllarda yo‘q (`git grep -F`, qiymat chiqarilmadi);
+- `config/settings.py:35-40` kalitni faqat muhitdan o‘qiydi, standart qiymat yo‘q
+  (`DEBUG=False` da majburiy, `DEBUG=True` da tasodifiy);
+- `config/.env` dagi kalit 0-bosqichda yangidan generatsiya qilingan
+  (`secrets.token_urlsafe(50)`, Q0-12); `.env` fayllar bu bosqichda ochilmadi;
+- systemd unit'larida yo‘q; Django konteyneri yoki deploy sozlamasi
+  (Procfile, Dockerfile, nginx, gunicorn) yo‘q — ishlayotgan server muhiti yo‘q;
+- CI o‘z `ci-only-…` kalitini ishlatadi.
+
+`README.md` ga jumla qo‘shildi: tarixdagi kalit ishlab chiqish davriga tegishli
+va bekor qilingan.
+
+### README
+
+“Work in progress on branch thesis-model” xatboshisi o‘rniga: `thesis-v1-frozen`
+nima ekani, papkalar jadvali (`neuro_model`, `curriculum`, `assessments`,
+`accounts`/`analytics`, `experiments`, `benchmarks`, `verification`, `docs`),
+natijalarni qayta hosil qilish (`experiments/README.md` ga havola), eski kalit
+haqidagi jumla; “Tests and checks” ga `scripts/dj5433.sh` va `experiments/tests`.
+
+### Frontend `.env`
+
+`git rm --cached .env`, `.gitignore` ga `.env`; fayl diskda qoldi, `.env.example`
+kuzatilishda qoladi (`VITE_API_URL`, `VITE_ENABLE_TUTOR`). HEAD (`9e00ad4`) grep'i:
+JWT (`eyJ…`), `sb_publishable_`/`sb_secret_`, `service_role`, `supabase.co`,
+`SUPABASE_*`, `ghp_`, `github_pat_`, `AKIA…`, `sk-…`, `xox?-`, private key —
+**moslik yo‘q** (`package-lock.json` chiqarilgan: unda `eyJ` faqat sha512
+integrity ichida, QADAM 15). “supabase” so‘zi faqat `src/hooks/useAITutor.ts:16-17`
+izohida. `package.json` da Supabase bog‘liqligi yo‘q. Tarixdagi `83afe20` kalitini
+foydalanuvchi Supabase panelida bekor qiladi.
+
+### CI
+
+| | Holat |
+|---|---|
+| Backend `6692a99`, push run `39548343571` | **failure** — “Tests (PostgreSQL)” qadami; PR run `39548347877` shu SHA'da **success**. Log admin huquqisiz yuklanmaydi (`gh` o‘rnatilmagan, API 403) — sabab aniqlanmadi |
+| Frontend, oxirgi run (`5251c45`) | success |
+| Frontend mahalliy (`9e00ad4`): lint / `tsc` / vitest / build | 0 xato (8 ogohlantirish) / toza / 95 passed (16 fayl) / o‘tdi |
+
+Push'dan keyingi masofaviy CI holati push qilingandan so‘ng yoziladi.
+
+### Testlar
+
+| Suite | Natija |
+|---|---|
+| Backend (`scripts/dj5433.sh venv/bin/python -m pytest`, HEAD = `6692a99` + README) | **1 314 passed**, 51 skipped, 13 subtests, 0 failed (20 daq) |
+| Frontend (`9e00ad4`) | vitest 95 passed; lint 0 xato; `tsc` toza; build o‘tdi |
+
+Model kodi va natijalar o‘zgarmagani uchun `experiments/.venv` testlari va
+`verification/` qayta ishga tushirilmadi.
 
 
 ---

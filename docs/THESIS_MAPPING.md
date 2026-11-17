@@ -430,3 +430,17 @@ Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
 - **Test.** `neuro_model/tests/test_assertions.py` (2.2 bloki),
   `curriculum/tests/test_kb.py::test_a_cycle_between_nodes_without_topics_is_refused`,
   state machine'larda “G ham siklsiz” invarianti.
+
+---
+
+## 12. Muzlatilgan holat — `thesis-v1-frozen` (`NEUROLEARN_YAKUNIY.md` 1-bosqich)
+
+| Repozitoriy | Teg | Commit | Nima |
+|---|---|---|---|
+| Backend `neuro_dj` | `thesis-v1-frozen` | `6692a99` | D1–D71; yuqoridagi 9–11-bo‘limlardagi barcha natija papkalari shu holatdan qayta hosil bo‘ladi |
+| Frontend `neuro` | `thesis-v1-frozen` | `7166fe7` | 7-bosqich va keyingi frontend tuzatishlari (D15, D24) |
+
+Tegdan keyingi commit'lar mavjud natija papkalarini o‘zgartirmaydi; yangi
+tahlillar (D72 dan boshlab) yangi papkalarga yoziladi va shu xaritaga alohida
+qator bilan qo‘shiladi. Qayta hosil qilish tartibi — `README.md` (“Reproducing
+the results”) va `experiments/README.md`.
