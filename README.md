@@ -5,9 +5,41 @@ Django REST Framework backend of the NeuroLearn prototype (master's thesis
 algorithms for processing them”). The React frontend lives in a separate
 repository.
 
-Work in progress on branch `thesis-model`: see `NEUROLEARN_AUDIT.md`
-(audit), `NEUROLEARN_REMEDIATION.md` (task specification) and
-`REMEDIATION_PROGRESS.md` (status).
+This repository is the code behind the dissertation's results. The tag
+`thesis-v1-frozen` marks the state from which every number in the
+dissertation is reproduced (D71 is its last decision); later commits do not
+change committed results, and new analyses are written to new result
+folders. The decision log (D1, D2, …) is `REMEDIATION_PROGRESS.md`;
+`docs/THESIS_MAPPING.md` maps every element of chapter II and every
+hypothesis to its code, tests and results.
+
+## Repository layout
+
+| Folder | Contents |
+|---|---|
+| `neuro_model/` | Chapter II model as pure Python, no Django: BKT, IRT, Elo, initialisation from prerequisites, readiness, trajectory, graph algorithms, calibration |
+| `curriculum/` | Knowledge base: the course/section/topic tree, prerequisites, guarded structural changes (`services/kb.py`) |
+| `assessments/` | Questions, the immutable answer ledger, adaptive practice, test sessions, demo seed |
+| `accounts/`, `analytics/` | Users, roles, consent and export; instructor and learner analytics endpoints |
+| `experiments/` | Hypotheses H1–H3 on public datasets; results under `experiments/results/` with provenance (`experiments/README.md`) |
+| `benchmarks/` | H4: adjacency list + recursive CTE vs. MPTT on PostgreSQL (`benchmarks/README.md`) |
+| `verification/` | Independent verification suite with its own settings and database (`verification/README.md`) |
+| `docs/` | `THESIS_MAPPING.md` (chapter II ↔ code), demo data, UI notes |
+
+## Reproducing the results
+
+Check out the tag (`git checkout thesis-v1-frozen`), rebuild both virtual
+environments from the lock files and run the experiments as described in
+[`experiments/README.md`](experiments/README.md) (datasets are never
+downloaded by the code; `experiments/data/README.md` lists the sources and
+SHA-256 sums). Every result folder holds `metrics.json`, `tables.md` (built
+from `metrics.json` only, D48) and `env.txt` with the commit it was produced
+from. H4 is run with `manage.py run_tree_benchmark` (`benchmarks/README.md`).
+
+The `SECRET_KEY` that appears in the early history (the initial commit and the
+August prototype on `main`) belonged to the development period and has been
+revoked; no environment uses it, and settings now read the key only from the
+environment.
 
 ## Requirements
 
@@ -125,7 +157,16 @@ The target must be empty; row counts of every model are compared at the end.
 pytest                                        # runs on PostgreSQL
 python manage.py check
 python manage.py makemigrations --check --dry-run
+
+# Against the compose Postgres on 127.0.0.1:5433 without reading config/.env
+scripts/dj5433.sh venv/bin/python -m pytest -q
+
+# Experiment tests (synthetic fixtures; real-data tests skip without data)
+experiments/.venv/bin/python -m pytest experiments/tests -q
 ```
+
+The independent verification suite has its own settings and database; see
+`verification/README.md` for how to run it.
 
 CI (`.github/workflows/ci.yml`) runs the same steps against PostgreSQL and Redis
 service containers.
