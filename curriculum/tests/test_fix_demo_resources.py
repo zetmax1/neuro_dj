@@ -7,11 +7,12 @@ from django.core.management import call_command
 from django.test import TestCase
 
 from curriculum.models import Topic, TopicResource
+from curriculum.testing import make_node
 
 
 class TestFixDemoResourceTitlesCommand(TestCase):
     def setUp(self):
-        self.topic = Topic.objects.create(name="Software engineering", slug="software-engineering")
+        self.topic = make_node("Software engineering", slug="software-engineering")
         self.res1 = TopicResource.objects.create(
             topic=self.topic,
             title="test1",

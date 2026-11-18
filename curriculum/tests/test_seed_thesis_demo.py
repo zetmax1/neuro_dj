@@ -38,14 +38,32 @@ class TestSeedThesisDemoCommand(TestCase):
         # 3. Verify Algorithmic History Ledger & Ability Theta
         student = User.objects.get(email="hybrid_demo@test.com")
         history_count = UserKnowledgeHistory.objects.filter(user=student).count()
-        ability_count = UserAbility.objects.filter(user=student).count()
-
         self.assertGreaterEqual(history_count, 15)
-        self.assertGreaterEqual(ability_count, 2)
 
-        # 4. Verify DAG unlock status for demo_topic and creation of 3 demo users
-        from curriculum.services.graph import is_unlocked_dag
-        self.assertTrue(is_unlocked_dag(student, demo_topic))
+        # Ability is one row per course the learner answered in (D33), and the
+        # demo seeds a single course, so one row that has actually moved.
+        abilities = list(UserAbility.objects.filter(user=student))
+        self.assertEqual(len(abilities), 1)
+        self.assertEqual(abilities[0].course, cs)
+        self.assertGreaterEqual(abilities[0].n_answers, 15)
+        self.assertNotEqual(abilities[0].theta, 0.0)
+
+        # 4. Readiness of demo_topic is decided by the one service (3.4), and
+        # the seeder only answers what the learner may answer, so every topic
+        # it did answer was open at the time.
+        from assessments.models import StudentTopicState
+        from assessments.services import readiness
+
+        answered = StudentTopicState.objects.filter(user=student, attempts__gt=0)
+        self.assertTrue(answered.exists())
+        for state in answered:
+            self.assertNotEqual(state.status, "closed")
+        # demo_topic sits behind binary-trees and graph-traversals; whether it
+        # opened depends on whether those reached M = 1, so the assertion is
+        # that the service and the stored status agree.
+        blocked = readiness.check_open(user=student, topic_id=demo_topic.pk)
+        stored = StudentTopicState.objects.get(user=student, topic=demo_topic)
+        self.assertEqual(blocked is None, stored.status != "closed")
 
         self.assertTrue(User.objects.filter(email="yuta@gmail.com").exists())
         self.assertTrue(User.objects.filter(email="alex@neuro.learn").exists())

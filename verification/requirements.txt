@@ -1,0 +1,3 @@
+# Dependencies of the independent verification suite only. They are NOT part of
+# the prototype's requirements.txt / requirements-dev.txt (rule 2).
+networkx==3.4.2

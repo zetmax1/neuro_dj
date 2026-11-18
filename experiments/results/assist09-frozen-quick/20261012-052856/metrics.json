@@ -1,0 +1,1989 @@
+{
+  "report": "h2_frozen",
+  "spec": "D60",
+  "quick": true,
+  "thesis_result": false,
+  "evaluation_protocol": "D57",
+  "provenance": {
+    "command": "python -m experiments.h2_frozen --quick --reference experiments/results/assist09-quick/20261009-124538",
+    "code_commit": "6e0278c",
+    "code_dirty": false,
+    "created_at": "2026-10-12T05:28:56.887032+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "split": 20261006,
+      "models": 20261006,
+      "bootstrap": 20261006
+    },
+    "sources": [
+      {
+        "name": "assistments2009",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/assistments2009/as.csv",
+        "sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+        "bytes": 83201940
+      }
+    ],
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.3.3",
+      "scipy": "1.14.1",
+      "sklearn": "1.6.1",
+      "torch": "2.5.1+cpu",
+      "pyBKT": "1.4.3",
+      "pykt": "0.0.38"
+    },
+    "env": {},
+    "git_start": {
+      "commit": "6e0278c",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-12T05:18:33.198825+00:00"
+    },
+    "git_end": {
+      "commit": "6e0278c",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-12T05:28:56.887012+00:00"
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  },
+  "dataset": {
+    "name": "assistments2009",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/assistments2009/as.csv",
+    "sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+    "known_sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+    "sha256_matches_known": true,
+    "original_only": false,
+    "encoding": "latin-1",
+    "cleaning_rules": [
+      "drop rows with an empty skill_id",
+      "de-duplicate on (order_id, skill_id), keeping the first occurrence",
+      "order by user_id, then order_id",
+      "original is a flag (--original-only), off by default"
+    ],
+    "raw": {
+      "rows": 525534,
+      "students": 4217,
+      "skills": 123,
+      "blank_skill_id": 66326
+    },
+    "problems": 17751,
+    "cleaned": {
+      "rows": 338001,
+      "students": 4163,
+      "skills": 123,
+      "multi_skill_orders": 47037
+    },
+    "original_only_counts": {
+      "rows": 312232,
+      "students": 4163
+    },
+    "dropped": {
+      "blank_skill_id": 66326,
+      "duplicate_order_skill": 121207
+    },
+    "status": "ok",
+    "label": "ASSISTments 2009–2010 skill builder",
+    "source": {
+      "name": "assistments2009",
+      "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/assistments2009/as.csv",
+      "sha256": "f22e3fb7872c1784ce93b0f9ebabbe0cbcac4f896fd8b4a11667b9715d77dbdc",
+      "bytes": 83201940
+    },
+    "learners_used": 500,
+    "answers_used": 53652
+  },
+  "split": {
+    "scheme": "k-fold by learner, with a validation split of each training fold",
+    "folds": 5,
+    "seed": 20261006,
+    "validation_fraction": 0.2,
+    "learners": 500,
+    "per_fold": [
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 0
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 1
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 2
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 3
+      },
+      {
+        "train": 320,
+        "validation": 80,
+        "test": 100,
+        "index": 4
+      }
+    ]
+  },
+  "epochs": 3,
+  "replicates": 1000,
+  "confidence_percent": 95,
+  "chapter_two_bounds": {
+    "g_max": 0.3,
+    "s_max": 0.1
+  },
+  "models": [
+    "BKT",
+    "BKT+IRT (λ=0)",
+    "Elo/Rasch",
+    "DKT"
+  ],
+  "varied_models": [
+    "BKT",
+    "BKT+IRT (λ=0)",
+    "Elo/Rasch"
+  ],
+  "variants_compared": [
+    "current",
+    "frozen"
+  ],
+  "frozen_rule": {
+    "items_frozen_at_test_time": true,
+    "theta_follows_the_learner": true,
+    "bkt_parameters_unchanged": true
+  },
+  "reference": {
+    "path": "experiments/results/assist09-quick/20261009-124538",
+    "commit": "5294f82",
+    "learners": 500,
+    "fold_1": {
+      "BKT": 0.726913,
+      "BKT+IRT (λ=0)": 0.737852
+    },
+    "pooled": {
+      "BKT": 0.697034,
+      "BKT+IRT (λ=0)": 0.710129,
+      "DKT": 0.645664,
+      "Elo/Rasch": 0.696066
+    }
+  },
+  "parameters": {
+    "source": "checkpoint",
+    "checkpoint": "h2-bounds-a3694827cc18bd15",
+    "files": [
+      "fit-0-0.json",
+      "fit-0-1.json",
+      "fit-0-2.json",
+      "fit-0-3.json",
+      "fit-0-4.json"
+    ],
+    "workers": 0,
+    "seconds": 2615.7
+  },
+  "dkt": {
+    "source": "checkpoint",
+    "auc": 0.645664,
+    "epochs": 3,
+    "folds": [
+      {
+        "index": 0,
+        "auc": 0.6710378348792664,
+        "epochs_run": 3,
+        "seconds": 5.5
+      },
+      {
+        "index": 1,
+        "auc": 0.6352009927220038,
+        "epochs_run": 3,
+        "seconds": 2.0
+      },
+      {
+        "index": 2,
+        "auc": 0.616453788987165,
+        "epochs_run": 3,
+        "seconds": 2.0
+      },
+      {
+        "index": 3,
+        "auc": 0.650225569013765,
+        "epochs_run": 3,
+        "seconds": 2.1
+      },
+      {
+        "index": 4,
+        "auc": 0.6517252980318438,
+        "epochs_run": 3,
+        "seconds": 2.1
+      }
+    ]
+  },
+  "gates": {
+    "reproduction": {
+      "where": "pooled, unfrozen",
+      "digits": 6,
+      "models": {
+        "BKT": {
+          "frozen_run": 0.697034,
+          "h2": 0.697034,
+          "equal": true
+        },
+        "BKT+IRT (λ=0)": {
+          "frozen_run": 0.710129,
+          "h2": 0.710129,
+          "equal": true
+        }
+      },
+      "passed": true
+    },
+    "dkt": {
+      "auc": 0.645664,
+      "h2": 0.645664,
+      "difference": -0.0,
+      "tolerance": 0.0005,
+      "passed": true
+    },
+    "bkt_control": {
+      "model": "BKT",
+      "answers": 53652,
+      "identical_predictions": true,
+      "largest_difference": 0.0,
+      "passed": true
+    }
+  },
+  "variants": {
+    "current": {
+      "models": {
+        "BKT": {
+          "scores": {
+            "all": {
+              "auc": 0.697034,
+              "rmse": 0.431887,
+              "accuracy": 0.734586,
+              "n": 53652,
+              "positives": 38128
+            },
+            "first_3": {
+              "auc": 0.675656,
+              "rmse": 0.455497,
+              "accuracy": 0.68521,
+              "n": 1474,
+              "positives": 978
+            },
+            "first_5": {
+              "auc": 0.697782,
+              "rmse": 0.442827,
+              "accuracy": 0.700371,
+              "n": 2423,
+              "positives": 1668
+            }
+          },
+          "auc_interval": {
+            "estimate": 0.697034,
+            "ci_low": 0.683721,
+            "ci_high": 0.710433,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          },
+          "first_in_order": {
+            "auc": 0.694201,
+            "rmse": 0.43128,
+            "accuracy": 0.734742,
+            "n": 44994,
+            "positives": 32157
+          }
+        },
+        "BKT+IRT (λ=0)": {
+          "scores": {
+            "all": {
+              "auc": 0.710129,
+              "rmse": 0.430866,
+              "accuracy": 0.734772,
+              "n": 53652,
+              "positives": 38128
+            },
+            "first_3": {
+              "auc": 0.682992,
+              "rmse": 0.454217,
+              "accuracy": 0.684532,
+              "n": 1474,
+              "positives": 978
+            },
+            "first_5": {
+              "auc": 0.703773,
+              "rmse": 0.441074,
+              "accuracy": 0.699959,
+              "n": 2423,
+              "positives": 1668
+            }
+          },
+          "auc_interval": {
+            "estimate": 0.710129,
+            "ci_low": 0.697223,
+            "ci_high": 0.723118,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          },
+          "first_in_order": {
+            "auc": 0.707503,
+            "rmse": 0.430212,
+            "accuracy": 0.735076,
+            "n": 44994,
+            "positives": 32157
+          }
+        },
+        "Elo/Rasch": {
+          "scores": {
+            "all": {
+              "auc": 0.696066,
+              "rmse": 0.430938,
+              "accuracy": 0.728715,
+              "n": 53652,
+              "positives": 38128
+            },
+            "first_3": {
+              "auc": 0.678069,
+              "rmse": 0.458779,
+              "accuracy": 0.677069,
+              "n": 1474,
+              "positives": 978
+            },
+            "first_5": {
+              "auc": 0.7041,
+              "rmse": 0.44534,
+              "accuracy": 0.70161,
+              "n": 2423,
+              "positives": 1668
+            }
+          },
+          "auc_interval": {
+            "estimate": 0.696066,
+            "ci_low": 0.682194,
+            "ci_high": 0.710509,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          },
+          "first_in_order": {
+            "auc": 0.697352,
+            "rmse": 0.429064,
+            "accuracy": 0.731698,
+            "n": 44994,
+            "positives": 32157
+          }
+        },
+        "DKT": {
+          "scores": {
+            "all": {
+              "auc": 0.645664,
+              "rmse": 0.454049,
+              "accuracy": 0.711362,
+              "n": 53652,
+              "positives": 38128
+            },
+            "first_3": {
+              "auc": 0.495972,
+              "rmse": 0.484303,
+              "accuracy": 0.645862,
+              "n": 1474,
+              "positives": 978
+            },
+            "first_5": {
+              "auc": 0.549621,
+              "rmse": 0.471842,
+              "accuracy": 0.674371,
+              "n": 2423,
+              "positives": 1668
+            }
+          },
+          "auc_interval": {
+            "estimate": 0.645664,
+            "ci_low": 0.633547,
+            "ci_high": 0.65795,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          },
+          "first_in_order": {
+            "auc": 0.645306,
+            "rmse": 0.452375,
+            "accuracy": 0.715051,
+            "n": 44994,
+            "positives": 32157
+          }
+        }
+      },
+      "comparisons": [
+        {
+          "a": "BKT",
+          "b": "BKT+IRT (λ=0)",
+          "auc_a": 0.697034,
+          "auc_b": 0.710129,
+          "difference": -0.013095,
+          "z": -22.406086,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        {
+          "a": "BKT",
+          "b": "Elo/Rasch",
+          "auc_a": 0.697034,
+          "auc_b": 0.696066,
+          "difference": 0.000968,
+          "z": 0.34114,
+          "p": 0.73299854,
+          "p_holm": 0.73299854,
+          "significant": false
+        },
+        {
+          "a": "BKT",
+          "b": "DKT",
+          "auc_a": 0.697034,
+          "auc_b": 0.645664,
+          "difference": 0.05137,
+          "z": 19.773038,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        {
+          "a": "BKT+IRT (λ=0)",
+          "b": "Elo/Rasch",
+          "auc_a": 0.710129,
+          "auc_b": 0.696066,
+          "difference": 0.014063,
+          "z": 5.50571,
+          "p": 4e-08,
+          "p_holm": 7e-08,
+          "significant": true
+        },
+        {
+          "a": "BKT+IRT (λ=0)",
+          "b": "DKT",
+          "auc_a": 0.710129,
+          "auc_b": 0.645664,
+          "difference": 0.064466,
+          "z": 25.210712,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        {
+          "a": "Elo/Rasch",
+          "b": "DKT",
+          "auc_a": 0.696066,
+          "auc_b": 0.645664,
+          "difference": 0.050403,
+          "z": 15.306585,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        }
+      ],
+      "replicates": 1000,
+      "confidence_percent": 95,
+      "evaluation_protocol": "D57",
+      "contrasts": [
+        {
+          "a": "BKT+IRT (λ=0)",
+          "b": "BKT",
+          "decision": "D53",
+          "status": "ok",
+          "difference": 0.013095,
+          "ci_low": 0.0114,
+          "ci_high": 0.015033,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.0,
+          "p_holm": 0.0
+        },
+        {
+          "a": "BKT+IRT (λ=0)",
+          "b": "DKT",
+          "decision": "D56",
+          "status": "ok",
+          "difference": 0.064466,
+          "ci_low": 0.055952,
+          "ci_high": 0.072497,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.0,
+          "p_holm": 0.0
+        },
+        {
+          "a": "Elo/Rasch",
+          "b": "DKT",
+          "decision": "D60",
+          "status": "ok",
+          "difference": 0.050403,
+          "ci_low": 0.037291,
+          "ci_high": 0.061522,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.0,
+          "p_holm": 0.0
+        }
+      ]
+    },
+    "frozen": {
+      "models": {
+        "BKT": {
+          "scores": {
+            "all": {
+              "auc": 0.697034,
+              "rmse": 0.431887,
+              "accuracy": 0.734586,
+              "n": 53652,
+              "positives": 38128
+            },
+            "first_3": {
+              "auc": 0.675656,
+              "rmse": 0.455497,
+              "accuracy": 0.68521,
+              "n": 1474,
+              "positives": 978
+            },
+            "first_5": {
+              "auc": 0.697782,
+              "rmse": 0.442827,
+              "accuracy": 0.700371,
+              "n": 2423,
+              "positives": 1668
+            }
+          },
+          "auc_interval": {
+            "estimate": 0.697034,
+            "ci_low": 0.683721,
+            "ci_high": 0.710433,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          },
+          "first_in_order": {
+            "auc": 0.694201,
+            "rmse": 0.43128,
+            "accuracy": 0.734742,
+            "n": 44994,
+            "positives": 32157
+          }
+        },
+        "BKT+IRT (λ=0)": {
+          "scores": {
+            "all": {
+              "auc": 0.709936,
+              "rmse": 0.430876,
+              "accuracy": 0.73494,
+              "n": 53652,
+              "positives": 38128
+            },
+            "first_3": {
+              "auc": 0.682258,
+              "rmse": 0.45443,
+              "accuracy": 0.68521,
+              "n": 1474,
+              "positives": 978
+            },
+            "first_5": {
+              "auc": 0.703142,
+              "rmse": 0.4413,
+              "accuracy": 0.700784,
+              "n": 2423,
+              "positives": 1668
+            }
+          },
+          "auc_interval": {
+            "estimate": 0.709936,
+            "ci_low": 0.696881,
+            "ci_high": 0.722782,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          },
+          "first_in_order": {
+            "auc": 0.707226,
+            "rmse": 0.430244,
+            "accuracy": 0.735187,
+            "n": 44994,
+            "positives": 32157
+          }
+        },
+        "Elo/Rasch": {
+          "scores": {
+            "all": {
+              "auc": 0.69412,
+              "rmse": 0.431557,
+              "accuracy": 0.727298,
+              "n": 53652,
+              "positives": 38128
+            },
+            "first_3": {
+              "auc": 0.666209,
+              "rmse": 0.461808,
+              "accuracy": 0.670963,
+              "n": 1474,
+              "positives": 978
+            },
+            "first_5": {
+              "auc": 0.694629,
+              "rmse": 0.448398,
+              "accuracy": 0.691704,
+              "n": 2423,
+              "positives": 1668
+            }
+          },
+          "auc_interval": {
+            "estimate": 0.69412,
+            "ci_low": 0.680398,
+            "ci_high": 0.709167,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          },
+          "first_in_order": {
+            "auc": 0.693917,
+            "rmse": 0.430046,
+            "accuracy": 0.730186,
+            "n": 44994,
+            "positives": 32157
+          }
+        },
+        "DKT": {
+          "scores": {
+            "all": {
+              "auc": 0.645664,
+              "rmse": 0.454049,
+              "accuracy": 0.711362,
+              "n": 53652,
+              "positives": 38128
+            },
+            "first_3": {
+              "auc": 0.495972,
+              "rmse": 0.484303,
+              "accuracy": 0.645862,
+              "n": 1474,
+              "positives": 978
+            },
+            "first_5": {
+              "auc": 0.549621,
+              "rmse": 0.471842,
+              "accuracy": 0.674371,
+              "n": 2423,
+              "positives": 1668
+            }
+          },
+          "auc_interval": {
+            "estimate": 0.645664,
+            "ci_low": 0.633547,
+            "ci_high": 0.65795,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          },
+          "first_in_order": {
+            "auc": 0.645306,
+            "rmse": 0.452375,
+            "accuracy": 0.715051,
+            "n": 44994,
+            "positives": 32157
+          }
+        }
+      },
+      "comparisons": [
+        {
+          "a": "BKT",
+          "b": "BKT+IRT (λ=0)",
+          "auc_a": 0.697034,
+          "auc_b": 0.709936,
+          "difference": -0.012902,
+          "z": -22.030886,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        {
+          "a": "BKT",
+          "b": "Elo/Rasch",
+          "auc_a": 0.697034,
+          "auc_b": 0.69412,
+          "difference": 0.002914,
+          "z": 1.023995,
+          "p": 0.30583741,
+          "p_holm": 0.30583741,
+          "significant": false
+        },
+        {
+          "a": "BKT",
+          "b": "DKT",
+          "auc_a": 0.697034,
+          "auc_b": 0.645664,
+          "difference": 0.05137,
+          "z": 19.773038,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        {
+          "a": "BKT+IRT (λ=0)",
+          "b": "Elo/Rasch",
+          "auc_a": 0.709936,
+          "auc_b": 0.69412,
+          "difference": 0.015816,
+          "z": 6.166814,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        {
+          "a": "BKT+IRT (λ=0)",
+          "b": "DKT",
+          "auc_a": 0.709936,
+          "auc_b": 0.645664,
+          "difference": 0.064273,
+          "z": 25.112023,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        },
+        {
+          "a": "Elo/Rasch",
+          "b": "DKT",
+          "auc_a": 0.69412,
+          "auc_b": 0.645664,
+          "difference": 0.048457,
+          "z": 14.688479,
+          "p": 0.0,
+          "p_holm": 0.0,
+          "significant": true
+        }
+      ],
+      "replicates": 1000,
+      "confidence_percent": 95,
+      "evaluation_protocol": "D57",
+      "contrasts": [
+        {
+          "a": "BKT+IRT (λ=0)",
+          "b": "BKT",
+          "decision": "D53",
+          "status": "ok",
+          "difference": 0.012902,
+          "ci_low": 0.011129,
+          "ci_high": 0.014878,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.0,
+          "p_holm": 0.0
+        },
+        {
+          "a": "BKT+IRT (λ=0)",
+          "b": "DKT",
+          "decision": "D56",
+          "status": "ok",
+          "difference": 0.064273,
+          "ci_low": 0.055697,
+          "ci_high": 0.072134,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.0,
+          "p_holm": 0.0
+        },
+        {
+          "a": "Elo/Rasch",
+          "b": "DKT",
+          "decision": "D60",
+          "status": "ok",
+          "difference": 0.048457,
+          "ci_low": 0.035222,
+          "ci_high": 0.05958,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.0,
+          "p_holm": 0.0
+        }
+      ]
+    }
+  },
+  "claims": {
+    "d56_margin": -0.01,
+    "D53": {
+      "statement": "BKT+IRT (λ=0) − BKT > 0",
+      "per_variant": {
+        "current": {
+          "difference": 0.013095,
+          "ci_low": 0.0114,
+          "ci_high": 0.015033,
+          "holds": true
+        },
+        "frozen": {
+          "difference": 0.012902,
+          "ci_low": 0.011129,
+          "ci_high": 0.014878,
+          "holds": true
+        }
+      },
+      "robust": true
+    },
+    "D56": {
+      "statement": "BKT+IRT (λ=0) − DKT, CI lower end ≥ −0.01",
+      "per_variant": {
+        "current": {
+          "difference": 0.064466,
+          "ci_low": 0.055952,
+          "ci_high": 0.072497,
+          "holds": true
+        },
+        "frozen": {
+          "difference": 0.064273,
+          "ci_low": 0.055697,
+          "ci_high": 0.072134,
+          "holds": true
+        }
+      },
+      "robust": true
+    }
+  },
+  "folds": [
+    {
+      "index": 0,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 4752,
+        "skills_fitted": 81,
+        "skills_kept_defaults": 27,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "fit_log_likelihood": -23206.3065,
+        "grid_check": {
+          "skills": 81,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.01,
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9,
+                0.95
+              ],
+              "lowest": 0.01,
+              "highest": 0.95,
+              "at_lowest": 4,
+              "at_highest": 2,
+              "share_at_highest": 0.0247,
+              "distribution": {
+                "0.01": 4,
+                "0.05": 2,
+                "0.1": 3,
+                "0.2": 7,
+                "0.3": 11,
+                "0.4": 16,
+                "0.5": 3,
+                "0.6": 7,
+                "0.7": 11,
+                "0.8": 8,
+                "0.9": 7,
+                "0.95": 2
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.005,
+                0.01,
+                0.02,
+                0.03,
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4,
+                0.5
+              ],
+              "lowest": 0.005,
+              "highest": 0.5,
+              "at_lowest": 1,
+              "at_highest": 19,
+              "share_at_highest": 0.2346,
+              "distribution": {
+                "0.005": 1,
+                "0.01": 1,
+                "0.03": 2,
+                "0.05": 10,
+                "0.1": 7,
+                "0.15": 11,
+                "0.2": 11,
+                "0.3": 12,
+                "0.4": 7,
+                "0.5": 19
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 3,
+              "at_highest": 66,
+              "share_at_highest": 0.8148,
+              "distribution": {
+                "0.05": 3,
+                "0.1": 5,
+                "0.15": 2,
+                "0.2": 1,
+                "0.25": 4,
+                "0.29": 66
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 2,
+              "at_highest": 70,
+              "share_at_highest": 0.8642,
+              "distribution": {
+                "0.01": 2,
+                "0.03": 1,
+                "0.05": 1,
+                "0.07": 2,
+                "0.09": 5,
+                "0.097": 70
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        },
+        "seconds": 519.7
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10277,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.7269133745677003
+            },
+            "frozen": {
+              "auc": 0.7269133745677003
+            }
+          }
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10277,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.737852263731526
+            },
+            "frozen": {
+              "auc": 0.7380915548760195
+            }
+          }
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 42734,
+            "items_warmed": 10277,
+            "freeze_items": false,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "variants": {
+            "current": {
+              "auc": 0.716150137331891
+            },
+            "frozen": {
+              "auc": 0.7142980246425659
+            }
+          }
+        }
+      }
+    },
+    {
+      "index": 1,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 4752,
+        "skills_fitted": 87,
+        "skills_kept_defaults": 28,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "fit_log_likelihood": -24904.9342,
+        "grid_check": {
+          "skills": 87,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.01,
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9,
+                0.95
+              ],
+              "lowest": 0.01,
+              "highest": 0.95,
+              "at_lowest": 8,
+              "at_highest": 4,
+              "share_at_highest": 0.046,
+              "distribution": {
+                "0.01": 8,
+                "0.05": 1,
+                "0.1": 3,
+                "0.2": 6,
+                "0.3": 12,
+                "0.4": 11,
+                "0.5": 11,
+                "0.6": 7,
+                "0.7": 9,
+                "0.8": 8,
+                "0.9": 7,
+                "0.95": 4
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.005,
+                0.01,
+                0.02,
+                0.03,
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4,
+                0.5
+              ],
+              "lowest": 0.005,
+              "highest": 0.5,
+              "at_lowest": 1,
+              "at_highest": 20,
+              "share_at_highest": 0.2299,
+              "distribution": {
+                "0.005": 1,
+                "0.01": 1,
+                "0.03": 3,
+                "0.05": 12,
+                "0.1": 14,
+                "0.15": 8,
+                "0.2": 10,
+                "0.3": 11,
+                "0.4": 7,
+                "0.5": 20
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 8,
+              "at_highest": 68,
+              "share_at_highest": 0.7816,
+              "distribution": {
+                "0.05": 8,
+                "0.1": 1,
+                "0.15": 1,
+                "0.2": 6,
+                "0.25": 3,
+                "0.29": 68
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 2,
+              "at_highest": 73,
+              "share_at_highest": 0.8391,
+              "distribution": {
+                "0.01": 2,
+                "0.03": 2,
+                "0.07": 5,
+                "0.09": 5,
+                "0.097": 73
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        },
+        "seconds": 561.9
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10740,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.7177617907917364
+            },
+            "frozen": {
+              "auc": 0.7177617907917364
+            }
+          }
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10740,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.7292407113324791
+            },
+            "frozen": {
+              "auc": 0.7287805957877427
+            }
+          }
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 45588,
+            "items_warmed": 10740,
+            "freeze_items": false,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "variants": {
+            "current": {
+              "auc": 0.7102946971737129
+            },
+            "frozen": {
+              "auc": 0.707377173976191
+            }
+          }
+        }
+      }
+    },
+    {
+      "index": 2,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 4752,
+        "skills_fitted": 83,
+        "skills_kept_defaults": 32,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "fit_log_likelihood": -23572.102,
+        "grid_check": {
+          "skills": 83,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.01,
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9,
+                0.95
+              ],
+              "lowest": 0.01,
+              "highest": 0.95,
+              "at_lowest": 5,
+              "at_highest": 4,
+              "share_at_highest": 0.0482,
+              "distribution": {
+                "0.01": 5,
+                "0.05": 2,
+                "0.1": 5,
+                "0.2": 7,
+                "0.3": 8,
+                "0.4": 12,
+                "0.5": 9,
+                "0.6": 8,
+                "0.7": 9,
+                "0.8": 7,
+                "0.9": 7,
+                "0.95": 4
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.005,
+                0.01,
+                0.02,
+                0.03,
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4,
+                0.5
+              ],
+              "lowest": 0.005,
+              "highest": 0.5,
+              "at_lowest": 0,
+              "at_highest": 17,
+              "share_at_highest": 0.2048,
+              "distribution": {
+                "0.02": 2,
+                "0.03": 4,
+                "0.05": 11,
+                "0.1": 11,
+                "0.15": 12,
+                "0.2": 9,
+                "0.3": 6,
+                "0.4": 11,
+                "0.5": 17
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 4,
+              "at_highest": 64,
+              "share_at_highest": 0.7711,
+              "distribution": {
+                "0.05": 4,
+                "0.1": 3,
+                "0.15": 1,
+                "0.2": 2,
+                "0.25": 9,
+                "0.29": 64
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 1,
+              "at_highest": 74,
+              "share_at_highest": 0.8916,
+              "distribution": {
+                "0.01": 1,
+                "0.05": 3,
+                "0.07": 2,
+                "0.09": 3,
+                "0.097": 74
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        },
+        "seconds": 522.0
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10388,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.6679478582459563
+            },
+            "frozen": {
+              "auc": 0.6679478582459563
+            }
+          }
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10388,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.683967417407432
+            },
+            "frozen": {
+              "auc": 0.6844515011120718
+            }
+          }
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 42998,
+            "items_warmed": 10388,
+            "freeze_items": false,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "variants": {
+            "current": {
+              "auc": 0.6750669182682716
+            },
+            "frozen": {
+              "auc": 0.6765499268471105
+            }
+          }
+        }
+      }
+    },
+    {
+      "index": 3,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 4752,
+        "skills_fitted": 85,
+        "skills_kept_defaults": 30,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "fit_log_likelihood": -22990.8281,
+        "grid_check": {
+          "skills": 85,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.01,
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9,
+                0.95
+              ],
+              "lowest": 0.01,
+              "highest": 0.95,
+              "at_lowest": 8,
+              "at_highest": 3,
+              "share_at_highest": 0.0353,
+              "distribution": {
+                "0.01": 8,
+                "0.05": 1,
+                "0.2": 8,
+                "0.3": 12,
+                "0.4": 10,
+                "0.5": 9,
+                "0.6": 7,
+                "0.7": 13,
+                "0.8": 7,
+                "0.9": 7,
+                "0.95": 3
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.005,
+                0.01,
+                0.02,
+                0.03,
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4,
+                0.5
+              ],
+              "lowest": 0.005,
+              "highest": 0.5,
+              "at_lowest": 0,
+              "at_highest": 17,
+              "share_at_highest": 0.2,
+              "distribution": {
+                "0.02": 4,
+                "0.03": 5,
+                "0.05": 8,
+                "0.1": 8,
+                "0.15": 13,
+                "0.2": 9,
+                "0.3": 11,
+                "0.4": 10,
+                "0.5": 17
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 5,
+              "at_highest": 66,
+              "share_at_highest": 0.7765,
+              "distribution": {
+                "0.05": 5,
+                "0.1": 3,
+                "0.15": 2,
+                "0.2": 5,
+                "0.25": 4,
+                "0.29": 66
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 1,
+              "at_highest": 72,
+              "share_at_highest": 0.8471,
+              "distribution": {
+                "0.01": 1,
+                "0.03": 1,
+                "0.05": 2,
+                "0.07": 3,
+                "0.09": 6,
+                "0.097": 72
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        },
+        "seconds": 513.2
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10328,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.6827043024596807
+            },
+            "frozen": {
+              "auc": 0.6827043024596807
+            }
+          }
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10328,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.6983636955243058
+            },
+            "frozen": {
+              "auc": 0.6973864826213637
+            }
+          }
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 42281,
+            "items_warmed": 10328,
+            "freeze_items": false,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "variants": {
+            "current": {
+              "auc": 0.6912550480926941
+            },
+            "frozen": {
+              "auc": 0.6867552724102323
+            }
+          }
+        }
+      }
+    },
+    {
+      "index": 4,
+      "counts": {
+        "train": 320,
+        "validation": 80,
+        "test": 100
+      },
+      "parameters": {
+        "method": "bounded grid search on the BKT likelihood (neuro_model.calibrate)",
+        "grid_candidates": 4752,
+        "skills_fitted": 84,
+        "skills_kept_defaults": 27,
+        "min_answers_to_fit": 50,
+        "shared_by_flag_variants": true,
+        "defaults": {
+          "p0": 0.15,
+          "pt": 0.1,
+          "g0": 0.1,
+          "s0": 0.05
+        },
+        "fit_log_likelihood": -22428.3847,
+        "grid_check": {
+          "skills": 84,
+          "bounds": {
+            "g_max": 0.3,
+            "s_max": 0.1
+          },
+          "parameters": {
+            "p0": {
+              "admissible_values": [
+                0.01,
+                0.05,
+                0.1,
+                0.2,
+                0.3,
+                0.4,
+                0.5,
+                0.6,
+                0.7,
+                0.8,
+                0.9,
+                0.95
+              ],
+              "lowest": 0.01,
+              "highest": 0.95,
+              "at_lowest": 3,
+              "at_highest": 2,
+              "share_at_highest": 0.0238,
+              "distribution": {
+                "0.01": 3,
+                "0.05": 3,
+                "0.1": 3,
+                "0.2": 3,
+                "0.3": 16,
+                "0.4": 11,
+                "0.5": 10,
+                "0.6": 11,
+                "0.7": 8,
+                "0.8": 7,
+                "0.9": 7,
+                "0.95": 2
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "pt": {
+              "admissible_values": [
+                0.005,
+                0.01,
+                0.02,
+                0.03,
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.3,
+                0.4,
+                0.5
+              ],
+              "lowest": 0.005,
+              "highest": 0.5,
+              "at_lowest": 0,
+              "at_highest": 17,
+              "share_at_highest": 0.2024,
+              "distribution": {
+                "0.01": 2,
+                "0.02": 1,
+                "0.03": 4,
+                "0.05": 12,
+                "0.1": 8,
+                "0.15": 14,
+                "0.2": 10,
+                "0.3": 11,
+                "0.4": 5,
+                "0.5": 17
+              },
+              "ceiling_is_chapter_two": false
+            },
+            "g0": {
+              "admissible_values": [
+                0.05,
+                0.1,
+                0.15,
+                0.2,
+                0.25,
+                0.29
+              ],
+              "lowest": 0.05,
+              "highest": 0.29,
+              "at_lowest": 6,
+              "at_highest": 68,
+              "share_at_highest": 0.8095,
+              "distribution": {
+                "0.05": 6,
+                "0.1": 1,
+                "0.15": 5,
+                "0.2": 3,
+                "0.25": 1,
+                "0.29": 68
+              },
+              "ceiling_is_chapter_two": true
+            },
+            "s0": {
+              "admissible_values": [
+                0.01,
+                0.03,
+                0.05,
+                0.07,
+                0.09,
+                0.097
+              ],
+              "lowest": 0.01,
+              "highest": 0.097,
+              "at_lowest": 3,
+              "at_highest": 71,
+              "share_at_highest": 0.8452,
+              "distribution": {
+                "0.01": 3,
+                "0.03": 1,
+                "0.05": 2,
+                "0.07": 3,
+                "0.09": 4,
+                "0.097": 71
+              },
+              "ceiling_is_chapter_two": true
+            }
+          }
+        },
+        "seconds": 498.9
+      },
+      "models": {
+        "BKT": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": false,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 0.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10190,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.688279280598256
+            },
+            "frozen": {
+              "auc": 0.688279280598256
+            }
+          }
+        },
+        "BKT+IRT (λ=0)": {
+          "status": "ok",
+          "fit": {
+            "flags": {
+              "use_irt": true,
+              "use_prereq_init": false
+            },
+            "constants": {
+              "a_q": 1.0,
+              "lambda": 0.0,
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05,
+              "g_max": 0.3,
+              "s_max": 0.1
+            },
+            "parameters": {},
+            "items_warmed": 10190,
+            "freeze_items": false
+          },
+          "variants": {
+            "current": {
+              "auc": 0.6997770949773618
+            },
+            "frozen": {
+              "auc": 0.6995224893481223
+            }
+          }
+        },
+        "Elo/Rasch": {
+          "status": "ok",
+          "fit": {
+            "constants": {
+              "elo_alpha": 0.8,
+              "elo_beta": 0.05
+            },
+            "warmed_on": 41007,
+            "items_warmed": 10190,
+            "freeze_items": false,
+            "note": "θ is online and starts fresh for an unseen learner; b is carried over from the training fold, where the items are the same"
+          },
+          "variants": {
+            "current": {
+              "auc": 0.6815656763739694
+            },
+            "frozen": {
+              "auc": 0.6795795872286711
+            }
+          }
+        }
+      }
+    }
+  ]
+}

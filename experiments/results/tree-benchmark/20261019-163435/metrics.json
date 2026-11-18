@@ -1,0 +1,4145 @@
+{
+  "report": "tree_benchmark",
+  "spec": "D63",
+  "quick": false,
+  "thesis_result": true,
+  "hypothesis": "H4",
+  "provenance": {
+    "command": "python manage.py run_tree_benchmark --only-parallel --database benchmark --shapes deep_chain --sizes 1000,10000 --warmups 5 --repeats 30 --timeout 120.0 --parallel-repeats 3 --seed 20261006 --memory-limit-gb 8.0",
+    "code_commit": "9f97aa7",
+    "code_dirty": false,
+    "created_at": "2026-10-19T16:34:35.110467+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "trees": 20261006,
+      "targets": 20261006,
+      "bootstrap": 20261006
+    },
+    "sources": [],
+    "packages": {
+      "django": "6.0.5",
+      "django-mptt": "0.18.0",
+      "django-tree-queries": "0.24.0",
+      "psycopg": "3.3.6"
+    },
+    "env": {},
+    "git_start": {
+      "commit": "9f97aa7",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-19T16:14:31.580564+00:00",
+      "untracked_results": [
+        "?? experiments/results/tree-benchmark/20261019-161430/"
+      ]
+    },
+    "git_end": {
+      "commit": "9f97aa7",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-19T16:34:35.110445+00:00",
+      "untracked_results": [
+        "?? experiments/results/tree-benchmark/20261019-161430/"
+      ]
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  },
+  "environment": {
+    "postgres": {
+      "vendor": "postgresql",
+      "version": "16.15 (Debian 16.15-1.pgdg13+2)",
+      "shared_buffers": "128MB",
+      "fsync": "on",
+      "synchronous_commit": "on",
+      "max_connections": "100",
+      "database": "neurolearn_bench"
+    },
+    "cpu": {
+      "model": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+      "logical_cores": 16,
+      "governors": [
+        "powersave"
+      ],
+      "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43"
+    },
+    "memory": {
+      "total_kb": 15615900,
+      "available_kb": 8251008
+    },
+    "load": {
+      "load_1m": 1.81,
+      "load_5m": 2.68,
+      "load_15m": 2.52
+    },
+    "busiest_processes": [
+      {
+        "cpu_percent": 270.0,
+        "command": "python"
+      },
+      {
+        "cpu_percent": 16.2,
+        "command": "gnome-shell"
+      },
+      {
+        "cpu_percent": 9.7,
+        "command": "antigravity-ide"
+      },
+      {
+        "cpu_percent": 8.2,
+        "command": "antigravity-ide"
+      },
+      {
+        "cpu_percent": 5.1,
+        "command": "antigravity-ide"
+      }
+    ],
+    "note": "vaqt o‘lchovlari mashinaga bog‘liq; nisbat (ρ) va uning oralig‘i mashinadan kam bog‘liq, shuning uchun da’vo ular ustiga qurilgan"
+  },
+  "environment_at_end": {
+    "memory": {
+      "total_kb": 15615900,
+      "available_kb": 9571216
+    },
+    "load": {
+      "load_1m": 1.45,
+      "load_5m": 2.21,
+      "load_15m": 2.49
+    },
+    "busiest_processes": [
+      {
+        "cpu_percent": 14.7,
+        "command": "gnome-shell"
+      },
+      {
+        "cpu_percent": 6.6,
+        "command": "claude-desktop"
+      },
+      {
+        "cpu_percent": 3.5,
+        "command": "claude-desktop"
+      },
+      {
+        "cpu_percent": 2.2,
+        "command": "snapd"
+      },
+      {
+        "cpu_percent": 1.8,
+        "command": "docker-proxy"
+      }
+    ]
+  },
+  "database": {
+    "alias": "benchmark",
+    "name": "neurolearn_bench",
+    "vendor": "postgresql"
+  },
+  "checkpoint": {
+    "enabled": true,
+    "key_digest": "6464b6d53158699c",
+    "resumed_items": 0
+  },
+  "limits": {
+    "memory_cap_bytes": 8589934592,
+    "statement_timeout_ms": 120000,
+    "note": "D63f: xotira chegarasidan oshgan ajratish MemoryError beradi va katak “ishga tushirilmadi — xotira” bo‘ladi; serverdagi statement_timeout bir takror uchun berilgan vaqtga teng"
+  },
+  "cells": [],
+  "trees": [
+    {
+      "method": "mptt",
+      "shape": "deep_chain",
+      "size": 1000,
+      "seed": 20261006,
+      "nodes": 1000,
+      "sha256": "2c7d91e72f6ab57194e174571fbcd286dad32f47fff08dfa44cbaf003776755b",
+      "max_depth": 999,
+      "build_seconds": 0.062
+    },
+    {
+      "method": "cte",
+      "shape": "deep_chain",
+      "size": 1000,
+      "seed": 20261006,
+      "nodes": 1000,
+      "sha256": "2c7d91e72f6ab57194e174571fbcd286dad32f47fff08dfa44cbaf003776755b",
+      "max_depth": 999,
+      "build_seconds": 0.031
+    },
+    {
+      "method": "mptt",
+      "shape": "deep_chain",
+      "size": 10000,
+      "seed": 20261006,
+      "nodes": 10000,
+      "sha256": "71aa31b40fef6583ae2a09a36d31e876ee943c6c518045c7cd78eccec7b67fd7",
+      "max_depth": 9999,
+      "build_seconds": 0.496
+    },
+    {
+      "method": "cte",
+      "shape": "deep_chain",
+      "size": 10000,
+      "seed": 20261006,
+      "nodes": 10000,
+      "sha256": "71aa31b40fef6583ae2a09a36d31e876ee943c6c518045c7cd78eccec7b67fd7",
+      "max_depth": 9999,
+      "build_seconds": 0.291
+    }
+  ],
+  "parallel": [
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 2,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 144.247,
+      "throughput_min": 136.19,
+      "throughput_max": 164.604,
+      "latency_median": 0.010082,
+      "latency_p95": 0.017064,
+      "errors": {
+        "OperationalError": 7,
+        "IntegrityError": 1818,
+        "InvalidMove": 1397,
+        "Skipped": 19,
+        "DataError": 1368
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2648,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 2643,
+              "cycle_nodes": [
+                37,
+                66,
+                86,
+                119,
+                140,
+                200,
+                201,
+                202,
+                205,
+                206
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 2648,
+              "lft_not_less_than_rght": 607,
+              "outside_parent_interval": 1795,
+              "duplicate_boundaries": 1107,
+              "wrong_level": 4,
+              "differs_from_rebuild": 5,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  2,
+                  4,
+                  5,
+                  8,
+                  10,
+                  15,
+                  17,
+                  18,
+                  21,
+                  23
+                ],
+                "outside": [
+                  2024,
+                  2493,
+                  1336,
+                  1880,
+                  2032,
+                  2371,
+                  1232,
+                  2031,
+                  2092,
+                  2381
+                ],
+                "wrong_level": [
+                  2,
+                  1614,
+                  1758,
+                  2176
+                ],
+                "differing": [
+                  1,
+                  2,
+                  1614,
+                  1758,
+                  2176
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2363,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 2361,
+              "cycle_nodes": [
+                45,
+                67,
+                205,
+                270,
+                271,
+                325,
+                326,
+                334,
+                335,
+                336
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 2363,
+              "lft_not_less_than_rght": 585,
+              "outside_parent_interval": 1617,
+              "duplicate_boundaries": 1006,
+              "wrong_level": 1,
+              "differs_from_rebuild": 2,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  18,
+                  21,
+                  22,
+                  23
+                ],
+                "outside": [
+                  2295,
+                  1540,
+                  298,
+                  647,
+                  2104,
+                  998,
+                  1294,
+                  1601,
+                  1977,
+                  1805
+                ],
+                "wrong_level": [
+                  2065
+                ],
+                "differing": [
+                  1,
+                  2065
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2444,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 2436,
+              "cycle_nodes": [
+                103,
+                104,
+                192,
+                325,
+                326,
+                336,
+                388,
+                428,
+                429,
+                442
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 2444,
+              "lft_not_less_than_rght": 627,
+              "outside_parent_interval": 1710,
+              "duplicate_boundaries": 1164,
+              "wrong_level": 4,
+              "differs_from_rebuild": 8,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  4,
+                  5,
+                  6,
+                  7,
+                  9,
+                  11,
+                  12,
+                  14,
+                  16,
+                  19
+                ],
+                "outside": [
+                  1976,
+                  2037,
+                  1793,
+                  1791,
+                  2394,
+                  3,
+                  994,
+                  1568,
+                  1938,
+                  2226
+                ],
+                "wrong_level": [
+                  116,
+                  1502,
+                  2079,
+                  2166
+                ],
+                "differing": [
+                  1,
+                  2,
+                  3,
+                  116,
+                  1502,
+                  2079,
+                  2166,
+                  2268
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.012,
+          "operations": 3294,
+          "appended": 1648,
+          "moved": 1646,
+          "throughput": 164.604,
+          "latency_median": 0.009406,
+          "latency_p95": 0.016475,
+          "errors": {
+            "OperationalError": 1,
+            "IntegrityError": 820,
+            "InvalidMove": 596,
+            "Skipped": 10,
+            "DataError": 614
+          },
+          "error_count": 2041,
+          "per_worker_operations": [
+            1641,
+            1653
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.016,
+          "operations": 2726,
+          "appended": 1363,
+          "moved": 1363,
+          "throughput": 136.19,
+          "latency_median": 0.011112,
+          "latency_p95": 0.017064,
+          "errors": {
+            "OperationalError": 3,
+            "InvalidMove": 382,
+            "IntegrityError": 428,
+            "Skipped": 6,
+            "DataError": 294
+          },
+          "error_count": 1113,
+          "per_worker_operations": [
+            1374,
+            1352
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.014,
+          "operations": 2887,
+          "appended": 1444,
+          "moved": 1443,
+          "throughput": 144.247,
+          "latency_median": 0.010082,
+          "latency_p95": 0.016464,
+          "errors": {
+            "OperationalError": 3,
+            "InvalidMove": 419,
+            "IntegrityError": 570,
+            "Skipped": 3,
+            "DataError": 460
+          },
+          "error_count": 1455,
+          "per_worker_operations": [
+            1428,
+            1459
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "cte",
+      "workers": 2,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 132.268,
+      "throughput_min": 132.055,
+      "throughput_max": 136.873,
+      "latency_median": 0.006368,
+      "latency_p95": 0.030548,
+      "errors": {
+        "Y1Violation": 278,
+        "DoesNotExist": 66,
+        "Skipped": 3
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2322,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2324,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2370,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.022,
+          "operations": 2644,
+          "appended": 1322,
+          "moved": 1322,
+          "throughput": 132.055,
+          "latency_median": 0.010233,
+          "latency_p95": 0.030078,
+          "errors": {
+            "Y1Violation": 117,
+            "DoesNotExist": 34,
+            "Skipped": 2
+          },
+          "error_count": 153,
+          "per_worker_operations": [
+            1338,
+            1306
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.012,
+          "operations": 2647,
+          "appended": 1324,
+          "moved": 1323,
+          "throughput": 132.268,
+          "latency_median": 0.006368,
+          "latency_p95": 0.030548,
+          "errors": {
+            "Y1Violation": 72,
+            "DoesNotExist": 32
+          },
+          "error_count": 104,
+          "per_worker_operations": [
+            1322,
+            1325
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.011,
+          "operations": 2739,
+          "appended": 1370,
+          "moved": 1369,
+          "throughput": 136.873,
+          "latency_median": 0.006077,
+          "latency_p95": 0.028215,
+          "errors": {
+            "Y1Violation": 89,
+            "Skipped": 1
+          },
+          "error_count": 90,
+          "per_worker_operations": [
+            1380,
+            1359
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 4,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 2.367,
+      "throughput_min": 1.539,
+      "throughput_max": 6.265,
+      "latency_median": 0.042458,
+      "latency_p95": 3.425901,
+      "errors": {
+        "IntegrityError": 47,
+        "OperationalError": 66,
+        "InvalidMove": 89
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1066,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 1001,
+              "cycle_nodes": [
+                355,
+                356,
+                357
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1066,
+              "lft_not_less_than_rght": 347,
+              "outside_parent_interval": 147,
+              "duplicate_boundaries": 990,
+              "wrong_level": 24,
+              "differs_from_rebuild": 59,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  53,
+                  54,
+                  55,
+                  56,
+                  57,
+                  58,
+                  59,
+                  66,
+                  74,
+                  75
+                ],
+                "outside": [
+                  19,
+                  32,
+                  360,
+                  361,
+                  1019,
+                  1053,
+                  525,
+                  1056,
+                  382,
+                  541
+                ],
+                "wrong_level": [
+                  382,
+                  383,
+                  384,
+                  385,
+                  386,
+                  387,
+                  388,
+                  389,
+                  390,
+                  632
+                ],
+                "differing": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1017,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1017,
+              "lft_not_less_than_rght": 86,
+              "outside_parent_interval": 18,
+              "duplicate_boundaries": 22,
+              "wrong_level": 132,
+              "differs_from_rebuild": 910,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  112,
+                  113,
+                  114,
+                  115,
+                  334,
+                  335,
+                  336,
+                  337,
+                  338,
+                  339
+                ],
+                "outside": [
+                  116,
+                  252,
+                  1006,
+                  852,
+                  367,
+                  434,
+                  467,
+                  542,
+                  1002,
+                  1003
+                ],
+                "wrong_level": [
+                  327,
+                  328,
+                  329,
+                  330,
+                  331,
+                  332,
+                  333,
+                  334,
+                  335,
+                  336
+                ],
+                "differing": [
+                  106,
+                  107,
+                  108,
+                  109,
+                  110,
+                  111,
+                  112,
+                  113,
+                  114,
+                  115
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1025,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 738,
+              "cycle_nodes": [
+                237,
+                238,
+                239,
+                240,
+                241,
+                242,
+                243,
+                244,
+                245,
+                246
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1025,
+              "lft_not_less_than_rght": 449,
+              "outside_parent_interval": 63,
+              "duplicate_boundaries": 321,
+              "wrong_level": 39,
+              "differs_from_rebuild": 287,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  237,
+                  238,
+                  239,
+                  240,
+                  241,
+                  242,
+                  243,
+                  244,
+                  245,
+                  246
+                ],
+                "outside": [
+                  85,
+                  112,
+                  180,
+                  181,
+                  728,
+                  778,
+                  1025,
+                  1007,
+                  818,
+                  1013
+                ],
+                "wrong_level": [
+                  363,
+                  364,
+                  365,
+                  366,
+                  367,
+                  368,
+                  369,
+                  370,
+                  371,
+                  372
+                ],
+                "differing": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.75,
+          "operations": 130,
+          "appended": 66,
+          "moved": 64,
+          "throughput": 6.265,
+          "latency_median": 0.042458,
+          "latency_p95": 2.030176,
+          "errors": {
+            "IntegrityError": 40,
+            "OperationalError": 21,
+            "InvalidMove": 51
+          },
+          "error_count": 112,
+          "per_worker_operations": [
+            23,
+            38,
+            30,
+            39
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 21.438,
+          "operations": 33,
+          "appended": 17,
+          "moved": 16,
+          "throughput": 1.539,
+          "latency_median": 0.040567,
+          "latency_p95": 3.425901,
+          "errors": {
+            "InvalidMove": 24,
+            "OperationalError": 24,
+            "IntegrityError": 4
+          },
+          "error_count": 52,
+          "per_worker_operations": [
+            7,
+            6,
+            8,
+            12
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.701,
+          "operations": 49,
+          "appended": 25,
+          "moved": 24,
+          "throughput": 2.367,
+          "latency_median": 1.020967,
+          "latency_p95": 2.695771,
+          "errors": {
+            "OperationalError": 21,
+            "IntegrityError": 3,
+            "InvalidMove": 14
+          },
+          "error_count": 38,
+          "per_worker_operations": [
+            13,
+            12,
+            12,
+            12
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "cte",
+      "workers": 4,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 196.21,
+      "throughput_min": 179.349,
+      "throughput_max": 213.015,
+      "latency_median": 0.006075,
+      "latency_p95": 0.048199,
+      "errors": {
+        "Y1Violation": 356,
+        "Skipped": 10,
+        "DoesNotExist": 494
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 3133,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2967,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2797,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.027,
+          "operations": 4266,
+          "appended": 2133,
+          "moved": 2133,
+          "throughput": 213.015,
+          "latency_median": 0.011483,
+          "latency_p95": 0.041769,
+          "errors": {
+            "Y1Violation": 114,
+            "Skipped": 3,
+            "DoesNotExist": 52
+          },
+          "error_count": 169,
+          "per_worker_operations": [
+            1064,
+            1076,
+            1074,
+            1052
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.045,
+          "operations": 3933,
+          "appended": 1967,
+          "moved": 1966,
+          "throughput": 196.21,
+          "latency_median": 0.006075,
+          "latency_p95": 0.045047,
+          "errors": {
+            "Y1Violation": 113,
+            "DoesNotExist": 328,
+            "Skipped": 4
+          },
+          "error_count": 445,
+          "per_worker_operations": [
+            994,
+            983,
+            988,
+            968
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.034,
+          "operations": 3593,
+          "appended": 1797,
+          "moved": 1796,
+          "throughput": 179.349,
+          "latency_median": 0.004299,
+          "latency_p95": 0.048199,
+          "errors": {
+            "Y1Violation": 129,
+            "DoesNotExist": 114,
+            "Skipped": 3
+          },
+          "error_count": 246,
+          "per_worker_operations": [
+            882,
+            908,
+            898,
+            905
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 8,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 1.3,
+      "throughput_min": 0.99,
+      "throughput_max": 1.452,
+      "latency_median": 1.04511,
+      "latency_p95": 6.515859,
+      "errors": {
+        "OperationalError": 102,
+        "InvalidMove": 50,
+        "IntegrityError": 6
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1014,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1014,
+              "lft_not_less_than_rght": 72,
+              "outside_parent_interval": 10,
+              "duplicate_boundaries": 16,
+              "wrong_level": 17,
+              "differs_from_rebuild": 894,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  685,
+                  686,
+                  687,
+                  790,
+                  791,
+                  792,
+                  793,
+                  794,
+                  795,
+                  796
+                ],
+                "outside": [
+                  158,
+                  238,
+                  859,
+                  887,
+                  1004,
+                  1005,
+                  1002,
+                  647,
+                  688,
+                  1014
+                ],
+                "wrong_level": [
+                  887,
+                  888,
+                  889,
+                  890,
+                  891,
+                  892,
+                  893,
+                  894,
+                  895,
+                  896
+                ],
+                "differing": [
+                  34,
+                  35,
+                  36,
+                  37,
+                  38,
+                  39,
+                  40,
+                  41,
+                  42,
+                  43
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1018,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1018,
+              "lft_not_less_than_rght": 280,
+              "outside_parent_interval": 27,
+              "duplicate_boundaries": 121,
+              "wrong_level": 345,
+              "differs_from_rebuild": 1018,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  405,
+                  406,
+                  407,
+                  408,
+                  409,
+                  410,
+                  411,
+                  412,
+                  413,
+                  414
+                ],
+                "outside": [
+                  57,
+                  236,
+                  257,
+                  350,
+                  662,
+                  990,
+                  1010,
+                  722,
+                  881,
+                  973
+                ],
+                "wrong_level": [
+                  571,
+                  572,
+                  573,
+                  574,
+                  575,
+                  576,
+                  577,
+                  578,
+                  579,
+                  580
+                ],
+                "differing": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1020,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1020,
+              "lft_not_less_than_rght": 49,
+              "outside_parent_interval": 26,
+              "duplicate_boundaries": 44,
+              "wrong_level": 469,
+              "differs_from_rebuild": 953,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [
+                  637,
+                  638,
+                  639,
+                  640,
+                  776,
+                  777,
+                  885,
+                  886,
+                  887,
+                  888
+                ],
+                "outside": [
+                  158,
+                  782,
+                  784,
+                  800,
+                  998,
+                  1009,
+                  685,
+                  707,
+                  738,
+                  740
+                ],
+                "wrong_level": [
+                  493,
+                  494,
+                  495,
+                  496,
+                  497,
+                  498,
+                  499,
+                  500,
+                  501,
+                  502
+                ],
+                "differing": [
+                  40,
+                  41,
+                  42,
+                  43,
+                  44,
+                  45,
+                  46,
+                  47,
+                  48,
+                  49
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 23.237,
+          "operations": 23,
+          "appended": 14,
+          "moved": 9,
+          "throughput": 0.99,
+          "latency_median": 1.029052,
+          "latency_p95": 6.002675,
+          "errors": {
+            "OperationalError": 35,
+            "InvalidMove": 20,
+            "IntegrityError": 3
+          },
+          "error_count": 58,
+          "per_worker_operations": [
+            4,
+            3,
+            1,
+            4,
+            1,
+            1,
+            4,
+            5
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 21.349,
+          "operations": 31,
+          "appended": 18,
+          "moved": 13,
+          "throughput": 1.452,
+          "latency_median": 1.04511,
+          "latency_p95": 6.515859,
+          "errors": {
+            "InvalidMove": 13,
+            "OperationalError": 33,
+            "IntegrityError": 3
+          },
+          "error_count": 49,
+          "per_worker_operations": [
+            6,
+            3,
+            2,
+            3,
+            6,
+            7,
+            1,
+            3
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 25.379,
+          "operations": 33,
+          "appended": 20,
+          "moved": 13,
+          "throughput": 1.3,
+          "latency_median": 1.109574,
+          "latency_p95": 6.024487,
+          "errors": {
+            "OperationalError": 34,
+            "InvalidMove": 17
+          },
+          "error_count": 51,
+          "per_worker_operations": [
+            3,
+            3,
+            3,
+            5,
+            3,
+            8,
+            5,
+            3
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "cte",
+      "workers": 8,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 277.724,
+      "throughput_min": 246.225,
+      "throughput_max": 279.02,
+      "latency_median": 0.006274,
+      "latency_p95": 0.07903,
+      "errors": {
+        "Y1Violation": 417,
+        "DoesNotExist": 613,
+        "Skipped": 12
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 3799,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 3788,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 3475,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.052,
+          "operations": 5595,
+          "appended": 2799,
+          "moved": 2796,
+          "throughput": 279.02,
+          "latency_median": 0.00579,
+          "latency_p95": 0.070865,
+          "errors": {
+            "Y1Violation": 119,
+            "DoesNotExist": 255,
+            "Skipped": 2
+          },
+          "error_count": 376,
+          "per_worker_operations": [
+            679,
+            680,
+            718,
+            722,
+            718,
+            707,
+            674,
+            697
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.078,
+          "operations": 5576,
+          "appended": 2788,
+          "moved": 2788,
+          "throughput": 277.724,
+          "latency_median": 0.010555,
+          "latency_p95": 0.074892,
+          "errors": {
+            "Y1Violation": 126,
+            "DoesNotExist": 194,
+            "Skipped": 3
+          },
+          "error_count": 323,
+          "per_worker_operations": [
+            694,
+            720,
+            688,
+            696,
+            694,
+            676,
+            692,
+            716
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.099,
+          "operations": 4949,
+          "appended": 2475,
+          "moved": 2474,
+          "throughput": 246.225,
+          "latency_median": 0.006274,
+          "latency_p95": 0.07903,
+          "errors": {
+            "Y1Violation": 172,
+            "DoesNotExist": 164,
+            "Skipped": 7
+          },
+          "error_count": 343,
+          "per_worker_operations": [
+            628,
+            624,
+            606,
+            619,
+            630,
+            578,
+            642,
+            622
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "mptt",
+      "workers": 8,
+      "variant": "locked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 105.947,
+      "throughput_min": 93.727,
+      "throughput_max": 107.717,
+      "latency_median": 0.069085,
+      "latency_p95": 0.107627,
+      "errors": {
+        "InvalidMove": 238,
+        "Skipped": 7
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1943,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 1943,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2083,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 2083,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 2065,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 2065,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "mptt rebuild()",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.09,
+          "operations": 1883,
+          "appended": 943,
+          "moved": 940,
+          "throughput": 93.727,
+          "latency_median": 0.079939,
+          "latency_p95": 0.107627,
+          "errors": {
+            "InvalidMove": 81,
+            "Skipped": 3
+          },
+          "error_count": 84,
+          "per_worker_operations": [
+            240,
+            232,
+            236,
+            236,
+            237,
+            230,
+            237,
+            235
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.071,
+          "operations": 2162,
+          "appended": 1083,
+          "moved": 1079,
+          "throughput": 107.717,
+          "latency_median": 0.067212,
+          "latency_p95": 0.100509,
+          "errors": {
+            "InvalidMove": 84,
+            "Skipped": 2
+          },
+          "error_count": 86,
+          "per_worker_operations": [
+            274,
+            268,
+            274,
+            267,
+            272,
+            269,
+            269,
+            269
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.076,
+          "operations": 2127,
+          "appended": 1065,
+          "moved": 1062,
+          "throughput": 105.947,
+          "latency_median": 0.069085,
+          "latency_p95": 0.104406,
+          "errors": {
+            "InvalidMove": 73,
+            "Skipped": 2
+          },
+          "error_count": 75,
+          "per_worker_operations": [
+            262,
+            260,
+            265,
+            267,
+            269,
+            266,
+            272,
+            266
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "method": "cte",
+      "workers": 8,
+      "variant": "locked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 63.437,
+      "throughput_min": 63.279,
+      "throughput_max": 69.259,
+      "latency_median": 0.099155,
+      "latency_p95": 0.287378,
+      "errors": {
+        "Y1Violation": 183,
+        "Skipped": 3
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1640,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1698,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 1638,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.13,
+          "operations": 1277,
+          "appended": 640,
+          "moved": 637,
+          "throughput": 63.437,
+          "latency_median": 0.103354,
+          "latency_p95": 0.214269,
+          "errors": {
+            "Y1Violation": 73
+          },
+          "error_count": 73,
+          "per_worker_operations": [
+            156,
+            160,
+            158,
+            161,
+            159,
+            165,
+            156,
+            162
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.099,
+          "operations": 1392,
+          "appended": 698,
+          "moved": 694,
+          "throughput": 69.259,
+          "latency_median": 0.099155,
+          "latency_p95": 0.205947,
+          "errors": {
+            "Y1Violation": 51,
+            "Skipped": 2
+          },
+          "error_count": 53,
+          "per_worker_operations": [
+            175,
+            173,
+            173,
+            178,
+            175,
+            172,
+            172,
+            174
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.086,
+          "operations": 1271,
+          "appended": 638,
+          "moved": 633,
+          "throughput": 63.279,
+          "latency_median": 0.096836,
+          "latency_p95": 0.287378,
+          "errors": {
+            "Y1Violation": 59,
+            "Skipped": 1
+          },
+          "error_count": 60,
+          "per_worker_operations": [
+            155,
+            164,
+            158,
+            159,
+            159,
+            158,
+            161,
+            157
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "method": "mptt",
+      "workers": 2,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 3.52,
+      "throughput_min": 3.249,
+      "throughput_max": 3.603,
+      "latency_median": 0.217255,
+      "latency_p95": 1.179907,
+      "errors": {
+        "OperationalError": 43,
+        "InvalidMove": 36,
+        "IntegrityError": 19
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10037,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10037,
+              "lft_not_less_than_rght": 508,
+              "outside_parent_interval": 37,
+              "duplicate_boundaries": 51,
+              "wrong_level": 5164,
+              "differs_from_rebuild": 9255,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  1191,
+                  1192,
+                  3578,
+                  3579,
+                  3580,
+                  3581,
+                  3582,
+                  3583,
+                  3584,
+                  3585
+                ],
+                "outside": [
+                  955,
+                  1193,
+                  9109,
+                  3233,
+                  10032,
+                  10012,
+                  10031,
+                  10001,
+                  6040,
+                  2903
+                ],
+                "wrong_level": [
+                  1726,
+                  1727,
+                  1728,
+                  1729,
+                  1730,
+                  1731,
+                  1732,
+                  1733,
+                  1734,
+                  1735
+                ],
+                "differing": [
+                  751,
+                  752,
+                  753,
+                  754,
+                  755,
+                  756,
+                  757,
+                  758,
+                  759,
+                  760
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10038,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 4494,
+              "cycle_nodes": [
+                1208,
+                1209,
+                1210,
+                1211,
+                1212,
+                1213,
+                1214,
+                1215,
+                1216,
+                1217
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10038,
+              "lft_not_less_than_rght": 905,
+              "outside_parent_interval": 54,
+              "duplicate_boundaries": 58,
+              "wrong_level": 3363,
+              "differs_from_rebuild": 10009,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  1429,
+                  1430,
+                  1431,
+                  1432,
+                  1433,
+                  1434,
+                  1435,
+                  1436,
+                  1437,
+                  1438
+                ],
+                "outside": [
+                  289,
+                  656,
+                  1476,
+                  10006,
+                  6093,
+                  6095,
+                  10010,
+                  10002,
+                  3230,
+                  6650
+                ],
+                "wrong_level": [
+                  828,
+                  829,
+                  830,
+                  831,
+                  832,
+                  833,
+                  834,
+                  835,
+                  836,
+                  837
+                ],
+                "differing": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10034,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 7826,
+              "cycle_nodes": [
+                3285,
+                3286,
+                3287,
+                3288,
+                3289,
+                3290,
+                3291,
+                3292,
+                3293,
+                3294
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10034,
+              "lft_not_less_than_rght": 1921,
+              "outside_parent_interval": 43,
+              "duplicate_boundaries": 2731,
+              "wrong_level": 597,
+              "differs_from_rebuild": 9559,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  1998,
+                  1999,
+                  2000,
+                  2001,
+                  2002,
+                  2003,
+                  2004,
+                  2005,
+                  2006,
+                  2007
+                ],
+                "outside": [
+                  486,
+                  9966,
+                  9968,
+                  3477,
+                  10023,
+                  4449,
+                  10004,
+                  10013,
+                  5601,
+                  3129
+                ],
+                "wrong_level": [
+                  4756,
+                  4757,
+                  4758,
+                  4759,
+                  4760,
+                  4761,
+                  4762,
+                  4763,
+                  4764,
+                  4765
+                ],
+                "differing": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.452,
+          "operations": 72,
+          "appended": 37,
+          "moved": 35,
+          "throughput": 3.52,
+          "latency_median": 0.20233,
+          "latency_p95": 1.127708,
+          "errors": {
+            "OperationalError": 14,
+            "InvalidMove": 14,
+            "IntegrityError": 9
+          },
+          "error_count": 37,
+          "per_worker_operations": [
+            35,
+            37
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.815,
+          "operations": 75,
+          "appended": 38,
+          "moved": 37,
+          "throughput": 3.603,
+          "latency_median": 0.217255,
+          "latency_p95": 1.179907,
+          "errors": {
+            "OperationalError": 14,
+            "InvalidMove": 13,
+            "IntegrityError": 6
+          },
+          "error_count": 33,
+          "per_worker_operations": [
+            40,
+            35
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.623,
+          "operations": 67,
+          "appended": 34,
+          "moved": 33,
+          "throughput": 3.249,
+          "latency_median": 0.2193,
+          "latency_p95": 1.137737,
+          "errors": {
+            "OperationalError": 15,
+            "InvalidMove": 9,
+            "IntegrityError": 4
+          },
+          "error_count": 28,
+          "per_worker_operations": [
+            35,
+            32
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "method": "cte",
+      "workers": 2,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.394,
+      "throughput_min": 0.312,
+      "throughput_max": 0.424,
+      "latency_median": 0.002948,
+      "latency_p95": 9.320577,
+      "errors": {
+        "Y1Violation": 6
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10006,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10006,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10005,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 32.046,
+          "operations": 10,
+          "appended": 6,
+          "moved": 4,
+          "throughput": 0.312,
+          "latency_median": 0.002924,
+          "latency_p95": 7.15052,
+          "errors": {
+            "Y1Violation": 3
+          },
+          "error_count": 3,
+          "per_worker_operations": [
+            3,
+            7
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 25.967,
+          "operations": 11,
+          "appended": 6,
+          "moved": 5,
+          "throughput": 0.424,
+          "latency_median": 0.002948,
+          "latency_p95": 7.797443,
+          "errors": {
+            "Y1Violation": 2
+          },
+          "error_count": 2,
+          "per_worker_operations": [
+            7,
+            4
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 22.852,
+          "operations": 9,
+          "appended": 5,
+          "moved": 4,
+          "throughput": 0.394,
+          "latency_median": 0.003108,
+          "latency_p95": 9.320577,
+          "errors": {
+            "Y1Violation": 1
+          },
+          "error_count": 1,
+          "per_worker_operations": [
+            3,
+            6
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "method": "mptt",
+      "workers": 4,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 1.813,
+      "throughput_min": 1.45,
+      "throughput_max": 2.606,
+      "latency_median": 1.058146,
+      "latency_p95": 2.60304,
+      "errors": {
+        "InvalidMove": 50,
+        "OperationalError": 61,
+        "IntegrityError": 20
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10020,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 6779,
+              "cycle_nodes": [
+                1962,
+                1963,
+                1964,
+                1965,
+                1966,
+                1967,
+                1968,
+                1969,
+                1970,
+                1971
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10020,
+              "lft_not_less_than_rght": 1961,
+              "outside_parent_interval": 30,
+              "duplicate_boundaries": 26,
+              "wrong_level": 1278,
+              "differs_from_rebuild": 10020,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  1962,
+                  1963,
+                  1964,
+                  1965,
+                  1966,
+                  1967,
+                  1968,
+                  1969,
+                  1970,
+                  1971
+                ],
+                "outside": [
+                  1033,
+                  10007,
+                  4590,
+                  10008,
+                  8169,
+                  8171,
+                  3122,
+                  10018,
+                  3124,
+                  3482
+                ],
+                "wrong_level": [
+                  5479,
+                  5480,
+                  5481,
+                  5482,
+                  5483,
+                  5484,
+                  5485,
+                  5486,
+                  5487,
+                  5488
+                ],
+                "differing": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10028,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 3479,
+              "cycle_nodes": [
+                1964,
+                1965,
+                1966,
+                1967,
+                1968,
+                1969,
+                1970,
+                1971,
+                1972,
+                1973
+              ],
+              "passed": false
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10028,
+              "lft_not_less_than_rght": 3069,
+              "outside_parent_interval": 55,
+              "duplicate_boundaries": 4062,
+              "wrong_level": 4899,
+              "differs_from_rebuild": 9934,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  1281,
+                  1282,
+                  1283,
+                  1284,
+                  1285,
+                  1286,
+                  1287,
+                  1288,
+                  1289,
+                  1290
+                ],
+                "outside": [
+                  7780,
+                  10011,
+                  8809,
+                  2604,
+                  2850,
+                  3147,
+                  3230,
+                  3243,
+                  3681,
+                  10001
+                ],
+                "wrong_level": [
+                  547,
+                  548,
+                  549,
+                  550,
+                  551,
+                  552,
+                  553,
+                  554,
+                  555,
+                  556
+                ],
+                "differing": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "y1",
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10018,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10018,
+              "lft_not_less_than_rght": 1261,
+              "outside_parent_interval": 27,
+              "duplicate_boundaries": 3367,
+              "wrong_level": 2294,
+              "differs_from_rebuild": 9405,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  3148,
+                  3149,
+                  3150,
+                  3151,
+                  3152,
+                  3153,
+                  3154,
+                  3155,
+                  3156,
+                  3157
+                ],
+                "outside": [
+                  2498,
+                  10001,
+                  3304,
+                  6042,
+                  10017,
+                  6397,
+                  6399,
+                  6453,
+                  6537,
+                  6724
+                ],
+                "wrong_level": [
+                  4756,
+                  4757,
+                  4758,
+                  4759,
+                  4760,
+                  4761,
+                  4762,
+                  4763,
+                  4764,
+                  4765
+                ],
+                "differing": [
+                  611,
+                  612,
+                  613,
+                  614,
+                  615,
+                  616,
+                  617,
+                  618,
+                  619,
+                  620
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.956,
+          "operations": 38,
+          "appended": 20,
+          "moved": 18,
+          "throughput": 1.813,
+          "latency_median": 1.121966,
+          "latency_p95": 2.454979,
+          "errors": {
+            "InvalidMove": 15,
+            "OperationalError": 20,
+            "IntegrityError": 7
+          },
+          "error_count": 42,
+          "per_worker_operations": [
+            8,
+            7,
+            14,
+            9
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 21.489,
+          "operations": 56,
+          "appended": 28,
+          "moved": 28,
+          "throughput": 2.606,
+          "latency_median": 0.493951,
+          "latency_p95": 2.115203,
+          "errors": {
+            "IntegrityError": 10,
+            "InvalidMove": 21,
+            "OperationalError": 16
+          },
+          "error_count": 47,
+          "per_worker_operations": [
+            12,
+            14,
+            16,
+            14
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 22.765,
+          "operations": 33,
+          "appended": 18,
+          "moved": 15,
+          "throughput": 1.45,
+          "latency_median": 1.058146,
+          "latency_p95": 2.60304,
+          "errors": {
+            "OperationalError": 25,
+            "InvalidMove": 14,
+            "IntegrityError": 3
+          },
+          "error_count": 42,
+          "per_worker_operations": [
+            8,
+            13,
+            5,
+            7
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "method": "cte",
+      "workers": 4,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.678,
+      "throughput_min": 0.54,
+      "throughput_max": 0.682,
+      "latency_median": 0.003112,
+      "latency_p95": 12.007968,
+      "errors": {
+        "Y1Violation": 6
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10009,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10009,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 25.931,
+          "operations": 14,
+          "appended": 8,
+          "moved": 6,
+          "throughput": 0.54,
+          "latency_median": 0.003601,
+          "latency_p95": 12.007968,
+          "errors": {
+            "Y1Violation": 2
+          },
+          "error_count": 2,
+          "per_worker_operations": [
+            1,
+            6,
+            3,
+            4
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 24.94,
+          "operations": 17,
+          "appended": 9,
+          "moved": 8,
+          "throughput": 0.682,
+          "latency_median": 0.003112,
+          "latency_p95": 9.992733,
+          "errors": {
+            "Y1Violation": 2
+          },
+          "error_count": 2,
+          "per_worker_operations": [
+            6,
+            3,
+            6,
+            2
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 25.092,
+          "operations": 17,
+          "appended": 9,
+          "moved": 8,
+          "throughput": 0.678,
+          "latency_median": 0.002788,
+          "latency_p95": 9.335144,
+          "errors": {
+            "Y1Violation": 2
+          },
+          "error_count": 2,
+          "per_worker_operations": [
+            3,
+            6,
+            2,
+            6
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "method": "mptt",
+      "workers": 8,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.954,
+      "throughput_min": 0.61,
+      "throughput_max": 1.51,
+      "latency_median": 1.751511,
+      "latency_p95": 5.498353,
+      "errors": {
+        "OperationalError": 103,
+        "InvalidMove": 54,
+        "IntegrityError": 3
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10013,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10013,
+              "lft_not_less_than_rght": 166,
+              "outside_parent_interval": 14,
+              "duplicate_boundaries": 26,
+              "wrong_level": 3092,
+              "differs_from_rebuild": 9970,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  4901,
+                  4902,
+                  4903,
+                  4904,
+                  4905,
+                  4906,
+                  4907,
+                  4908,
+                  4909,
+                  4910
+                ],
+                "outside": [
+                  5632,
+                  10009,
+                  9161,
+                  4932,
+                  10002,
+                  8929,
+                  7428,
+                  10007,
+                  10003,
+                  7865
+                ],
+                "wrong_level": [
+                  5374,
+                  5375,
+                  5376,
+                  5377,
+                  5378,
+                  5379,
+                  5380,
+                  5381,
+                  5382,
+                  5383
+                ],
+                "differing": [
+                  44,
+                  45,
+                  46,
+                  47,
+                  48,
+                  49,
+                  50,
+                  51,
+                  52,
+                  53
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10017,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10017,
+              "lft_not_less_than_rght": 2059,
+              "outside_parent_interval": 34,
+              "duplicate_boundaries": 7936,
+              "wrong_level": 6892,
+              "differs_from_rebuild": 8776,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  1773,
+                  1774,
+                  3211,
+                  3212,
+                  3213,
+                  3214,
+                  3215,
+                  3216,
+                  3217,
+                  3218
+                ],
+                "outside": [
+                  983,
+                  3562,
+                  3583,
+                  10006,
+                  7696,
+                  7938,
+                  8206,
+                  1775,
+                  8911,
+                  2363
+                ],
+                "wrong_level": [
+                  2003,
+                  2004,
+                  2005,
+                  2006,
+                  2007,
+                  2008,
+                  2009,
+                  2010,
+                  2011,
+                  2012
+                ],
+                "differing": [
+                  876,
+                  877,
+                  983,
+                  984,
+                  985,
+                  986,
+                  987,
+                  988,
+                  989,
+                  990
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10010,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10010,
+              "lft_not_less_than_rght": 4,
+              "outside_parent_interval": 5,
+              "duplicate_boundaries": 14,
+              "wrong_level": 3,
+              "differs_from_rebuild": 7643,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  1208,
+                  1209,
+                  4159,
+                  4160
+                ],
+                "outside": [
+                  1210,
+                  10002,
+                  4161,
+                  10010,
+                  10004
+                ],
+                "wrong_level": [
+                  10002,
+                  10003,
+                  10010
+                ],
+                "differing": [
+                  308,
+                  309,
+                  310,
+                  311,
+                  312,
+                  313,
+                  314,
+                  315,
+                  316,
+                  317
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.954,
+          "operations": 20,
+          "appended": 13,
+          "moved": 7,
+          "throughput": 0.954,
+          "latency_median": 1.751511,
+          "latency_p95": 5.367234,
+          "errors": {
+            "OperationalError": 36,
+            "InvalidMove": 14,
+            "IntegrityError": 1
+          },
+          "error_count": 51,
+          "per_worker_operations": [
+            5,
+            1,
+            1,
+            2,
+            4,
+            3,
+            1,
+            3
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 21.854,
+          "operations": 33,
+          "appended": 17,
+          "moved": 16,
+          "throughput": 1.51,
+          "latency_median": 1.396704,
+          "latency_p95": 5.051258,
+          "errors": {
+            "OperationalError": 31,
+            "InvalidMove": 22,
+            "IntegrityError": 2
+          },
+          "error_count": 55,
+          "per_worker_operations": [
+            4,
+            4,
+            4,
+            4,
+            1,
+            6,
+            4,
+            6
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 22.932,
+          "operations": 14,
+          "appended": 10,
+          "moved": 4,
+          "throughput": 0.61,
+          "latency_median": 2.194657,
+          "latency_p95": 5.498353,
+          "errors": {
+            "OperationalError": 36,
+            "InvalidMove": 18
+          },
+          "error_count": 54,
+          "per_worker_operations": [
+            3,
+            1,
+            3,
+            2,
+            1,
+            2,
+            1,
+            1
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "method": "cte",
+      "workers": 8,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.838,
+      "throughput_min": 0.713,
+      "throughput_max": 0.849,
+      "latency_median": 0.004301,
+      "latency_p95": 13.450305,
+      "errors": {
+        "Y1Violation": 13
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10013,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10013,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10012,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 26.245,
+          "operations": 22,
+          "appended": 13,
+          "moved": 9,
+          "throughput": 0.838,
+          "latency_median": 0.004301,
+          "latency_p95": 13.052433,
+          "errors": {
+            "Y1Violation": 4
+          },
+          "error_count": 4,
+          "per_worker_operations": [
+            1,
+            4,
+            3,
+            4,
+            1,
+            4,
+            4,
+            1
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 25.913,
+          "operations": 22,
+          "appended": 13,
+          "moved": 9,
+          "throughput": 0.849,
+          "latency_median": 0.00281,
+          "latency_p95": 13.378277,
+          "errors": {
+            "Y1Violation": 4
+          },
+          "error_count": 4,
+          "per_worker_operations": [
+            4,
+            3,
+            4,
+            1,
+            4,
+            4,
+            1,
+            1
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 26.653,
+          "operations": 19,
+          "appended": 12,
+          "moved": 7,
+          "throughput": 0.713,
+          "latency_median": 0.005277,
+          "latency_p95": 13.450305,
+          "errors": {
+            "Y1Violation": 5
+          },
+          "error_count": 5,
+          "per_worker_operations": [
+            3,
+            4,
+            1,
+            4,
+            4,
+            1,
+            1,
+            1
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "method": "mptt",
+      "workers": 8,
+      "variant": "locked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 8.491,
+      "throughput_min": 7.876,
+      "throughput_max": 9.257,
+      "latency_median": 0.908832,
+      "latency_p95": 1.302035,
+      "errors": {
+        "InvalidMove": 36
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10083,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10083,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10098,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10098,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10090,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 10090,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "recomputed from the parent links (too deep; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.95,
+          "operations": 165,
+          "appended": 83,
+          "moved": 82,
+          "throughput": 7.876,
+          "latency_median": 0.952795,
+          "latency_p95": 1.302035,
+          "errors": {
+            "InvalidMove": 14
+          },
+          "error_count": 14,
+          "per_worker_operations": [
+            18,
+            20,
+            22,
+            20,
+            21,
+            22,
+            22,
+            20
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.633,
+          "operations": 191,
+          "appended": 98,
+          "moved": 93,
+          "throughput": 9.257,
+          "latency_median": 0.801623,
+          "latency_p95": 1.119554,
+          "errors": {
+            "InvalidMove": 11
+          },
+          "error_count": 11,
+          "per_worker_operations": [
+            23,
+            25,
+            23,
+            24,
+            25,
+            24,
+            23,
+            24
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.491,
+          "operations": 174,
+          "appended": 90,
+          "moved": 84,
+          "throughput": 8.491,
+          "latency_median": 0.908832,
+          "latency_p95": 1.2562,
+          "errors": {
+            "InvalidMove": 11
+          },
+          "error_count": 11,
+          "per_worker_operations": [
+            21,
+            22,
+            21,
+            23,
+            23,
+            21,
+            21,
+            22
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "method": "cte",
+      "workers": 8,
+      "variant": "locked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.233,
+      "throughput_min": 0.201,
+      "throughput_max": 0.273,
+      "latency_median": 7.131145,
+      "latency_p95": 57.904592,
+      "errors": {
+        "Y1Violation": 6
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10010,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 10008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 69.642,
+          "operations": 14,
+          "appended": 8,
+          "moved": 6,
+          "throughput": 0.201,
+          "latency_median": 0.015079,
+          "latency_p95": 57.260214,
+          "errors": {
+            "Y1Violation": 3
+          },
+          "error_count": 3,
+          "per_worker_operations": [
+            1,
+            2,
+            2,
+            2,
+            1,
+            2,
+            2,
+            2
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 58.616,
+          "operations": 16,
+          "appended": 10,
+          "moved": 6,
+          "throughput": 0.273,
+          "latency_median": 7.131145,
+          "latency_p95": 46.395498,
+          "errors": {
+            "Y1Violation": 2
+          },
+          "error_count": 2,
+          "per_worker_operations": [
+            2,
+            3,
+            3,
+            1,
+            2,
+            2,
+            1,
+            2
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 68.627,
+          "operations": 16,
+          "appended": 8,
+          "moved": 8,
+          "throughput": 0.233,
+          "latency_median": 13.513145,
+          "latency_p95": 57.904592,
+          "errors": {
+            "Y1Violation": 1
+          },
+          "error_count": 1,
+          "per_worker_operations": [
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2,
+            2
+          ],
+          "repeat": 2
+        }
+      ]
+    }
+  ],
+  "parallel_ratios": [
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "workers": 2,
+      "variant": "unlocked",
+      "status": "ok",
+      "throughput_cte": 132.268,
+      "throughput_mptt": 144.247,
+      "ratio": 0.916955,
+      "ci_low": 0.802259,
+      "ci_high": 0.971202,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 4609,
+      "errors_cte": 347
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "workers": 4,
+      "variant": "unlocked",
+      "status": "ok",
+      "throughput_cte": 196.21,
+      "throughput_mptt": 2.367,
+      "ratio": 82.893959,
+      "ci_low": 34.000798,
+      "ci_high": 127.491878,
+      "verdict": "CTE tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 202,
+      "errors_cte": 860
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "workers": 8,
+      "variant": "unlocked",
+      "status": "ok",
+      "throughput_cte": 277.724,
+      "throughput_mptt": 1.3,
+      "ratio": 213.633846,
+      "ci_low": 189.403846,
+      "ci_high": 281.838384,
+      "verdict": "CTE tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 158,
+      "errors_cte": 1042
+    },
+    {
+      "shape": "deep_chain",
+      "size": 1000,
+      "workers": 8,
+      "variant": "locked",
+      "status": "ok",
+      "throughput_cte": 63.437,
+      "throughput_mptt": 105.947,
+      "ratio": 0.598762,
+      "ci_low": 0.59727,
+      "ci_high": 0.676827,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": true,
+      "integrity_cte": true,
+      "errors_mptt": 245,
+      "errors_cte": 186
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "workers": 2,
+      "variant": "unlocked",
+      "status": "ok",
+      "throughput_cte": 0.394,
+      "throughput_mptt": 3.52,
+      "ratio": 0.111932,
+      "ci_low": 0.088636,
+      "ci_high": 0.121268,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 98,
+      "errors_cte": 6
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "workers": 4,
+      "variant": "unlocked",
+      "status": "ok",
+      "throughput_cte": 0.678,
+      "throughput_mptt": 1.813,
+      "ratio": 0.373966,
+      "ci_low": 0.261704,
+      "ci_high": 0.467586,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 131,
+      "errors_cte": 6
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "workers": 8,
+      "variant": "unlocked",
+      "status": "ok",
+      "throughput_cte": 0.838,
+      "throughput_mptt": 0.954,
+      "ratio": 0.878407,
+      "ci_low": 0.562252,
+      "ci_high": 1.168852,
+      "verdict": "taqqoslanadigan",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 160,
+      "errors_cte": 13
+    },
+    {
+      "shape": "deep_chain",
+      "size": 10000,
+      "workers": 8,
+      "variant": "locked",
+      "status": "ok",
+      "throughput_cte": 0.233,
+      "throughput_mptt": 8.491,
+      "ratio": 0.027441,
+      "ci_low": 0.025521,
+      "ci_high": 0.029491,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": true,
+      "integrity_cte": true,
+      "errors_mptt": 36,
+      "errors_cte": 6
+    }
+  ],
+  "reading": {
+    "status": "hisoblanmadi",
+    "rule": "H4 qo‘llab-quvvatlandi: to‘rtta yozish amalining har birida, har bir shakl va hajmda “CTE tezroq”; o‘qishda hech bir katakda CTE 1,5 barobardan ko‘proq sekin emas; parallel yozishdan keyin CTE da yaxlitlik buzilishi yo‘q (D63)",
+    "read_tolerance": 1.5,
+    "write_cells": 0,
+    "read_cells": 0,
+    "write_failures": [],
+    "read_failures": [],
+    "integrity_failures": [],
+    "not_computed": []
+  },
+  "settings": {
+    "shapes": [
+      "deep_chain"
+    ],
+    "sizes": [
+      1000,
+      10000
+    ],
+    "parallel_workers": [
+      2,
+      4,
+      8
+    ],
+    "warmups": 5,
+    "repeats": 30,
+    "timeout": 120.0,
+    "parallel_seconds": 20.0,
+    "parallel_repeats": 3,
+    "replicates": 1000,
+    "confidence_percent": 95,
+    "seed": 20261006,
+    "read_tolerance": 1.5,
+    "quick": false,
+    "only_parallel": true,
+    "rebuild_limit": 20000,
+    "deep_recursion_limit": 400000,
+    "worker_budget_kb": 409600,
+    "reserve_kb": 2097152,
+    "statement_timeout_ms": 120000
+  }
+}

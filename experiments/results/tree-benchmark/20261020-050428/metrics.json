@@ -1,0 +1,2699 @@
+{
+  "report": "tree_benchmark",
+  "spec": "D63",
+  "quick": false,
+  "thesis_result": true,
+  "hypothesis": "H4",
+  "provenance": {
+    "command": "python manage.py run_tree_benchmark --database benchmark --shapes deep_chain --sizes 100000 --warmups 5 --repeats 30 --timeout 120.0 --parallel-repeats 3 --seed 20261006 --memory-limit-gb 8.0",
+    "code_commit": "9f97aa7",
+    "code_dirty": false,
+    "created_at": "2026-10-20T05:04:28.422089+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "trees": 20261006,
+      "targets": 20261006,
+      "bootstrap": 20261006
+    },
+    "sources": [],
+    "packages": {
+      "django": "6.0.5",
+      "django-mptt": "0.18.0",
+      "django-tree-queries": "0.24.0",
+      "psycopg": "3.3.6"
+    },
+    "env": {},
+    "git_start": {
+      "commit": "9f97aa7",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-20T03:53:03.467494+00:00",
+      "untracked_results": [
+        "?? experiments/results/tree-benchmark/20261019-161430/",
+        "?? experiments/results/tree-benchmark/20261019-163435/"
+      ]
+    },
+    "git_end": {
+      "commit": "9f97aa7",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-20T05:04:28.421825+00:00",
+      "untracked_results": [
+        "?? experiments/results/tree-benchmark/20261019-161430/",
+        "?? experiments/results/tree-benchmark/20261019-163435/"
+      ]
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  },
+  "environment": {
+    "postgres": {
+      "vendor": "postgresql",
+      "version": "16.15 (Debian 16.15-1.pgdg13+2)",
+      "shared_buffers": "128MB",
+      "fsync": "on",
+      "synchronous_commit": "on",
+      "max_connections": "100",
+      "database": "neurolearn_bench"
+    },
+    "cpu": {
+      "model": "11th Gen Intel(R) Core(TM) i7-11800H @ 2.30GHz",
+      "logical_cores": 16,
+      "governors": [
+        "powersave"
+      ],
+      "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43"
+    },
+    "memory": {
+      "total_kb": 15615896,
+      "available_kb": 7568264
+    },
+    "load": {
+      "load_1m": 1.81,
+      "load_5m": 1.59,
+      "load_15m": 1.15
+    },
+    "busiest_processes": [
+      {
+        "cpu_percent": 205.0,
+        "command": "python"
+      },
+      {
+        "cpu_percent": 100.0,
+        "command": "ps"
+      },
+      {
+        "cpu_percent": 20.1,
+        "command": "antigravity-ide"
+      },
+      {
+        "cpu_percent": 17.9,
+        "command": "chrome"
+      },
+      {
+        "cpu_percent": 15.8,
+        "command": "chrome"
+      }
+    ],
+    "note": "vaqt o‘lchovlari mashinaga bog‘liq; nisbat (ρ) va uning oralig‘i mashinadan kam bog‘liq, shuning uchun da’vo ular ustiga qurilgan"
+  },
+  "environment_at_end": {
+    "memory": {
+      "total_kb": 15615896,
+      "available_kb": 7773088
+    },
+    "load": {
+      "load_1m": 1.06,
+      "load_5m": 2.38,
+      "load_15m": 3.27
+    },
+    "busiest_processes": [
+      {
+        "cpu_percent": 38.6,
+        "command": "python"
+      },
+      {
+        "cpu_percent": 20.3,
+        "command": "chrome"
+      },
+      {
+        "cpu_percent": 18.1,
+        "command": "postgres"
+      },
+      {
+        "cpu_percent": 6.9,
+        "command": "gnome-shell"
+      },
+      {
+        "cpu_percent": 6.1,
+        "command": "chrome"
+      }
+    ]
+  },
+  "database": {
+    "alias": "benchmark",
+    "name": "neurolearn_bench",
+    "vendor": "postgresql"
+  },
+  "checkpoint": {
+    "enabled": true,
+    "key_digest": "6d1c6f84f196b7a7",
+    "resumed_items": 0
+  },
+  "limits": {
+    "memory_cap_bytes": 8589934592,
+    "statement_timeout_ms": 120000,
+    "note": "D63f: xotira chegarasidan oshgan ajratish MemoryError beradi va katak “ishga tushirilmadi — xotira” bo‘ladi; serverdagi statement_timeout bir takror uchun berilgan vaqtga teng"
+  },
+  "cells": [
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "operation": "read_branch",
+      "kind": "read",
+      "label": "shoxni o‘qish",
+      "targets": 35,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            0.069154,
+            0.7477,
+            0.24744,
+            1.414482,
+            0.697506,
+            0.410185,
+            0.060018,
+            0.156654,
+            0.591747,
+            1.248784,
+            0.471633,
+            1.020444,
+            0.799107,
+            0.6042,
+            1.139379,
+            0.353225,
+            0.71768,
+            0.066804,
+            0.852357,
+            1.47051,
+            0.755278,
+            0.057225,
+            1.435686,
+            0.630518,
+            0.737563,
+            0.013776,
+            0.701298,
+            0.996377,
+            0.43271,
+            1.135483
+          ],
+          "seconds": {
+            "repeats": 30,
+            "median": 0.699402,
+            "p95": 1.426144,
+            "min": 0.013776,
+            "max": 1.47051,
+            "mean": 0.667831,
+            "median_ms": 699.402,
+            "p95_ms": 1426.144
+          },
+          "queries_median": 2.0,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 53774.5
+        },
+        "cte": {
+          "status": "timeout",
+          "timeout": 120.0,
+          "reached": null,
+          "completed_repeats": 0,
+          "stopped_by": "statement_timeout"
+        }
+      },
+      "ratio": {
+        "ratio": null,
+        "ci_low": null,
+        "ci_high": null,
+        "replicates": 0,
+        "reason": "cte: timeout"
+      },
+      "verdict": "timeout"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "operation": "read_ancestors",
+      "kind": "read",
+      "label": "ajdodlarni o‘qish",
+      "targets": 35,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            1.432718,
+            0.500037,
+            1.29572,
+            0.086627,
+            0.532125,
+            0.934359,
+            1.391763,
+            1.2324,
+            0.781409,
+            0.180171,
+            0.871437,
+            0.33619,
+            0.491411,
+            0.696148,
+            0.29254,
+            1.077713,
+            0.563938,
+            1.385592,
+            0.640521,
+            0.235858,
+            0.764211,
+            1.418033,
+            0.099176,
+            0.604098,
+            0.616701,
+            1.488612,
+            0.543641,
+            0.338751,
+            0.909417,
+            0.106032
+          ],
+          "seconds": {
+            "repeats": 30,
+            "median": 0.628611,
+            "p95": 1.426109,
+            "min": 0.086627,
+            "max": 1.488612,
+            "mean": 0.728245,
+            "median_ms": 628.611,
+            "p95_ms": 1426.109
+          },
+          "queries_median": 2.0,
+          "queries_min": 2,
+          "queries_max": 2,
+          "rows_touched_median": 46224.5
+        },
+        "cte": {
+          "status": "timeout",
+          "timeout": 120.0,
+          "reached": null,
+          "completed_repeats": 0,
+          "stopped_by": "statement_timeout"
+        }
+      },
+      "ratio": {
+        "ratio": null,
+        "ci_low": null,
+        "ci_high": null,
+        "replicates": 0,
+        "reason": "cte: timeout"
+      },
+      "verdict": "timeout"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "operation": "append_leaf",
+      "kind": "write",
+      "label": "oxiriga barg qo‘shish",
+      "targets": 35,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            1.30676,
+            0.5083,
+            1.178547,
+            0.106232,
+            0.497711,
+            0.627463,
+            1.116797,
+            1.025241,
+            0.563916,
+            0.181364,
+            0.60079,
+            0.303116,
+            0.430443,
+            0.588321,
+            0.244446,
+            0.773157,
+            0.4218,
+            0.766552,
+            0.384209,
+            0.163074,
+            0.440982,
+            0.882953,
+            0.10509,
+            0.414544,
+            0.383909,
+            0.925327,
+            0.446478,
+            0.230246,
+            0.854511,
+            0.072029
+          ],
+          "seconds": {
+            "repeats": 30,
+            "median": 0.472095,
+            "p95": 1.150759,
+            "min": 0.072029,
+            "max": 1.30676,
+            "mean": 0.551477,
+            "median_ms": 472.095,
+            "p95_ms": 1150.759
+          },
+          "queries_median": 6.0,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1.0,
+          "changed": {
+            "rows_before": 100000,
+            "rows_after": 100001,
+            "rows_changed": 52275,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.001816,
+            0.002379,
+            0.00198,
+            0.001359,
+            0.001635,
+            0.002064,
+            0.002214,
+            0.002306,
+            0.001611,
+            0.00131,
+            0.00177,
+            0.001414,
+            0.002159,
+            0.002457,
+            0.001968,
+            0.001857,
+            0.002176,
+            0.001966,
+            0.001496,
+            0.001302,
+            0.00143,
+            0.001418,
+            0.001298,
+            0.001219,
+            0.001352,
+            0.001367,
+            0.001255,
+            0.001771,
+            0.001356,
+            0.00172
+          ],
+          "seconds": {
+            "repeats": 30,
+            "median": 0.001677,
+            "p95": 0.002346,
+            "min": 0.001219,
+            "max": 0.002457,
+            "mean": 0.001714,
+            "median_ms": 1.677,
+            "p95_ms": 2.346
+          },
+          "queries_median": 4.0,
+          "queries_min": 4,
+          "queries_max": 4,
+          "rows_touched_median": 1.0,
+          "changed": {
+            "rows_before": 100000,
+            "rows_after": 100001,
+            "rows_changed": 1,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 281.427422,
+        "ci_low": 235.169379,
+        "ci_high": 365.018333,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "operation": "insert_leftmost",
+      "kind": "write",
+      "label": "eng chapga barg qo‘shish",
+      "targets": 35,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            1.068776,
+            0.997312,
+            1.003159,
+            1.019481,
+            1.032952,
+            1.006596,
+            0.996438,
+            1.505974,
+            0.950745,
+            0.969787,
+            0.964605,
+            0.990159,
+            0.992962,
+            0.98494,
+            1.007381,
+            0.981053,
+            1.052551,
+            1.028473,
+            0.993944,
+            0.999066,
+            1.046933,
+            1.027545,
+            1.026479,
+            1.030049,
+            1.037471,
+            1.040573,
+            1.040696,
+            1.045419,
+            1.032571,
+            1.033324
+          ],
+          "seconds": {
+            "repeats": 30,
+            "median": 1.02298,
+            "p95": 1.061475,
+            "min": 0.950745,
+            "max": 1.505974,
+            "mean": 1.030247,
+            "median_ms": 1022.98,
+            "p95_ms": 1061.475
+          },
+          "queries_median": 6.0,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1.0,
+          "changed": {
+            "rows_before": 100000,
+            "rows_after": 100001,
+            "rows_changed": 100001,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            0.002198,
+            0.002257,
+            0.003349,
+            0.002611,
+            0.003071,
+            0.002817,
+            0.002734,
+            0.002588,
+            0.002076,
+            0.002211,
+            0.002194,
+            0.002464,
+            0.002793,
+            0.003025,
+            0.002921,
+            0.002573,
+            0.002352,
+            0.002408,
+            0.002154,
+            0.002372,
+            0.001972,
+            0.002025,
+            0.002266,
+            0.002435,
+            0.00276,
+            0.002282,
+            0.002696,
+            0.002667,
+            0.002266,
+            0.001763
+          ],
+          "seconds": {
+            "repeats": 30,
+            "median": 0.002421,
+            "p95": 0.00305,
+            "min": 0.001763,
+            "max": 0.003349,
+            "mean": 0.002477,
+            "median_ms": 2.421,
+            "p95_ms": 3.05
+          },
+          "queries_median": 4.0,
+          "queries_min": 4,
+          "queries_max": 4,
+          "rows_touched_median": 1.0,
+          "changed": {
+            "rows_before": 100000,
+            "rows_after": 100001,
+            "rows_changed": 1,
+            "rows_inserted": 1,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 422.457155,
+        "ci_low": 381.917515,
+        "ci_high": 452.996222,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "CTE tezroq"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "operation": "move_branch",
+      "kind": "write",
+      "label": "shoxni ko‘chirish",
+      "targets": 35,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            1.087619,
+            1.093587,
+            1.102456,
+            1.13797,
+            1.08899,
+            1.098111,
+            1.083169,
+            1.080415,
+            1.074767,
+            1.051444,
+            1.070724,
+            1.058156,
+            1.064264,
+            1.07382,
+            1.056945,
+            1.076263,
+            1.050253,
+            1.070234,
+            1.096123,
+            1.159359,
+            1.099251,
+            1.189808,
+            1.143024,
+            0.821619,
+            0.869751,
+            0.902715,
+            0.907634,
+            0.920831,
+            0.920461,
+            0.936592
+          ],
+          "seconds": {
+            "repeats": 30,
+            "median": 1.074294,
+            "p95": 1.152008,
+            "min": 0.821619,
+            "max": 1.189808,
+            "mean": 1.046212,
+            "median_ms": 1074.294,
+            "p95_ms": 1152.008
+          },
+          "queries_median": 6.0,
+          "queries_min": 6,
+          "queries_max": 6,
+          "rows_touched_median": 1.0,
+          "changed": {
+            "rows_before": 100000,
+            "rows_after": 100000,
+            "rows_changed": 84459,
+            "rows_inserted": 0,
+            "rows_deleted": 0,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "timeout",
+          "timeout": 120.0,
+          "reached": null,
+          "completed_repeats": 0,
+          "stopped_by": "statement_timeout"
+        }
+      },
+      "ratio": {
+        "ratio": null,
+        "ci_low": null,
+        "ci_high": null,
+        "replicates": 0,
+        "reason": "cte: timeout"
+      },
+      "verdict": "timeout"
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "operation": "delete_branch",
+      "kind": "write",
+      "label": "shoxni o‘chirish",
+      "targets": 35,
+      "methods": {
+        "mptt": {
+          "status": "ok",
+          "timings": [
+            6.543528,
+            60.488992,
+            14.141535,
+            79.61071,
+            30.386249,
+            19.178571,
+            3.564525,
+            8.398098,
+            21.47639,
+            37.863442,
+            18.863782,
+            33.513573,
+            32.341277,
+            25.787925,
+            38.066013,
+            15.844733,
+            26.238892,
+            3.748823,
+            28.062935,
+            41.443689,
+            27.590308,
+            2.494955,
+            41.161339,
+            22.459501,
+            27.813412,
+            0.720214,
+            22.360417,
+            31.752336,
+            14.666038,
+            38.831233
+          ],
+          "seconds": {
+            "repeats": 30,
+            "median": 26.013409,
+            "p95": 51.918606,
+            "min": 0.720214,
+            "max": 79.61071,
+            "mean": 25.847115,
+            "median_ms": 26013.409,
+            "p95_ms": 51918.606
+          },
+          "queries_median": 0.0,
+          "queries_min": 0,
+          "queries_max": 0,
+          "rows_touched_median": 53775.5,
+          "changed": {
+            "rows_before": 100000,
+            "rows_after": 52273,
+            "rows_changed": 52273,
+            "rows_inserted": 0,
+            "rows_deleted": 47727,
+            "columns": [
+              "parent_id",
+              "position",
+              "tree_id",
+              "lft",
+              "rght",
+              "level"
+            ]
+          }
+        },
+        "cte": {
+          "status": "ok",
+          "timings": [
+            3.196574,
+            35.210868,
+            7.15505,
+            52.863352,
+            31.681497,
+            19.680088,
+            3.358817,
+            7.326362,
+            24.522256,
+            46.352444,
+            21.644363,
+            43.984717,
+            37.521245,
+            26.690344,
+            38.874648,
+            16.119567,
+            29.657579,
+            4.08084,
+            28.886712,
+            46.493488,
+            24.491596,
+            1.492482,
+            47.810921,
+            29.807906,
+            31.672968,
+            0.159273,
+            27.538053,
+            40.278257,
+            17.042995,
+            50.918011
+          ],
+          "seconds": {
+            "repeats": 30,
+            "median": 28.212383,
+            "p95": 49.51982,
+            "min": 0.159273,
+            "max": 52.863352,
+            "mean": 26.550442,
+            "median_ms": 28212.383,
+            "p95_ms": 49519.82
+          },
+          "queries_median": 0.0,
+          "queries_min": 0,
+          "queries_max": 0,
+          "rows_touched_median": 53775.5,
+          "changed": {
+            "rows_before": 100000,
+            "rows_after": 52273,
+            "rows_changed": 0,
+            "rows_inserted": 0,
+            "rows_deleted": 47727,
+            "columns": [
+              "parent_id",
+              "position"
+            ]
+          }
+        }
+      },
+      "ratio": {
+        "ratio": 0.922056,
+        "ci_low": 0.796087,
+        "ci_high": 1.033276,
+        "replicates": 1000,
+        "paired": true
+      },
+      "verdict": "taqqoslanadigan"
+    }
+  ],
+  "trees": [
+    {
+      "method": "mptt",
+      "shape": "deep_chain",
+      "size": 100000,
+      "seed": 20261006,
+      "nodes": 100000,
+      "sha256": "6cc718522da2132d3771acfc65c480e06a4e23f9f55e613d799c60d6ce0ce784",
+      "max_depth": 99999,
+      "build_seconds": 5.908
+    },
+    {
+      "method": "cte",
+      "shape": "deep_chain",
+      "size": 100000,
+      "seed": 20261006,
+      "nodes": 100000,
+      "sha256": "6cc718522da2132d3771acfc65c480e06a4e23f9f55e613d799c60d6ce0ce784",
+      "max_depth": 99999,
+      "build_seconds": 3.268
+    }
+  ],
+  "parallel": [
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "method": "mptt",
+      "workers": 2,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.969,
+      "throughput_min": 0.743,
+      "throughput_max": 0.972,
+      "latency_median": 1.374282,
+      "latency_p95": 2.960324,
+      "errors": {
+        "InvalidMove": 37,
+        "OperationalError": 25,
+        "IntegrityError": 2
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100011,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100011,
+              "lft_not_less_than_rght": 20252,
+              "outside_parent_interval": 13,
+              "duplicate_boundaries": 10,
+              "wrong_level": 35173,
+              "differs_from_rebuild": 88753,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  27807,
+                  27808,
+                  68448,
+                  68449,
+                  68450,
+                  68451,
+                  68452,
+                  68453,
+                  68454,
+                  68455
+                ],
+                "outside": [
+                  100006,
+                  27809,
+                  37565,
+                  39547,
+                  44260,
+                  60104,
+                  91103,
+                  92246,
+                  81204,
+                  100003
+                ],
+                "wrong_level": [
+                  44260,
+                  44261,
+                  44262,
+                  44263,
+                  44264,
+                  44265,
+                  44266,
+                  44267,
+                  44268,
+                  44269
+                ],
+                "differing": [
+                  10534,
+                  10535,
+                  11261,
+                  11262,
+                  11263,
+                  11264,
+                  11265,
+                  11266,
+                  11267,
+                  11268
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100009,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100009,
+              "lft_not_less_than_rght": 33473,
+              "outside_parent_interval": 11,
+              "duplicate_boundaries": 7859,
+              "wrong_level": 81483,
+              "differs_from_rebuild": 92158,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  13527,
+                  13528,
+                  53696,
+                  53697,
+                  53698,
+                  53699,
+                  53700,
+                  53701,
+                  53702,
+                  53703
+                ],
+                "outside": [
+                  7852,
+                  100005,
+                  87167,
+                  100002,
+                  100007,
+                  16825,
+                  100004,
+                  13527,
+                  13529,
+                  28652
+                ],
+                "wrong_level": [
+                  13527,
+                  13528,
+                  13529,
+                  13530,
+                  13531,
+                  13532,
+                  13533,
+                  13534,
+                  13535,
+                  13536
+                ],
+                "differing": [
+                  7852,
+                  7853,
+                  7854,
+                  7855,
+                  7856,
+                  7857,
+                  7858,
+                  7859,
+                  7860,
+                  7861
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100010,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100010,
+              "lft_not_less_than_rght": 22852,
+              "outside_parent_interval": 10,
+              "duplicate_boundaries": 10,
+              "wrong_level": 41603,
+              "differs_from_rebuild": 88336,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  10535,
+                  10536,
+                  10537,
+                  10538,
+                  10539,
+                  10540,
+                  10541,
+                  10542,
+                  10543,
+                  10544
+                ],
+                "outside": [
+                  93024,
+                  100001,
+                  39442,
+                  15105,
+                  68916,
+                  75233,
+                  85031,
+                  100006,
+                  100010,
+                  53175
+                ],
+                "wrong_level": [
+                  10535,
+                  10536,
+                  10537,
+                  10538,
+                  10539,
+                  10540,
+                  10541,
+                  10542,
+                  10543,
+                  10544
+                ],
+                "differing": [
+                  8334,
+                  8335,
+                  8336,
+                  8337,
+                  8338,
+                  8339,
+                  8340,
+                  8341,
+                  8342,
+                  8343
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 21.663,
+          "operations": 21,
+          "appended": 11,
+          "moved": 10,
+          "throughput": 0.969,
+          "latency_median": 1.374282,
+          "latency_p95": 2.842825,
+          "errors": {
+            "InvalidMove": 14,
+            "OperationalError": 3,
+            "IntegrityError": 2
+          },
+          "error_count": 19,
+          "per_worker_operations": [
+            12,
+            9
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 21.54,
+          "operations": 16,
+          "appended": 9,
+          "moved": 7,
+          "throughput": 0.743,
+          "latency_median": 1.865524,
+          "latency_p95": 2.960324,
+          "errors": {
+            "InvalidMove": 9,
+            "OperationalError": 9
+          },
+          "error_count": 18,
+          "per_worker_operations": [
+            9,
+            7
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 20.578,
+          "operations": 20,
+          "appended": 10,
+          "moved": 10,
+          "throughput": 0.972,
+          "latency_median": 1.020026,
+          "latency_p95": 2.880116,
+          "errors": {
+            "InvalidMove": 14,
+            "OperationalError": 13
+          },
+          "error_count": 27,
+          "per_worker_operations": [
+            10,
+            10
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "method": "cte",
+      "workers": 2,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.017,
+      "throughput_min": 0.017,
+      "throughput_max": 0.017,
+      "latency_median": 0.002397,
+      "latency_p95": 0.002729,
+      "errors": {
+        "OperationalError": 6
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100002,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100002,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100002,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.073,
+          "operations": 2,
+          "appended": 2,
+          "moved": 0,
+          "throughput": 0.017,
+          "latency_median": 0.002397,
+          "latency_p95": 0.002412,
+          "errors": {
+            "OperationalError": 2
+          },
+          "error_count": 2,
+          "per_worker_operations": [
+            1,
+            1
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.064,
+          "operations": 2,
+          "appended": 2,
+          "moved": 0,
+          "throughput": 0.017,
+          "latency_median": 0.002224,
+          "latency_p95": 0.002362,
+          "errors": {
+            "OperationalError": 2
+          },
+          "error_count": 2,
+          "per_worker_operations": [
+            1,
+            1
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 2,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.076,
+          "operations": 2,
+          "appended": 2,
+          "moved": 0,
+          "throughput": 0.017,
+          "latency_median": 0.002615,
+          "latency_p95": 0.002729,
+          "errors": {
+            "OperationalError": 2
+          },
+          "error_count": 2,
+          "per_worker_operations": [
+            1,
+            1
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "method": "mptt",
+      "workers": 4,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.545,
+      "throughput_min": 0.535,
+      "throughput_max": 0.778,
+      "latency_median": 2.041225,
+      "latency_p95": 6.457841,
+      "errors": {
+        "OperationalError": 47,
+        "InvalidMove": 61,
+        "IntegrityError": 6
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100008,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 1,
+              "duplicate_boundaries": 8,
+              "wrong_level": 1,
+              "differs_from_rebuild": 4,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [],
+                "outside": [
+                  100004
+                ],
+                "wrong_level": [
+                  100004
+                ],
+                "differing": [
+                  100002,
+                  100003,
+                  100004,
+                  100005
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100007,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100007,
+              "lft_not_less_than_rght": 9111,
+              "outside_parent_interval": 4,
+              "duplicate_boundaries": 8,
+              "wrong_level": 17538,
+              "differs_from_rebuild": 56621,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  78676,
+                  78677,
+                  78678,
+                  78679,
+                  78680,
+                  78681,
+                  78682,
+                  78683,
+                  78684,
+                  78685
+                ],
+                "outside": [
+                  63362,
+                  100003,
+                  87787,
+                  100004
+                ],
+                "wrong_level": [
+                  78676,
+                  78677,
+                  78678,
+                  78679,
+                  78680,
+                  78681,
+                  78682,
+                  78683,
+                  78684,
+                  78685
+                ],
+                "differing": [
+                  33703,
+                  33704,
+                  33705,
+                  33706,
+                  38037,
+                  38038,
+                  38039,
+                  38040,
+                  38041,
+                  38042
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100011,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100011,
+              "lft_not_less_than_rght": 20758,
+              "outside_parent_interval": 13,
+              "duplicate_boundaries": 12,
+              "wrong_level": 50090,
+              "differs_from_rebuild": 82552,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  47790,
+                  47791,
+                  47792,
+                  47793,
+                  47794,
+                  47795,
+                  47796,
+                  47797,
+                  47798,
+                  47799
+                ],
+                "outside": [
+                  29435,
+                  31476,
+                  80565,
+                  72524,
+                  75233,
+                  43175,
+                  100004,
+                  100003,
+                  97931,
+                  53512
+                ],
+                "wrong_level": [
+                  47790,
+                  47791,
+                  47792,
+                  47793,
+                  47794,
+                  47795,
+                  47796,
+                  47797,
+                  47798,
+                  47799
+                ],
+                "differing": [
+                  7852,
+                  7853,
+                  7854,
+                  7855,
+                  7856,
+                  7857,
+                  7858,
+                  7859,
+                  7860,
+                  7861
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 23.841,
+          "operations": 13,
+          "appended": 8,
+          "moved": 5,
+          "throughput": 0.545,
+          "latency_median": 1.462988,
+          "latency_p95": 4.829764,
+          "errors": {
+            "OperationalError": 19,
+            "InvalidMove": 22,
+            "IntegrityError": 2
+          },
+          "error_count": 43,
+          "per_worker_operations": [
+            1,
+            2,
+            5,
+            5
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 22.441,
+          "operations": 12,
+          "appended": 7,
+          "moved": 5,
+          "throughput": 0.535,
+          "latency_median": 2.041225,
+          "latency_p95": 4.302958,
+          "errors": {
+            "OperationalError": 21,
+            "InvalidMove": 25,
+            "IntegrityError": 1
+          },
+          "error_count": 47,
+          "per_worker_operations": [
+            2,
+            2,
+            5,
+            3
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 24.428,
+          "operations": 19,
+          "appended": 11,
+          "moved": 8,
+          "throughput": 0.778,
+          "latency_median": 2.112171,
+          "latency_p95": 6.457841,
+          "errors": {
+            "InvalidMove": 14,
+            "OperationalError": 7,
+            "IntegrityError": 3
+          },
+          "error_count": 24,
+          "per_worker_operations": [
+            9,
+            6,
+            3,
+            1
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "method": "cte",
+      "workers": 4,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.033,
+      "throughput_min": 0.033,
+      "throughput_max": 0.033,
+      "latency_median": 0.002574,
+      "latency_p95": 0.012963,
+      "errors": {
+        "OperationalError": 12
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100004,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100004,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100004,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.078,
+          "operations": 4,
+          "appended": 4,
+          "moved": 0,
+          "throughput": 0.033,
+          "latency_median": 0.002574,
+          "latency_p95": 0.002797,
+          "errors": {
+            "OperationalError": 4
+          },
+          "error_count": 4,
+          "per_worker_operations": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.098,
+          "operations": 4,
+          "appended": 4,
+          "moved": 0,
+          "throughput": 0.033,
+          "latency_median": 0.01294,
+          "latency_p95": 0.012963,
+          "errors": {
+            "OperationalError": 4
+          },
+          "error_count": 4,
+          "per_worker_operations": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 4,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.078,
+          "operations": 4,
+          "appended": 4,
+          "moved": 0,
+          "throughput": 0.033,
+          "latency_median": 0.002522,
+          "latency_p95": 0.002536,
+          "errors": {
+            "OperationalError": 4
+          },
+          "error_count": 4,
+          "per_worker_operations": [
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "method": "mptt",
+      "workers": 8,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.414,
+      "throughput_min": 0.281,
+      "throughput_max": 0.703,
+      "latency_median": 3.838817,
+      "latency_p95": 8.66739,
+      "errors": {
+        "OperationalError": 81,
+        "InvalidMove": 53,
+        "IntegrityError": 5
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100007,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100007,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 8,
+              "wrong_level": 0,
+              "differs_from_rebuild": 4,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": [
+                  100003,
+                  100004,
+                  100005,
+                  100007
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100006,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100006,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 3,
+              "duplicate_boundaries": 6,
+              "wrong_level": 61531,
+              "differs_from_rebuild": 82847,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [],
+                "outside": [
+                  31644,
+                  30139,
+                  100002
+                ],
+                "wrong_level": [
+                  25254,
+                  25255,
+                  25256,
+                  25257,
+                  25258,
+                  25259,
+                  25260,
+                  25261,
+                  25262,
+                  25263
+                ],
+                "differing": [
+                  5530,
+                  5531,
+                  12275,
+                  12276,
+                  12277,
+                  12278,
+                  12279,
+                  12280,
+                  12281,
+                  12282
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100011,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100011,
+              "lft_not_less_than_rght": 167,
+              "outside_parent_interval": 11,
+              "duplicate_boundaries": 18,
+              "wrong_level": 20821,
+              "differs_from_rebuild": 78346,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [
+                  77303,
+                  77304,
+                  77305,
+                  77306,
+                  77307,
+                  77308,
+                  77309,
+                  77310,
+                  77311,
+                  77312
+                ],
+                "outside": [
+                  38165,
+                  77470,
+                  80088,
+                  67263,
+                  100011,
+                  100009,
+                  100008,
+                  100007,
+                  100004,
+                  100006
+                ],
+                "wrong_level": [
+                  60441,
+                  60442,
+                  60443,
+                  60444,
+                  60445,
+                  60446,
+                  60447,
+                  60448,
+                  60449,
+                  60450
+                ],
+                "differing": [
+                  8996,
+                  8997,
+                  8998,
+                  8999,
+                  9000,
+                  9001,
+                  9002,
+                  9003,
+                  9004,
+                  9005
+                ]
+              },
+              "passed": false
+            }
+          ],
+          "passed": false,
+          "failures": [
+            "mptt_intervals"
+          ]
+        }
+      ],
+      "integrity_passed": false,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 24.939,
+          "operations": 7,
+          "appended": 7,
+          "moved": 0,
+          "throughput": 0.281,
+          "latency_median": 5.225209,
+          "latency_p95": 8.66739,
+          "errors": {
+            "OperationalError": 30,
+            "InvalidMove": 16
+          },
+          "error_count": 46,
+          "per_worker_operations": [
+            0,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 26.547,
+          "operations": 11,
+          "appended": 6,
+          "moved": 5,
+          "throughput": 0.414,
+          "latency_median": 2.45333,
+          "latency_p95": 7.660459,
+          "errors": {
+            "OperationalError": 29,
+            "InvalidMove": 11,
+            "IntegrityError": 1
+          },
+          "error_count": 41,
+          "per_worker_operations": [
+            0,
+            2,
+            2,
+            2,
+            1,
+            2,
+            2,
+            0
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 24.193,
+          "operations": 17,
+          "appended": 11,
+          "moved": 6,
+          "throughput": 0.703,
+          "latency_median": 3.838817,
+          "latency_p95": 7.162545,
+          "errors": {
+            "OperationalError": 22,
+            "InvalidMove": 26,
+            "IntegrityError": 4
+          },
+          "error_count": 52,
+          "per_worker_operations": [
+            1,
+            2,
+            4,
+            2,
+            3,
+            1,
+            3,
+            1
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "method": "cte",
+      "workers": 8,
+      "variant": "unlocked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.067,
+      "throughput_min": 0.067,
+      "throughput_max": 0.067,
+      "latency_median": 0.002575,
+      "latency_p95": 0.00317,
+      "errors": {
+        "OperationalError": 24
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.103,
+          "operations": 8,
+          "appended": 8,
+          "moved": 0,
+          "throughput": 0.067,
+          "latency_median": 0.002816,
+          "latency_p95": 0.003042,
+          "errors": {
+            "OperationalError": 8
+          },
+          "error_count": 8,
+          "per_worker_operations": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.094,
+          "operations": 8,
+          "appended": 8,
+          "moved": 0,
+          "throughput": 0.067,
+          "latency_median": 0.002341,
+          "latency_p95": 0.002679,
+          "errors": {
+            "OperationalError": 8
+          },
+          "error_count": 8,
+          "per_worker_operations": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "unlocked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.094,
+          "operations": 8,
+          "appended": 8,
+          "moved": 0,
+          "throughput": 0.067,
+          "latency_median": 0.002575,
+          "latency_p95": 0.00317,
+          "errors": {
+            "OperationalError": 8
+          },
+          "error_count": 8,
+          "per_worker_operations": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "method": "mptt",
+      "workers": 8,
+      "variant": "locked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 1.14,
+      "throughput_min": 1.129,
+      "throughput_max": 1.202,
+      "latency_median": 5.293139,
+      "latency_p95": 9.028946,
+      "errors": {
+        "InvalidMove": 23
+      },
+      "integrity": [
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100016,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100016,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100017,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100017,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "mptt",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100017,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            },
+            {
+              "check": "mptt_intervals",
+              "nodes": 100017,
+              "lft_not_less_than_rght": 0,
+              "outside_parent_interval": 0,
+              "duplicate_boundaries": 0,
+              "wrong_level": 0,
+              "differs_from_rebuild": 0,
+              "rebuild_source": "recomputed from the parent links (too many nodes; test_generator pins it against rebuild())",
+              "examples": {
+                "inverted": [],
+                "outside": [],
+                "wrong_level": [],
+                "differing": []
+              },
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 24.561,
+          "operations": 28,
+          "appended": 16,
+          "moved": 12,
+          "throughput": 1.14,
+          "latency_median": 5.293139,
+          "latency_p95": 8.36746,
+          "errors": {
+            "InvalidMove": 9
+          },
+          "error_count": 9,
+          "per_worker_operations": [
+            3,
+            4,
+            3,
+            2,
+            3,
+            4,
+            5,
+            4
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 26.575,
+          "operations": 30,
+          "appended": 17,
+          "moved": 13,
+          "throughput": 1.129,
+          "latency_median": 6.190237,
+          "latency_p95": 9.028946,
+          "errors": {
+            "InvalidMove": 3
+          },
+          "error_count": 3,
+          "per_worker_operations": [
+            4,
+            5,
+            3,
+            3,
+            4,
+            4,
+            3,
+            4
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "mptt",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 24.951,
+          "operations": 30,
+          "appended": 17,
+          "moved": 13,
+          "throughput": 1.202,
+          "latency_median": 4.508101,
+          "latency_p95": 7.270926,
+          "errors": {
+            "InvalidMove": 11
+          },
+          "error_count": 11,
+          "per_worker_operations": [
+            4,
+            2,
+            4,
+            5,
+            5,
+            4,
+            3,
+            3
+          ],
+          "repeat": 2
+        }
+      ]
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "method": "cte",
+      "workers": 8,
+      "variant": "locked",
+      "status": "ok",
+      "seconds": 20.0,
+      "repeats": 3,
+      "throughput_median": 0.067,
+      "throughput_min": 0.067,
+      "throughput_max": 0.067,
+      "latency_median": 0.010396,
+      "latency_p95": 0.024774,
+      "errors": {
+        "OperationalError": 24
+      },
+      "integrity": [
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        },
+        {
+          "method": "cte",
+          "checks": [
+            {
+              "check": "y1",
+              "nodes": 100008,
+              "roots": 1,
+              "parentless": 1,
+              "dangling_parents": 0,
+              "cycles": 0,
+              "cycle_nodes": [],
+              "passed": true
+            }
+          ],
+          "passed": true,
+          "failures": []
+        }
+      ],
+      "integrity_passed": true,
+      "phases": [
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.115,
+          "operations": 8,
+          "appended": 8,
+          "moved": 0,
+          "throughput": 0.067,
+          "latency_median": 0.010396,
+          "latency_p95": 0.015708,
+          "errors": {
+            "OperationalError": 8
+          },
+          "error_count": 8,
+          "per_worker_operations": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 0
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.101,
+          "operations": 8,
+          "appended": 8,
+          "moved": 0,
+          "throughput": 0.067,
+          "latency_median": 0.00893,
+          "latency_p95": 0.013637,
+          "errors": {
+            "OperationalError": 8
+          },
+          "error_count": 8,
+          "per_worker_operations": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 1
+        },
+        {
+          "method": "cte",
+          "workers": 8,
+          "variant": "locked",
+          "seconds_requested": 20.0,
+          "seconds_elapsed": 120.158,
+          "operations": 8,
+          "appended": 8,
+          "moved": 0,
+          "throughput": 0.067,
+          "latency_median": 0.019858,
+          "latency_p95": 0.024774,
+          "errors": {
+            "OperationalError": 8
+          },
+          "error_count": 8,
+          "per_worker_operations": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "repeat": 2
+        }
+      ]
+    }
+  ],
+  "parallel_ratios": [
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "workers": 2,
+      "variant": "unlocked",
+      "status": "ok",
+      "throughput_cte": 0.017,
+      "throughput_mptt": 0.969,
+      "ratio": 0.017544,
+      "ci_low": 0.01749,
+      "ci_high": 0.02288,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 64,
+      "errors_cte": 6
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "workers": 4,
+      "variant": "unlocked",
+      "status": "ok",
+      "throughput_cte": 0.033,
+      "throughput_mptt": 0.545,
+      "ratio": 0.06055,
+      "ci_low": 0.042416,
+      "ci_high": 0.061682,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 114,
+      "errors_cte": 12
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "workers": 8,
+      "variant": "unlocked",
+      "status": "ok",
+      "throughput_cte": 0.067,
+      "throughput_mptt": 0.414,
+      "ratio": 0.161836,
+      "ci_low": 0.095306,
+      "ci_high": 0.238434,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": false,
+      "integrity_cte": true,
+      "errors_mptt": 139,
+      "errors_cte": 24
+    },
+    {
+      "shape": "deep_chain",
+      "size": 100000,
+      "workers": 8,
+      "variant": "locked",
+      "status": "ok",
+      "throughput_cte": 0.067,
+      "throughput_mptt": 1.14,
+      "ratio": 0.058772,
+      "ci_low": 0.05574,
+      "ci_high": 0.059345,
+      "verdict": "MPTT tezroq",
+      "integrity_mptt": true,
+      "integrity_cte": true,
+      "errors_mptt": 23,
+      "errors_cte": 24
+    }
+  ],
+  "reading": {
+    "status": "qo‘llab-quvvatlanmadi",
+    "rule": "H4 qo‘llab-quvvatlandi: to‘rtta yozish amalining har birida, har bir shakl va hajmda “CTE tezroq”; o‘qishda hech bir katakda CTE 1,5 barobardan ko‘proq sekin emas; parallel yozishdan keyin CTE da yaxlitlik buzilishi yo‘q (D63)",
+    "read_tolerance": 1.5,
+    "write_cells": 4,
+    "read_cells": 2,
+    "write_failures": [
+      "delete_branch@deep_chain/100000"
+    ],
+    "read_failures": [],
+    "integrity_failures": [],
+    "not_computed": [
+      "read_branch@deep_chain/100000",
+      "read_ancestors@deep_chain/100000",
+      "move_branch@deep_chain/100000"
+    ]
+  },
+  "settings": {
+    "shapes": [
+      "deep_chain"
+    ],
+    "sizes": [
+      100000
+    ],
+    "parallel_workers": [
+      2,
+      4,
+      8
+    ],
+    "warmups": 5,
+    "repeats": 30,
+    "timeout": 120.0,
+    "parallel_seconds": 20.0,
+    "parallel_repeats": 3,
+    "replicates": 1000,
+    "confidence_percent": 95,
+    "seed": 20261006,
+    "read_tolerance": 1.5,
+    "quick": false,
+    "only_parallel": false,
+    "rebuild_limit": 20000,
+    "deep_recursion_limit": 400000,
+    "worker_budget_kb": 409600,
+    "reserve_kb": 2097152,
+    "statement_timeout_ms": 120000
+  }
+}

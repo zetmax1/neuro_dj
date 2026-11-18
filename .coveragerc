@@ -1,0 +1,24 @@
+# Coverage scope (stage 10, D67). "Overall" is the backend's own source code:
+# tests, migrations, the independent verification suite, the experiments
+# package (run from experiments/.venv, outside this suite) and shell-side
+# tooling are not part of it. The three targets are checked in CI:
+#   coverage report --include='neuro_model/*' --fail-under=95
+#   coverage report --include='*/services/*' --fail-under=85
+#   coverage report                            (fail_under below)
+[run]
+source = .
+omit =
+    */tests/*
+    */migrations/*
+    conftest.py
+    manage.py
+    venv/*
+    experiments/*
+    verification/*
+    scripts/*
+    # Runs only inside Locust; its effect is measured by benchmarks/load_test.py.
+    benchmarks/locustfile.py
+
+[report]
+fail_under = 80
+skip_empty = True

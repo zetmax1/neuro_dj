@@ -1,37 +1,41 @@
 """
-assessments/views/knowledge.py — API view for user knowledge states.
+assessments/views/knowledge.py — API view for the learner's topic states.
 
 Endpoint:
   GET /api/knowledge_states/
 
-Performance: 1 query with select_related('topic').
+The rows are materialised and brought up to the current KB version by the
+readiness service first (TY6), so the list cannot serve counters computed
+under an older knowledge base.
 """
 
 from __future__ import annotations
 
 from django.db.models import QuerySet
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions
 
-from assessments.models import UserKnowledgeState
-from assessments.serializers.knowledge import UserKnowledgeStateSerializer
-from drf_spectacular.utils import extend_schema
+from assessments.models import StudentTopicState
+from assessments.serializers.knowledge import StudentTopicStateSerializer
+from assessments.services import readiness
 
 
 @extend_schema(tags=["Student Assessments"])
-class UserKnowledgeStateListView(generics.ListAPIView):
+class StudentTopicStateListView(generics.ListAPIView):
     """
-    Returns all knowledge states for the authenticated user.
+    Every topic state of the authenticated learner.
 
-    Performance: 1 query with select_related('topic') — the forward FK
-    is JOINed in SQL so topic_name resolves without a second query.
+    Performance: the readiness sync is one SELECT in the steady case, then
+    one query with select_related('topic').
     """
 
-    serializer_class = UserKnowledgeStateSerializer
+    serializer_class = StudentTopicStateSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self) -> QuerySet[UserKnowledgeState]:
+    def get_queryset(self) -> QuerySet[StudentTopicState]:
+        readiness.states_for(user=self.request.user)
         return (
-            UserKnowledgeState.objects
+            StudentTopicState.objects
             .filter(user=self.request.user)
             .select_related("topic")
             .order_by("-updated_at")

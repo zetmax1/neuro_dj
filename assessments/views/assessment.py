@@ -4,32 +4,53 @@ assessments/views/assessment.py — API views for quiz retrieval and evaluation.
 Endpoints:
   - GET  /api/assessments/next_question/?topic_id=<id>
   - POST /api/assessments/submit_answer/
+  - GET  /api/assessments/test_session/?topic_id=<id>
+  - POST /api/assessments/submit_test_session/
+  - GET  /api/assessments/tests/
 
-Both views are intentionally thin — they validate input, delegate to
+The views are intentionally thin — they validate input, delegate to
 assessments.services for all business logic, and serialize the output.
+
+A topic whose prerequisites are unmet answers 403 with the unmet ones:
+``{"missing": [{"topic_id", "name", "p_mastery"}]}``. The decision belongs to
+``assessments.services.readiness`` alone (stage 4); no view computes it.
 """
 
 from __future__ import annotations
 
 import logging
 
+from django.db.models import Count, Sum
 from rest_framework import permissions, status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from curriculum.models import Topic
+from curriculum.services.graph import get_snapshot
 
-from assessments.models import Choice, DifficultyLevel, MasteryLevel, Question, UserKnowledgeState, AssessmentAttempt
+from assessments.models import Choice, Question, TopicStatus
 from assessments.serializers.assessment import (
     QuestionSerializer,
     SubmissionResultSerializer,
     SubmitAnswerSerializer,
 )
-from assessments.services import get_next_question, get_stratified_test_questions, process_submission
+from assessments.services import (
+    get_next_question,
+    get_stratified_test_questions,
+    process_submission,
+    readiness,
+    test_session,
+)
+from assessments.services.orchestrator import TopicClosed
 from drf_spectacular.utils import extend_schema
 
 logger = logging.getLogger(__name__)
+
+
+def _closed_response(blocked: readiness.Blocked) -> Response:
+    """403 for a topic whose prerequisites the learner has not mastered."""
+    return Response(blocked.payload(), status=status.HTTP_403_FORBIDDEN)
 
 
 @extend_schema(tags=["Student Assessments"])
@@ -50,12 +71,16 @@ class TestSessionView(APIView):
             )
 
         try:
-            topic = Topic.objects.get(pk=topic_id)
+            topic = Topic.objects.get(pk=topic_id, is_archived=False)
         except Topic.DoesNotExist:
             return Response(
                 {"detail": f"Topic with id {topic_id} does not exist."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        blocked = readiness.check_open(user=request.user, topic_id=topic.pk)
+        if blocked is not None:
+            return _closed_response(blocked)
 
         questions = get_stratified_test_questions(topic_id=int(topic_id))
 
@@ -77,15 +102,22 @@ class TestSessionView(APIView):
 class SubmitTestSessionView(APIView):
     """
     POST /api/assessments/submit_test_session/
-    Evaluates the full test session with difficulty-weighted grading (Easy=1pt, Medium=2pt, Hard=3pt).
-    Calculates final grade %, compares against topic.pass_mark_percentage, records attempts, and updates mastery.
+
+    Two separate things (D7). The paper gets a difficulty-weighted exam score
+    (easy 1, medium 2, hard 3) compared against the topic's pass mark and
+    stored as a ``TestSessionResult``; that percentage never becomes
+    ``p_mastery``. The answers themselves go through Algorithm 2.4 and
+    Algorithm 2.3 in submission order, by the same path the adaptive endpoint
+    uses, so they do move P(L), θ and b_q.
+
+    The whole submission is one transaction in
+    ``assessments.services.test_session``; the view only validates and
+    serialises.
     """
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request: Request) -> Response:
         topic_id = request.data.get("topic_id")
-        answers = request.data.get("answers", [])
-
         if not topic_id:
             return Response(
                 {"detail": "Field 'topic_id' is required."},
@@ -93,125 +125,40 @@ class SubmitTestSessionView(APIView):
             )
 
         try:
-            topic = Topic.objects.get(pk=topic_id)
-        except Topic.DoesNotExist:
-            return Response(
-                {"detail": f"Topic with id {topic_id} does not exist."},
-                status=status.HTTP_404_NOT_FOUND,
+            outcome = test_session.submit(
+                user=request.user,
+                topic_id=topic_id,
+                answers=request.data.get("answers", []),
             )
+        except test_session.UnknownTopic as unknown:
+            return Response({"detail": str(unknown)}, status=status.HTTP_404_NOT_FOUND)
+        except TopicClosed as closed:
+            return Response(closed.payload(), status=status.HTTP_403_FORBIDDEN)
 
-        DIFFICULTY_WEIGHTS = {
-            DifficultyLevel.EASY: 1,
-            DifficultyLevel.MEDIUM: 2,
-            DifficultyLevel.HARD: 3,
-        }
-
-        total_points = 0
-        earned_points = 0
-
-        breakdown = {
-            "easy": {"correct": 0, "total": 0, "points": 0},
-            "medium": {"correct": 0, "total": 0, "points": 0},
-            "hard": {"correct": 0, "total": 0, "points": 0},
-        }
-
-        answers_summary = []
-
-        for item in answers:
-            q_id = item.get("question_id")
-            c_id = item.get("choice_id")
-
-            try:
-                question = Question.objects.get(pk=q_id)
-            except Question.DoesNotExist:
-                continue
-
-            weight = DIFFICULTY_WEIGHTS.get(question.difficulty, 1)
-            total_points += weight
-
-            diff_key = (
-                "easy"
-                if question.difficulty == DifficultyLevel.EASY
-                else ("medium" if question.difficulty == DifficultyLevel.MEDIUM else "hard")
-            )
-            breakdown[diff_key]["total"] += 1
-
-            is_correct = False
-            selected_choice_obj = None
-
-            if c_id:
-                try:
-                    selected_choice_obj = Choice.objects.get(pk=c_id, question=question)
-                    is_correct = selected_choice_obj.is_correct
-                except Choice.DoesNotExist:
-                    is_correct = False
-
-            if is_correct:
-                earned_points += weight
-                breakdown[diff_key]["correct"] += 1
-                breakdown[diff_key]["points"] += weight
-
-            # Record AssessmentAttempt
-            if selected_choice_obj:
-                AssessmentAttempt.objects.create(
-                    user=request.user,
-                    question=question,
-                    selected_choice=selected_choice_obj,
-                    is_correct=is_correct,
-                )
-
-            answers_summary.append(
-                {
-                    "question_id": question.id,
-                    "difficulty": question.difficulty,
-                    "difficulty_display": question.get_difficulty_display(),
-                    "is_correct": is_correct,
-                    "weight": weight,
-                    "points_earned": weight if is_correct else 0,
-                    "explanation": question.explanation,
-                }
-            )
-
-        grade_percentage = round((earned_points / total_points * 100), 1) if total_points > 0 else 0.0
-        is_passed = grade_percentage >= topic.pass_mark_percentage
-
-        # Update User Knowledge State
-        state, _ = UserKnowledgeState.objects.get_or_create(
-            user=request.user,
-            topic=topic,
-        )
-        state.total_attempts += len(answers)
-        state.correct_attempts += sum(1 for a in answers_summary if a["is_correct"])
-
-        # Update mastery percentage continuously
-        new_mastery = max(state.mastery_percentage, grade_percentage)
-        state.mastery_percentage = new_mastery
-        if is_passed and grade_percentage >= 70.0:
-            state.mastery_level = MasteryLevel.MASTERED
-        elif is_passed:
-            state.mastery_level = MasteryLevel.ADVANCED
-        state.save()
-
-        # Unlock dependent child topics if passed
-        if is_passed:
-            topic.children.filter(is_unlocked=False).update(is_unlocked=True)
-
+        grade = outcome.grade
+        state = outcome.state
         return Response(
             {
-                "topic_id": topic.id,
-                "topic_name": topic.name,
-                "total_questions": len(answers_summary),
-                "total_points": total_points,
-                "earned_points": earned_points,
-                "grade_percentage": grade_percentage,
-                "pass_mark_percentage": topic.pass_mark_percentage,
-                "is_passed": is_passed,
-                "breakdown": breakdown,
-                "answers_summary": answers_summary,
+                "session_id": outcome.session.pk,
+                "topic_id": outcome.session.topic_id,
+                "topic_name": outcome.session.topic.name,
+                "total_questions": grade.total_questions,
+                "total_points": grade.total_points,
+                "earned_points": grade.earned_points,
+                "grade_percentage": grade.percentage,
+                "pass_mark_percentage": grade.pass_mark,
+                "is_passed": grade.passed,
+                "breakdown": grade.breakdown,
+                "answers_summary": outcome.answers,
+                # The learner's state after the answers went through the model.
+                "p_mastery": state.p_mastery if state else 0.0,
+                "accuracy": state.accuracy if state else 0.0,
+                "status": state.status if state else TopicStatus.CLOSED,
+                "mastered": state.mastered_flag if state else False,
+                "opened_topics": list(outcome.opened_topics),
             },
             status=status.HTTP_200_OK,
         )
-
 
 
 @extend_schema(tags=["Student Assessments"])
@@ -222,29 +169,35 @@ class TestsListView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request: Request) -> Response:
-        topics = Topic.objects.all()
-        result = []
+        snapshot = get_snapshot()
         user = request.user
+        states = readiness.states_for(user=user, snapshot=snapshot)
 
-        states = {
-            state.topic_id: state
-            for state in UserKnowledgeState.objects.filter(user=user)
+        # One query for every topic's question count and difficulty total, so
+        # the per-topic figures below are rolled up in Python (audit 7.4: this
+        # used to be ~4 queries per topic).
+        per_topic = {
+            row["topic_id"]: (row["n"], row["difficulty_total"])
+            for row in Question.objects
+            .filter(is_active=True, topic__is_archived=False)
+            .values("topic_id")
+            .annotate(n=Count("id"), difficulty_total=Sum("difficulty"))
         }
 
-        for topic in topics:
-            descendant_ids = list(topic.get_descendants(include_self=True).values_list("id", flat=True))
-            questions = Question.objects.filter(topic_id__in=descendant_ids, is_active=True)
-            q_count = questions.count()
+        result = []
+        for topic in Topic.objects.filter(is_archived=False).select_related("parent"):
+            leaves = snapshot.leaves_of(topic.pk)
+            counts = [per_topic.get(leaf, (0, 0)) for leaf in leaves]
+            q_count = sum(count for count, _ in counts)
+            difficulty_total = sum(total for _, total in counts)
 
-            state = states.get(topic.id)
-            mastery_pct = round(state.mastery_percentage, 1) if state else 0.0
-
-            if questions.exists():
-                avg_diff = sum(q.difficulty for q in questions) / q_count
-                diff_str = "Easy" if avg_diff <= 1.5 else ("Medium" if avg_diff <= 2.5 else "Hard")
+            if q_count:
+                average = difficulty_total / q_count
+                diff_str = "Easy" if average <= 1.5 else ("Medium" if average <= 2.5 else "Hard")
             else:
                 diff_str = "Adaptive"
 
+            state = states.get(topic.pk)
             result.append({
                 "id": topic.id,
                 "name": topic.name,
@@ -252,8 +205,11 @@ class TestsListView(APIView):
                 "description": topic.description or f"Adaptive test assessment covering {topic.name}.",
                 "parent_name": topic.parent.name if topic.parent else "Core Curriculum",
                 "question_count": q_count,
-                "is_unlocked": topic.is_unlocked,
-                "mastery_percentage": mastery_pct,
+                "p_mastery": state.p_mastery if state else 0.0,
+                "accuracy": state.accuracy if state else 0.0,
+                "status": state.status if state else TopicStatus.CLOSED,
+                "mastered": state.mastered_flag if state else False,
+                "missing_count": state.missing_count if state else 0,
                 "difficulty_level": diff_str,
                 "estimated_minutes": max(5, q_count * 2),
             })
@@ -274,6 +230,7 @@ class NextQuestionView(APIView):
     Response:
       - 200: QuestionSerializer payload (nested choices, no is_correct).
       - 400: Missing or invalid topic_id.
+      - 403: The topic is closed; the body lists the unmet prerequisites.
       - 404: Topic not found, or no more questions available.
     """
 
@@ -296,9 +253,15 @@ class NextQuestionView(APIView):
             )
 
         try:
+            # One snapshot for the readiness check and the selection.
+            snapshot = get_snapshot()
+            blocked = readiness.check_open(user=request.user, topic_id=topic_id, snapshot=snapshot)
+            if blocked is not None:
+                return _closed_response(blocked)
             question: Question | None = get_next_question(
                 user=request.user,
                 topic_id=topic_id,
+                snapshot=snapshot,
             )
         except Topic.DoesNotExist:
             return Response(
@@ -307,8 +270,7 @@ class NextQuestionView(APIView):
             )
 
         if question is None:
-            topic = Topic.objects.get(pk=topic_id)
-            topic_ids = list(topic.get_descendants(include_self=True).values_list("id", flat=True))
+            topic_ids = sorted(snapshot.leaves_of(topic_id))
             has_questions = Question.objects.filter(topic_id__in=topic_ids, is_active=True).exists()
 
             if not has_questions:
@@ -339,9 +301,10 @@ class NextQuestionView(APIView):
 class SubmitAnswerView(APIView):
     """
     Accepts the user's quiz answer, delegates to the service layer,
-    and returns the updated mastery state + next adaptive question.
+    and returns the learner's new state + next adaptive question.
 
     Request body: { "question_id": int, "choice_id": int }
+    403 when the topic is closed, with the unmet prerequisites in the body.
 
     The view is thin:
       1. SubmitAnswerSerializer validates the input.
@@ -366,6 +329,8 @@ class SubmitAnswerView(APIView):
                 {"detail": "Invalid question_id or choice_id."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except TopicClosed as closed:
+            return Response(closed.payload(), status=status.HTTP_403_FORBIDDEN)
 
         output_serializer = SubmissionResultSerializer(result)
         return Response(output_serializer.data, status=status.HTTP_200_OK)

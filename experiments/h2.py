@@ -1,0 +1,697 @@
+"""
+experiments/h2.py — H2 on ASSISTments 2009 (D53).
+
+Six models on identical data, five folds by learner, and every number that
+comes out of it recorded with the sha256 of the file it was computed from
+(D48).
+
+    python -m experiments.h2 --quick
+    python -m experiments.h2
+
+The models are BKT, BKT+IRT (λ=0), Elo/Rasch, PFA, DKT, AKT and AKT-R
+(AKT with pyKT's Rasch item term on problem_id, D59). BKT+IRT+Pre
+is **not** run: it needs a prerequisite graph and ASSISTments has none, so it
+appears in the table as "graf yo‘q" rather than being dropped. The first two
+and the unavailable third are one piece of code under three flag settings
+(``experiments.models.classical.BKTFamily``), which is the whole point of the
+ablation: the model being measured is the model the platform runs.
+
+What each fold does:
+
+1. fit the per-skill BKT parameters on train + validation, once, and share
+   them with every flag variant;
+2. fit each model, giving the neural ones the validation set for early
+   stopping — the test fold is not touched until step 3;
+3. predict the test fold, streaming each learner's answers in order so every
+   prediction is made before its answer is seen — and, under D57, before any
+   answer of its own problem (``order_id``) is seen: a multi-skill problem's
+   rows are all predicted from the state before the problem;
+4. score: AUC, RMSE, accuracy, over everything and over each learner's first
+   3 and first 5 answers.
+
+Across folds the predictions are pooled per model, so the interval and the
+pairwise tests are computed once on the whole dataset rather than averaged
+over five smaller estimates. The bootstrap resamples **learners**; DeLong is
+paired and Holm corrects the family of pairs.
+
+One sanity bound, and it is a warning rather than a test (D53): on
+de-duplicated ASSISTments, Xiong et al. (EDM 2016) report DKT at 0.73–0.75.
+A value far outside that says the cleaning is wrong, not that the model is
+interesting, so it is written into the metadata where it cannot be missed.
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+import time
+from dataclasses import asdict
+from pathlib import Path
+
+from experiments import metrics, orders, splits, tables
+from experiments.datasets import DatasetMissing, assist09
+from experiments.models import Unavailable
+from experiments.models.classical import PFA, BKTFamily, EloRasch
+from experiments.provenance import GitState, Provenance, Source, results_dir
+
+# Xiong et al. (EDM 2016), DKT on ASSISTments 2009 with duplicates removed.
+DKT_SANITY_RANGE = (0.70, 0.80)
+DKT_LITERATURE_RANGE = (0.73, 0.75)
+
+# D57: a row is predicted only from the learner's strictly earlier orders
+# (experiments.orders). Recorded in the metrics so a result says which
+# protocol produced it; results without the key predate it.
+EVALUATION_PROTOCOL = "D57"
+
+QUICK_LEARNERS = 500
+QUICK_EPOCHS = 3
+FULL_EPOCHS = 10
+
+
+def build_models(params, *, epochs: int, seed: int, only: tuple[str, ...] | None = None) -> list:
+    """
+    The six models of D53 and AKT-R (D59), in table order. Built per fold, because each one
+    carries fitted state.
+
+    ``only`` keeps the named models and drops the rest, which is what
+    ``run_all --models`` passes through. None is all of them, i.e. H2 as D53
+    states it; a subset is a pipeline run, and the request is recorded in the
+    metrics so the table cannot be read as the full comparison.
+    """
+    from experiments.models.neural import AKTModel, AKTRModel
+
+    built = [
+        BKTFamily("BKT", use_irt=False, use_prereq_init=False, params=params),
+        BKTFamily("BKT+IRT (λ=0)", use_irt=True, use_prereq_init=False, params=params),
+        BKTFamily("BKT+IRT+Pre", use_irt=True, use_prereq_init=True, params=params),
+        EloRasch(),
+        PFA(seed=seed),
+        dkt_model(epochs=epochs, seed=seed),
+        AKTModel(epochs=epochs, seed=seed),
+        AKTRModel(epochs=epochs, seed=seed),
+    ]
+    if only is None:
+        return built
+    wanted = set(only)
+    return [model for model in built if model.name in wanted]
+
+
+# ---------------------------------------------------------------------------
+# The evaluation path, shared with experiments.h2_bounds (D55 under D57)
+# ---------------------------------------------------------------------------
+
+def dkt_model(*, epochs: int, seed: int):
+    """DKT as H2 builds it; D55 retrains it with these settings."""
+    from experiments.models.neural import DKTModel
+
+    return DKTModel(epochs=epochs, seed=seed)
+
+
+def epochs_for(args) -> int:
+    return QUICK_EPOCHS if args.quick else args.epochs
+
+
+def fold_seed(args, fold) -> int:
+    """Each fold's model seed: the run's seed plus the fold index."""
+    return args.seed + fold.index
+
+
+def prepare(args, *, dataset=None, log=print):
+    """
+    The data and the split every H2 run uses: the D50 cleaning (in the
+    loader), the --quick cap on the first learners, five folds by learner.
+    Returns (dataset, rows, learners, folds).
+    """
+    if dataset is None:
+        dataset = assist09.load(args.data or None, original_only=args.original_only)
+    rows = list(dataset.rows)
+    learners = list(dict.fromkeys(row.user_id for row in rows))
+    if args.quick:
+        learners = learners[:args.quick_learners]
+        rows = splits.subset(rows, learners)
+        log(f"  --quick: {len(learners)} learners, {len(rows)} answers")
+    folds = splits.learner_folds(
+        learners, folds=args.folds, validation_fraction=args.validation_fraction, seed=args.seed,
+    )
+    return dataset, rows, learners, folds
+
+
+def fit_parameters(folds, rows, *, workers: int, log=print) -> dict[int, tuple[dict, dict, float]]:
+    """
+    Every fold's BKT parameters at once, through ``h2_bounds.fit_all`` with
+    chapter II's setting — whose grid is ``DEFAULT_GRID`` and whose constants
+    are chapter II's, i.e. exactly ``fit_skill_params(fitting)``. In parallel
+    processes when ``workers > 1``; the result does not depend on how many.
+    """
+    from experiments import h2_bounds   # h2_bounds imports this module
+
+    main = next(setting for setting in h2_bounds.SETTINGS if setting.main)
+    tasks = [(0, main, fold.index, splits.subset(rows, fold.fitting)) for fold in folds]
+    fits = h2_bounds.fit_all(tasks, workers=workers, log=lambda *a, **k: None)
+    return {fold_index: fit for (_, fold_index), fit in fits.items()}
+
+
+def fold_sets(fold, rows) -> dict[str, list]:
+    """train, validation, test, and fitting = train + validation."""
+    return {
+        "train": splits.subset(rows, fold.train),
+        "validation": splits.subset(rows, fold.validation),
+        "test": splits.subset(rows, fold.test),
+        "fitting": splits.subset(rows, fold.fitting),
+    }
+
+
+def fit_predict(model, sets: dict[str, list]) -> tuple[dict, list[float]]:
+    """
+    Fit one model the H2 way and predict the test fold under D57 (the model's
+    own ``predict``). The neural models train on train and stop early on
+    validation; the rest fit on train + validation. Raises ``Unavailable``.
+    """
+    wants = _wants_validation(model)
+    info = model.fit(sets["train"] if wants else sets["fitting"],
+                     sets["validation"] if wants else None)
+    scores = model.predict(sets["test"])
+    if len(scores) != len(sets["test"]):
+        raise RuntimeError(
+            f"{model.name} returned {len(scores)} predictions for {len(sets['test'])} answers"
+        )
+    return info, scores
+
+
+def run_fold(fold, rows, *, epochs: int, seed: int, log=print,
+             fitted: tuple[dict, dict, float] | None = None,
+             only: tuple[str, ...] | None = None) -> tuple[dict, dict]:
+    """
+    One fold. Returns (per-model fold report, per-model pooled predictions).
+
+    The parameters are fitted on train + validation so that no model sees the
+    test fold before step 3, and the neural models get the validation set for
+    early stopping.
+    """
+    from experiments.models.classical import fit_skill_params
+
+    sets = fold_sets(fold, rows)
+    test, fitting = sets["test"], sets["fitting"]
+
+    if fitted is None:
+        started = time.perf_counter()
+        params, params_metadata = fit_skill_params(fitting)
+        seconds = time.perf_counter() - started
+    else:
+        # Fitted beforehand, all folds in parallel (run(), fit_parameters).
+        params, params_metadata, seconds = fitted
+    log(f"    parameters fitted in {seconds:.0f}s "
+        f"({params_metadata['skills_fitted']} skills, "
+        f"{params_metadata['skills_kept_defaults']} kept defaults)")
+
+    labels = [int(row.correct) for row in test]
+    learners = [row.user_id for row in test]
+    report: dict = {
+        "index": fold.index,
+        "counts": fold.counts() | {"test_answers": len(test)},
+        "parameters": params_metadata,
+        "models": {},
+    }
+    predictions: dict[str, list[float]] = {}
+
+    for model in build_models(params, epochs=epochs, seed=seed, only=only):
+        started = time.perf_counter()
+        try:
+            info, scores = fit_predict(model, sets)
+        except Unavailable as unavailable:
+            report["models"][model.name] = {
+                "status": "unavailable",
+                "reason": unavailable.reason,
+            }
+            log(f"    {model.name:16s} unavailable — {unavailable.reason}")
+            continue
+
+        measured = metrics.by_first_k(labels, scores, learners)
+        entry = {
+            "status": "ok",
+            "fit": info,
+            "scores": measured,
+            "seconds": round(time.perf_counter() - started, 1),
+        }
+        cold = getattr(model, "cold_rows", None)
+        if cold is not None:
+            entry["cold_rows"] = cold
+        unseen = getattr(model, "unseen_rows", None)
+        if unseen is not None:
+            entry["unseen_rows"] = unseen
+        report["models"][model.name] = entry
+        predictions[model.name] = scores
+        log(f"    {model.name:16s} auc={_text(measured['all']['auc'])} "
+            f"rmse={_text(measured['all']['rmse'])} "
+            f"acc={_text(measured['all']['accuracy'])}  ({entry['seconds']:.0f}s)")
+
+    return report, (predictions, labels, learners)
+
+
+def _wants_validation(model) -> bool:
+    """Only the neural models use a validation set (for early stopping)."""
+    return model.name in ("DKT", "AKT", "AKT-R")
+
+
+def _text(value) -> str:
+    return "—" if value is None else f"{value:.4f}"
+
+
+def pool(fold_outputs: list[tuple[dict, list[int], list[str]]]) -> tuple[dict, list[int], list[str]]:
+    """
+    Concatenate the folds' test predictions. Every learner is in exactly one
+    test fold, so the pooled set is the whole dataset, once.
+    """
+    names: list[str] = []
+    for predictions, _, _ in fold_outputs:
+        for name in predictions:
+            if name not in names:
+                names.append(name)
+    pooled: dict[str, list[float]] = {name: [] for name in names}
+    labels: list[int] = []
+    learners: list[str] = []
+    for predictions, fold_labels, fold_learners in fold_outputs:
+        complete = [name for name in names if name in predictions]
+        if len(complete) != len(names):
+            # A model that failed on one fold cannot be pooled with the rest:
+            # the paired test needs the same answers for every model.
+            missing = sorted(set(names) - set(complete))
+            raise RuntimeError(f"models missing from a fold, cannot pool: {missing}")
+        labels.extend(fold_labels)
+        learners.extend(fold_learners)
+        for name in names:
+            pooled[name].extend(predictions[name])
+    return pooled, labels, learners
+
+
+def analyse_pooled(
+    pooled: dict,
+    labels: list[int],
+    learners: list[str],
+    *,
+    replicates: int,
+    seed: int,
+    cold_rows: dict[str, int] | None = None,
+    first_in_order: list[bool] | None = None,
+) -> dict:
+    """
+    Intervals per model, pairwise DeLong tests, Holm over the family.
+
+    ``cold_rows`` carries how many answers each model could not predict from
+    history and scored with the base rate. It matters most in the first-k
+    columns: a sequence model has one such answer per learner, so with k = 3
+    a third of that column is a constant and the early AUC reads lower than
+    the model deserves. Recorded so the column is read correctly.
+    """
+    from experiments import stats
+
+    out: dict = {
+        "models": {},
+        "cold_rows": dict(cold_rows or {}),
+        "comparisons": [],
+        "replicates": replicates,
+        # In the metrics so the table can print it without writing a literal (D48).
+        "confidence_percent": int(round(stats.CONFIDENCE * 100)),
+        "evaluation_protocol": EVALUATION_PROTOCOL,
+    }
+    if first_in_order is not None and len(first_in_order) != len(labels):
+        raise ValueError("first_in_order must be parallel to the pooled answers")
+    for name, scores in pooled.items():
+        measured = metrics.by_first_k(labels, scores, learners)
+        interval = stats.bootstrap_auc(
+            labels, scores, learners, replicates=replicates, seed=seed, by_learner=True,
+        )
+        out["models"][name] = {
+            "scores": measured,
+            "auc_interval": interval.payload(),
+            "cold_rows": (cold_rows or {}).get(name, 0),
+        }
+        if first_in_order is not None:
+            picked = [index for index, first in enumerate(first_in_order) if first]
+            out["models"][name]["first_in_order"] = metrics.score(
+                [labels[index] for index in picked], [scores[index] for index in picked],
+            ).payload()
+
+    names = list(pooled)
+    comparisons = []
+    for index, left in enumerate(names):
+        for right in names[index + 1:]:
+            comparisons.append(stats.delong_test(
+                labels, pooled[left], pooled[right], name_a=left, name_b=right,
+            ))
+    out["comparisons"] = [item.payload() for item in stats.holm(comparisons)]
+    out["contrasts"] = contrasts(
+        pooled, labels, learners, out["comparisons"], replicates=replicates, seed=seed,
+    )
+    return out
+
+
+# The differences H2 is stated in, oriented the way the hypothesis reads them:
+# the platform's model minus the one it is compared with. BKT is D53's
+# ablation; DKT is D56's "comparable with DKT", which is defined on the lower
+# end of this difference's interval.
+CONTRASTS: tuple[tuple[str, str, str], ...] = (
+    ("BKT+IRT (λ=0)", "BKT", "D53"),
+    ("BKT+IRT (λ=0)", "DKT", "D56"),
+    ("BKT+IRT (λ=0)", "AKT-R", "D59"),
+)
+
+
+def contrasts(
+    pooled: dict,
+    labels: list[int],
+    learners: list[str],
+    comparisons: list[dict],
+    *,
+    replicates: int,
+    seed: int,
+) -> list[dict]:
+    """
+    AUC(a) − AUC(b) for each pair of ``CONTRASTS``, with a paired bootstrap
+    interval over learners (the clustering the AUC intervals respect) and the
+    DeLong p of the same pair, before and after Holm over the whole family.
+
+    The pairwise table orders a pair by model, not by hypothesis, so its
+    difference can carry the other sign; this is the difference as H2 states
+    it. A pair whose model did not run is listed with the reason, not dropped.
+    """
+    from experiments import stats
+
+    out: list[dict] = []
+    for a, b, decision in CONTRASTS:
+        entry: dict = {"a": a, "b": b, "decision": decision}
+        missing = [name for name in (a, b) if name not in pooled]
+        if missing:
+            entry["status"] = "unavailable"
+            entry["missing"] = missing
+            out.append(entry)
+            continue
+        interval = stats.bootstrap_auc_difference(
+            labels, pooled[a], pooled[b], learners, replicates=replicates, seed=seed,
+        )
+        family = next(
+            (item for item in comparisons if {item["a"], item["b"]} == {a, b}), {},
+        )
+        entry.update({
+            "status": "ok",
+            "difference": interval.payload()["estimate"],
+            "ci_low": interval.payload()["ci_low"],
+            "ci_high": interval.payload()["ci_high"],
+            "replicates": interval.replicates,
+            "clustered_by_learner": True,
+            "delong_p": family.get("p"),
+            "p_holm": family.get("p_holm"),
+        })
+        out.append(entry)
+    return out
+
+
+def sanity(pooled_models: dict) -> dict:
+    """
+    The DKT bound of D53. A warning in the metadata, never a failing test: the
+    cleaning is what it checks, and a model is allowed to be surprising.
+    """
+    entry = pooled_models.get("DKT")
+    auc = None if entry is None else entry["scores"]["all"]["auc"]
+    low, high = DKT_SANITY_RANGE
+    note = {
+        "model": "DKT",
+        "auc": auc,
+        "expected_range": list(DKT_SANITY_RANGE),
+        "literature_range": list(DKT_LITERATURE_RANGE),
+        "reference": "Xiong et al., EDM 2016 — duplicates removed",
+        "within_range": None if auc is None else bool(low <= auc <= high),
+    }
+    if auc is not None and not (low <= auc <= high):
+        note["warning"] = (
+            "DKT AUC is outside the range reported for de-duplicated "
+            "ASSISTments 2009; re-check the cleaning of D50 before reading "
+            "anything else in this table."
+        )
+    return note
+
+
+def run(args, argv: list[str]) -> tuple[dict, Provenance]:
+    # D54: taken before anything is loaded, so a tree edited mid-run shows.
+    git_start = GitState.capture()
+    requested = models_requested(args)
+    dataset, rows, learners, folds = prepare(args)
+    epochs = epochs_for(args)
+    workers = max(1, min(args.workers, len(folds)))
+    print(f"  fitting the BKT parameters of {len(folds)} folds on {workers} worker(s)")
+    fitted = fit_parameters(folds, rows, workers=workers)
+
+    fold_reports = []
+    fold_outputs = []
+    for fold in folds:
+        print(f"  fold {fold.index + 1}/{len(folds)}: {fold.counts()}")
+        report, output = run_fold(fold, rows, epochs=epochs, seed=fold_seed(args, fold),
+                                  fitted=fitted[fold.index], only=requested)
+        fold_reports.append(report)
+        fold_outputs.append(output)
+
+    pooled, labels, pooled_learners = pool(fold_outputs)
+    print(f"  pooled {len(labels)} answers from {len(set(pooled_learners))} learners")
+    # D57's sensitivity view: the first row of each order, where no model can
+    # have read a sibling row. Built from the test rows in the order pool()
+    # concatenates them.
+    first_rows: list[bool] = []
+    for fold in folds:
+        first_rows.extend(orders.first_in_order(splits.subset(rows, fold.test)))
+    cold = {}
+    for report in fold_reports:
+        for name, entry in report["models"].items():
+            if "cold_rows" in entry:
+                cold[name] = cold.get(name, 0) + entry["cold_rows"]
+    analysis = analyse_pooled(
+        pooled, labels, pooled_learners,
+        replicates=args.replicates, seed=args.seed, cold_rows=cold, first_in_order=first_rows,
+    )
+    warning = sanity(analysis["models"])
+    if warning.get("warning"):
+        print(f"  WARNING: {warning['warning']}", file=sys.stderr)
+
+    cross = None
+    if not args.skip_pybkt:
+        from experiments.models import pybkt_check
+
+        try:
+            print("  pyBKT cross-check…")
+            # pyBKT's EM is the slowest step in the run and this is a
+            # consistency check between two fitters, not a result, so its
+            # input is bounded and the bound goes into the metadata.
+            fitting_learners = list(folds[0].fitting)[:args.pybkt_learners]
+            cross = pybkt_check.cross_check(
+                splits.subset(rows, fitting_learners),
+                skills=args.pybkt_skills,
+                seed=args.seed,
+            )
+            cross["learners_used"] = len(fitting_learners)
+            cross["learners_available"] = len(folds[0].fitting)
+            print(f"    {cross['skills_compared']} skill(s) compared, "
+                  f"{cross['pybkt_outside_bounds_count']} outside chapter II's bounds")
+        except Unavailable as unavailable:
+            cross = {"status": "unavailable", "reason": unavailable.reason}
+            print(f"    unavailable — {unavailable.reason}")
+
+    provenance = Provenance.capture(
+        sources=(Source.of("assistments2009", dataset.path),),
+        seeds={"split": args.seed, "models": args.seed, "bootstrap": args.seed},
+        argv=["python", "-m", "experiments.h2", *argv],
+        packages=_packages(),
+        git_start=git_start,
+    )
+    metrics_document = {
+        "report": "h2",
+        "spec": "D53",
+        "quick": bool(args.quick),
+        "thesis_result": not args.quick,
+        "provenance": provenance.payload(),
+        "dataset": dataset.metadata() | {
+            "status": "ok",
+            "name": "assistments2009",
+            # The human label lives here rather than in the renderer, so the
+            # year in the heading is data and not a literal (D48).
+            "label": "ASSISTments 2009–2010 skill builder",
+            "source": asdict(provenance.sources[0]),
+            "learners_used": len(learners),
+            "answers_used": len(rows),
+        },
+        "split": splits.metadata(
+            folds, seed=args.seed, validation_fraction=args.validation_fraction,
+        ),
+        "epochs": epochs,
+        "models_requested": None if requested is None else list(requested),
+        "parameter_fit_workers": workers,
+        "folds": fold_reports,
+        "pooled": analysis,
+        "sanity": warning,
+        "grid_check": aggregate_grid_checks(fold_reports),
+        "pybkt_cross_check": cross,
+        "unavailable": _unavailable(fold_reports),
+    }
+    return metrics_document, provenance
+
+
+def aggregate_grid_checks(fold_reports: list[dict]) -> dict:
+    """
+    One grid check over every fold's fit.
+
+    Each fold fits its own parameters, so the counts are summed: "how often,
+    across all the fitting this run did, did the search land on an edge of the
+    grid it was allowed to walk".
+    """
+    folds = [
+        report["parameters"]["grid_check"]
+        for report in fold_reports
+        if report.get("parameters", {}).get("grid_check")
+    ]
+    if not folds:
+        return {}
+
+    names = ("p0", "pt", "g0", "s0")
+    out: dict = {
+        "folds": len(folds),
+        "fits": sum(entry["skills"] for entry in folds),
+        "bounds": folds[0]["bounds"],
+        "parameters": {},
+    }
+    for name in names:
+        first = folds[0]["parameters"][name]
+        at_low = sum(entry["parameters"][name]["at_lowest"] for entry in folds)
+        at_high = sum(entry["parameters"][name]["at_highest"] for entry in folds)
+        out["parameters"][name] = {
+            "admissible_values": first["admissible_values"],
+            "lowest": first["lowest"],
+            "highest": first["highest"],
+            "at_lowest": at_low,
+            "at_highest": at_high,
+            "share_at_highest": round(at_high / out["fits"], 4) if out["fits"] else 0.0,
+            "share_at_lowest": round(at_low / out["fits"], 4) if out["fits"] else 0.0,
+            "ceiling_is_chapter_two": first["ceiling_is_chapter_two"],
+        }
+    return out
+
+
+def _unavailable(fold_reports: list[dict]) -> list[dict]:
+    """Models that could not run, with the reason, for the table (D48)."""
+    out: dict[str, str] = {}
+    for report in fold_reports:
+        for name, entry in report["models"].items():
+            if entry.get("status") == "unavailable":
+                out[name] = entry["reason"]
+    return [{"model": name, "reason": reason} for name, reason in sorted(out.items())]
+
+
+# Import name → distribution name, where they differ.
+_DISTRIBUTIONS = {
+    "sklearn": "scikit-learn",
+    "pykt": "pykt-toolkit",
+    "pyBKT": "pyBKT",
+}
+
+
+def _packages() -> dict[str, str]:
+    """
+    The versions the run actually used (D48).
+
+    Read from the installed distribution metadata rather than ``__version__``:
+    pyBKT and pykt-toolkit do not define that attribute, and "unknown" in a
+    provenance record is worse than useless.
+    """
+    from importlib.metadata import PackageNotFoundError, version
+
+    found: dict[str, str] = {}
+    for name in ("numpy", "pandas", "scipy", "sklearn", "torch", "pyBKT", "pykt"):
+        try:
+            __import__(name)
+        except Exception:  # noqa: BLE001 - a missing package is simply absent
+            continue
+        try:
+            found[name] = version(_DISTRIBUTIONS.get(name, name))
+        except PackageNotFoundError:
+            found[name] = "installed, version unknown"
+    return found
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m experiments.h2",
+        description="H2 on ASSISTments 2009 (D53). Takes paths; downloads nothing (D49).",
+    )
+    parser.add_argument("--data", default=None, help="Path to as.csv (default: the data root).")
+    parser.add_argument("--quick", action="store_true",
+                        help=f"{QUICK_LEARNERS} learners and {QUICK_EPOCHS} epochs, for CI.")
+    parser.add_argument("--quick-learners", type=int, default=QUICK_LEARNERS)
+    parser.add_argument("--original-only", action="store_true",
+                        help="Keep only original=1 answers (D50, rule 4).")
+    parser.add_argument("--folds", type=int, default=splits.DEFAULT_FOLDS)
+    parser.add_argument("--validation-fraction", type=float,
+                        default=splits.DEFAULT_VALIDATION_FRACTION)
+    parser.add_argument("--epochs", type=int, default=FULL_EPOCHS,
+                        help="Maximum epochs for DKT and AKT (early stopping on validation).")
+    parser.add_argument("--replicates", type=int, default=1000,
+                        help="Bootstrap replicates over learners.")
+    parser.add_argument("--pybkt-skills", type=int, default=5)
+    parser.add_argument(
+        "--pybkt-learners", type=int, default=400,
+        help=(
+            "Learners given to the pyBKT cross-check. Bounded because its EM is "
+            "the slowest step and the check compares fitters rather than "
+            "producing a result; the bound is recorded in the metadata."
+        ),
+    )
+    parser.add_argument("--skip-pybkt", action="store_true")
+    parser.add_argument(
+        "--workers", type=int, default=max(1, min(8, (os.cpu_count() or 2) // 2)),
+        help="Processes for the folds' BKT grid searches; the result does not depend on it.",
+    )
+    parser.add_argument("--seed", type=int, default=splits.DEFAULT_SEED)
+    parser.add_argument(
+        "--models", default="all",
+        help=(
+            "Models to run, by the names of experiments.run_all, or 'all' "
+            "(D53's full comparison). A subset is a pipeline run."
+        ),
+    )
+    parser.add_argument("--out", default=None)
+    return parser
+
+
+def models_requested(args) -> tuple[str, ...] | None:
+    """``--models`` as model names, or None for all of them."""
+    from experiments.run_all import parse_models
+
+    text = getattr(args, "models", "all") or "all"
+    if text.strip().lower() == "all":
+        return None
+    return parse_models(text)
+
+
+def main(argv: list[str] | None = None) -> int:
+    given = list(sys.argv[1:] if argv is None else argv)
+    args = build_parser().parse_args(given)
+
+    print("h2 (D53) — ASSISTments 2009")
+    try:
+        document, provenance = run(args, given)
+    except DatasetMissing as missing:
+        print(f"h2: {missing}", file=sys.stderr)
+        return 2
+
+    directory = (
+        Path(args.out).expanduser() if args.out
+        else results_dir("assist09-quick" if args.quick else "assist09")
+    )
+    written = tables.write(
+        directory, document, provenance.env_txt(), renderer=tables.render_h2_report,
+    )
+    print(f"\nwritten to {directory}")
+    for path in written.values():
+        print(f"  {path.name}")
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

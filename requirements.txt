@@ -1,8 +1,21 @@
+# Runtime dependencies (pinned). Install: pip install -r requirements.txt
 asgiref==3.11.1
 Django==6.0.5
-django-mptt==0.18.0
 djangorestframework==3.17.1
-sqlparse==0.5.5
+djangorestframework-simplejwt==5.5.1
+drf-spectacular==0.30.0
 django-cors-headers==4.9.0
+django-environ==0.14.0
 django-unfold==0.100.0
+django-mptt==0.18.0
+django-tree-queries==0.24.0
+django-redis==7.0.0
+redis==8.0.1
+celery==5.6.3
+psycopg[binary]==3.3.6
+openpyxl==3.1.5
+python-docx==1.2.0
 Pillow==12.3.0
+sqlparse==0.5.5
+# The WSGI server of the stage 10 load test (D68a); no required dependencies.
+gunicorn==26.2.0

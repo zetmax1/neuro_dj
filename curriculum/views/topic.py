@@ -5,10 +5,14 @@ Endpoint:
   GET /api/learning_path/tree/
 
 Database optimization:
-  - Single query fetches all topics with mastery annotations via
+  - The readiness service materialises and syncs the learner's states first
+    (one SELECT in the steady case), so the counters cannot predate the
+    current KB version (TY6).
+  - A single query then fetches all topics with the state annotations via
     Subquery/OuterRef (built by curriculum.services).
   - Tree nesting is constructed in Python from the flat list — O(n).
-  - is_unlocked is computed from the same pre-fetched data — O(1).
+  - Whether a topic is answerable is its ``status``, decided by the one
+    readiness service; the view no longer computes it.
 """
 
 from __future__ import annotations
@@ -17,17 +21,16 @@ import logging
 from collections import defaultdict
 from typing import Any
 
-from django.apps import apps
-from django.conf import settings
 from django.db.models import QuerySet
+from drf_spectacular.utils import extend_schema
 from rest_framework import generics, permissions
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from curriculum.models import Topic, TopicPrerequisite
+from curriculum.models import Topic
 from curriculum.serializers.topic import TopicTreeSerializer
 from curriculum.services import get_learning_path_queryset
-from drf_spectacular.utils import extend_schema
+from curriculum.services.graph import get_snapshot
 
 logger = logging.getLogger(__name__)
 
@@ -36,16 +39,15 @@ logger = logging.getLogger(__name__)
 @extend_schema(tags=["Student Curriculum"])
 class LearningPathTreeView(generics.ListAPIView):
     """
-    Returns the full hierarchical topic tree annotated with the
-    authenticated user's mastery_percentage and is_unlocked status.
+    Returns the full hierarchical topic tree annotated with the authenticated
+    learner's ``p_mastery``, ``accuracy`` and ``status`` (3.4).
 
     Uses rest_framework.generics.ListAPIView with an overridden
     get_queryset() that delegates to the curriculum service layer.
 
-    Performance budget: 1 DB query.
+    Performance budget: 1 readiness sync + 1 DB query for the tree.
       - All topics fetched in a single SQL with correlated subqueries.
       - Tree nesting is built in Python from the flat list — O(n).
-      - is_unlocked is computed from the same pre-fetched data — O(1).
 
     Pagination is disabled because the frontend needs the complete tree
     to render the Learning Path map in a single render pass.
@@ -60,9 +62,10 @@ class LearningPathTreeView(generics.ListAPIView):
         Return the optimized topic queryset with user mastery annotations.
 
         Delegates to curriculum.services.get_learning_path_queryset() which:
-          - Orders by MPTT's tree_id/lft for natural tree traversal
-          - Annotates mastery_score + mastery_level via Subquery/OuterRef
-            using lazy model resolution (apps.get_model) for cross-app access
+          - Orders siblings by (position, id); the view sorts by ``pos`` (D4)
+          - Annotates p_mastery, accuracy, status, mastered, missing_count and
+            attempts via Subquery/OuterRef, using lazy model resolution
+            (apps.get_model) for cross-app access
         """
         return get_learning_path_queryset(user=self.request.user)
 
@@ -70,53 +73,33 @@ class LearningPathTreeView(generics.ListAPIView):
         """
         Override list() to transform the flat queryset into a nested tree.
 
-        Steps (all in Python, zero additional DB queries):
-          1. Evaluate the annotated queryset once (flat list of all topics).
+        Steps:
+          1. Sync the learner's states (TY6), then evaluate the annotated
+             queryset once — a flat list of all topics.
           2. Build a parent_id → children lookup dict in O(n).
-          3. Pre-compute a topic_id → mastery_level lookup for is_unlocked.
-          4. Serialize only root nodes; children are resolved recursively
+          3. Serialize only root nodes; children are resolved recursively
              from the context dict.
         """
-        # Step 1: Single DB query — all topics with mastery annotations
+        # Step 1: readiness first, so the annotations below read counters that
+        # belong to the current KB version. Imported here, not at module
+        # level: curriculum does not depend on assessments (see
+        # curriculum/models.py), and the state is resolved lazily the same way
+        # curriculum.services.path resolves the model.
+        from assessments.services import readiness
+
+        snapshot = get_snapshot()
+        readiness.states_for(user=request.user, snapshot=snapshot)
+
         queryset: QuerySet[Topic] = self.get_queryset()
-        topics: list[Topic] = list(queryset)
+        topics: list[Topic] = sorted(
+            (t for t in queryset if t.pk in snapshot.pos),
+            key=lambda t: snapshot.pos[t.pk],
+        )
 
         # Step 2: O(n) parent→children grouping in Python
         topics_by_parent: dict[int | None, list[Topic]] = defaultdict(list)
-        mastery_by_topic_id: dict[int, int] = {}
-
         for topic in topics:
             topics_by_parent[topic.parent_id].append(topic)
-            mastery_by_topic_id[topic.pk] = (
-                getattr(topic, "user_mastery_level", 0) or 0
-            )
-
-        # Step 3: Compute DAG unlocked status
-        prereqs_map: dict[int, list[int]] = defaultdict(list)
-        for t_id, p_id in TopicPrerequisite.objects.all().values_list("topic_id", "prerequisite_id"):
-            prereqs_map[t_id].append(p_id)
-
-        raw_threshold = getattr(settings, "MASTERY_THRESHOLD", 0.70)
-        threshold = raw_threshold / 100.0 if raw_threshold > 1.0 else float(raw_threshold)
-
-        mastered_topic_ids: set[int] = set()
-        if request.user and request.user.is_authenticated:
-            UserKnowledgeState = apps.get_model("assessments", "UserKnowledgeState")
-            mastered_topic_ids = set(
-                UserKnowledgeState.objects.filter(
-                    user=request.user,
-                    mastery_percentage__gte=threshold,
-                ).values_list("topic_id", flat=True)
-            )
-
-        unlocked_topic_ids: set[int] = set()
-        for topic in topics:
-            if topic.pk in prereqs_map:
-                if all(p_id in mastered_topic_ids for p_id in prereqs_map[topic.pk]):
-                    unlocked_topic_ids.add(topic.pk)
-            else:
-                if topic.parent_id is None or topic.parent_id in mastered_topic_ids:
-                    unlocked_topic_ids.add(topic.pk)
 
         # Root nodes have parent_id=None
         root_topics: list[Topic] = topics_by_parent.get(None, [])
@@ -127,8 +110,7 @@ class LearningPathTreeView(generics.ListAPIView):
             context={
                 "request": request,
                 "topics_by_parent": topics_by_parent,
-                "mastery_by_topic_id": mastery_by_topic_id,
-                "unlocked_topic_ids": unlocked_topic_ids,
+                "kb": snapshot,
             },
         )
         return Response(serializer.data)

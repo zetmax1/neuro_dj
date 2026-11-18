@@ -1,16 +1,44 @@
+# Python
 venv/
-.env
-db.sqlite3
-2026-06-02.txt
-DOCUMENTATION.md
-
-# Pycache & Byte-code
+.venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .pytest_cache/
+.coverage
+htmlcov/
 
-# Media files
+# Local data and secrets (never commit)
+.env
+config/.env
+db.sqlite3
+backups/
+# Research exports hold learner answers; they are never committed (D44).
+exports/
+
+# Experiment datasets are fetched by hand and not tracked (D49); the README
+# that says where they come from is.
+experiments/data/*
+!experiments/data/README.md
+
+# The experiment pipeline's own virtualenv (torch, pykt-toolkit): kept out of
+# the Django environment on purpose (8b-2).
+experiments/.venv/
+
+# Logs of detached pipeline runs. A full H2 pass takes hours, so it is started
+# with setsid and survives the shell that launched it; the log is where its
+# progress is read from. The results themselves are committed.
+experiments/.runs/
 media/
 /media/
+
+# Editors and local tooling
+.idea/
+.vscode/
+.agents/
+graphify-out/
+
+# Personal notes
+2026-06-02.txt
+DOCUMENTATION.md

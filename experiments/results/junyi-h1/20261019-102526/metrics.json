@@ -1,0 +1,917 @@
+{
+  "report": "h1",
+  "spec": "D61",
+  "quick": false,
+  "thesis_result": true,
+  "dataset": {
+    "status": "ok",
+    "name": "junyi",
+    "label": "Junyi Academy (2015)",
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "learners_used": 2000,
+    "answers_used": 252737,
+    "skills_used": 619,
+    "log_rows_scanned": 25925992,
+    "log_rows_total": 25925992,
+    "log_learners_total": 247606,
+    "source": {
+      "name": "junyi-problem-log",
+      "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+      "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+      "bytes": 2668566436
+    }
+  },
+  "graph": {
+    "name": "junyi-graph",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_Exercise_table.csv",
+    "sha256": "13292cc2c809985abbacedaba434e39aeb02a7fcb2a32f17b60c4d3f4d769546",
+    "known_sha256": "13292cc2c809985abbacedaba434e39aeb02a7fcb2a32f17b60c4d3f4d769546",
+    "sha256_matches_known": true,
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "edge_direction": "prereq_to_dependent",
+    "edge_direction_note": "a name in the prerequisites column is the knowledge map's parent, so the edge is prerequisite → dependent (D61)",
+    "counts": {
+      "rows": 837,
+      "exercises": 835,
+      "duplicate_names": 2,
+      "areas": 9,
+      "topics": 41,
+      "not_live": 59,
+      "not_live_rows": 61,
+      "raw_edges": 984,
+      "edges": 979,
+      "self_loops": 2,
+      "duplicate_edges": 3,
+      "unknown_prerequisites": 0,
+      "scc_nontrivial": 1,
+      "scc_merged_nodes": 3,
+      "skills": 833,
+      "skill_edges": 976,
+      "longest_path": 65,
+      "without_prerequisites": 97
+    },
+    "longest_path": 65,
+    "areas": [
+      "N/A",
+      "algebra",
+      "analytic-geometry",
+      "arithmetic",
+      "biology",
+      "calculus",
+      "geometry",
+      "logics",
+      "probability-statistics"
+    ],
+    "area_sizes": {
+      "N/A": 19,
+      "algebra": 257,
+      "analytic-geometry": 30,
+      "arithmetic": 301,
+      "biology": 12,
+      "calculus": 10,
+      "geometry": 161,
+      "logics": 5,
+      "probability-statistics": 40
+    },
+    "topics": 41,
+    "duplicate_names": {
+      "matrix_mul_two": 1,
+      "matrix_app_fruit_oil": 1
+    },
+    "unknown_prerequisites": [],
+    "merged_components": [
+      [
+        "adding_and_subtracting_radicals",
+        "radical_multiplication_and_division",
+        "simplifying_radicals"
+      ]
+    ],
+    "self_loops": [
+      "proportions_1",
+      "number_sense_length_l1"
+    ],
+    "weight": 1.0
+  },
+  "log": {
+    "name": "junyi-log",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+    "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "sampling": {
+      "level": "learner",
+      "seed": 20261006,
+      "requested": 2000,
+      "selected": 2000
+    },
+    "cleaning_rules": [
+      "keep only exercises present in the exercise table",
+      "correct is the published first-attempt column; nothing is recomputed",
+      "order by learner, then time_done (µs), then problem_number, then file order",
+      "one answer is one order: order_id is per row (D57)",
+      "review_mode answers are kept; topic_mode and suggested are metadata only",
+      "live is metadata, not a filter"
+    ],
+    "scanned_rows": 25925992,
+    "counts": {
+      "rows": 252737,
+      "learners": 2000,
+      "skills": 619,
+      "problems": 1860,
+      "correct": 207983
+    },
+    "dropped": {},
+    "flags": {
+      "suggested": 54973,
+      "review_mode": 7312,
+      "topic_mode": 70637,
+      "earned_proficiency": 11783,
+      "correct": 207983
+    },
+    "suggested_share": 0.217511
+  },
+  "inventory": {
+    "name": "junyi-log",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+    "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "rows": 25925992,
+    "kept": 25925992,
+    "learners": 247606,
+    "exercises": 722,
+    "documented": {
+      "rows": 25925992,
+      "learners": 247606
+    },
+    "matches_documented": {
+      "rows": true,
+      "learners": true
+    },
+    "answers_per_learner": {
+      "min": 1.0,
+      "p25": 3.0,
+      "median": 10.0,
+      "p75": 50.0,
+      "p90": 220.0,
+      "p99": 1670.95,
+      "max": 22067.0,
+      "mean": 104.7066
+    },
+    "answers_per_exercise": {
+      "min": 1.0,
+      "p25": 2122.5,
+      "median": 8474.5,
+      "p75": 34558.25,
+      "p90": 97733.4,
+      "p99": 396477.65,
+      "max": 895736.0,
+      "mean": 35908.5762
+    },
+    "dropped": {},
+    "flags": {
+      "correct": 21463466,
+      "topic_mode": 6458171,
+      "suggested": 5327335,
+      "earned_proficiency": 1194299,
+      "review_mode": 554570,
+      "answers_to_not_live_exercises": 338987
+    }
+  },
+  "split": {
+    "scheme": "k-fold by learner, with a validation split of each training fold",
+    "folds": 5,
+    "seed": 20261006,
+    "validation_fraction": 0.2,
+    "learners": 2000,
+    "per_fold": [
+      {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "index": 0
+      },
+      {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "index": 1
+      },
+      {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "index": 2
+      },
+      {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "index": 3
+      },
+      {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "index": 4
+      }
+    ]
+  },
+  "constants": {
+    "tau": 0.95,
+    "delta": 0.1,
+    "pass_mark": 0.6,
+    "failure_share": 0.5,
+    "main_k": 3,
+    "first_k": [
+      3,
+      5
+    ],
+    "tau_grid": [
+      0.7,
+      0.8,
+      0.9,
+      0.95
+    ],
+    "delta_grid": [
+      0.05,
+      0.1,
+      0.15
+    ]
+  },
+  "events": {
+    "total": 9664,
+    "learners": 695,
+    "skills": 504,
+    "with_every_prerequisite_answered": 7136,
+    "mean_prerequisites": 1.581
+  },
+  "rules": [
+    {
+      "rule": "probabilistic",
+      "label": "ehtimoliy (r ≥ τ)",
+      "family": "II bob",
+      "events": 9664,
+      "flagged": 6795,
+      "failed": 1023,
+      "coverage": 0.703125,
+      "error_share": 0.150552
+    },
+    {
+      "rule": "chapter_two",
+      "label": "II bob R (M, δ bilan)",
+      "family": "II bob",
+      "events": 9664,
+      "flagged": 6803,
+      "failed": 1027,
+      "coverage": 0.703953,
+      "error_share": 0.150963
+    },
+    {
+      "rule": "completeness",
+      "label": "bajarilganlik",
+      "family": "taqqoslash",
+      "events": 9664,
+      "flagged": 7136,
+      "failed": 1189,
+      "coverage": 0.738411,
+      "error_share": 0.16662
+    },
+    {
+      "rule": "pass_mark",
+      "label": "o‘tish bali",
+      "family": "taqqoslash",
+      "events": 9664,
+      "flagged": 9239,
+      "failed": 1411,
+      "coverage": 0.956022,
+      "error_share": 0.152722
+    },
+    {
+      "rule": "earned_proficiency",
+      "label": "earned_proficiency",
+      "family": "platforma",
+      "events": 9664,
+      "flagged": 6532,
+      "failed": 956,
+      "coverage": 0.675911,
+      "error_share": 0.146356
+    }
+  ],
+  "equal_coverage": {
+    "3": [
+      {
+        "rule": "completeness",
+        "tau_per_fold": [
+          0.027942,
+          0.007017,
+          0.006016,
+          0.008845,
+          0.016599
+        ],
+        "k": 3,
+        "probabilistic": {
+          "events": 9664,
+          "flagged": 7131,
+          "failed": 1188,
+          "coverage": 0.737893,
+          "error_share": 0.166597
+        },
+        "compared": {
+          "events": 9664,
+          "flagged": 7136,
+          "failed": 1189,
+          "coverage": 0.738411,
+          "error_share": 0.16662
+        },
+        "coverage_gap": -0.000518,
+        "difference": {
+          "estimate": -2.3e-05,
+          "ci_low": -0.000336,
+          "ci_high": 0.000193,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "p_two_sided": 0.92,
+          "p_holm": 0.92
+        },
+        "complete_window": {
+          "probabilistic": {
+            "events": 8384,
+            "flagged": 6202,
+            "failed": 808,
+            "coverage": 0.739742,
+            "error_share": 0.130281
+          },
+          "compared": {
+            "events": 8384,
+            "flagged": 6207,
+            "failed": 809,
+            "coverage": 0.740339,
+            "error_share": 0.130337
+          }
+        },
+        "holm_family": "H1: ehtimoliy qoida — bajarilganlik va o‘tish bali"
+      },
+      {
+        "rule": "pass_mark",
+        "tau_per_fold": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "k": 3,
+        "probabilistic": {
+          "events": 9664,
+          "flagged": 9664,
+          "failed": 1637,
+          "coverage": 1.0,
+          "error_share": 0.169392
+        },
+        "compared": {
+          "events": 9664,
+          "flagged": 9239,
+          "failed": 1411,
+          "coverage": 0.956022,
+          "error_share": 0.152722
+        },
+        "coverage_gap": 0.043978,
+        "difference": {
+          "estimate": 0.016669,
+          "ci_low": 0.011738,
+          "ci_high": 0.021936,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "p_two_sided": 0.0,
+          "p_holm": 0.0
+        },
+        "complete_window": {
+          "probabilistic": {
+            "events": 8384,
+            "flagged": 8384,
+            "failed": 1097,
+            "coverage": 1.0,
+            "error_share": 0.130844
+          },
+          "compared": {
+            "events": 8384,
+            "flagged": 8087,
+            "failed": 976,
+            "coverage": 0.964575,
+            "error_share": 0.120688
+          }
+        },
+        "holm_family": "H1: ehtimoliy qoida — bajarilganlik va o‘tish bali"
+      }
+    ],
+    "5": [
+      {
+        "rule": "completeness",
+        "tau_per_fold": [
+          0.027942,
+          0.007017,
+          0.006016,
+          0.008845,
+          0.016599
+        ],
+        "k": 5,
+        "probabilistic": {
+          "events": 9664,
+          "flagged": 7131,
+          "failed": 1003,
+          "coverage": 0.737893,
+          "error_share": 0.140653
+        },
+        "compared": {
+          "events": 9664,
+          "flagged": 7136,
+          "failed": 1004,
+          "coverage": 0.738411,
+          "error_share": 0.140695
+        },
+        "coverage_gap": -0.000518,
+        "difference": {
+          "estimate": -4.2e-05,
+          "ci_low": -0.000353,
+          "ci_high": 0.000162,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "p_two_sided": 0.832,
+          "p_holm": 0.832
+        },
+        "complete_window": {
+          "probabilistic": {
+            "events": 8005,
+            "flagged": 5910,
+            "failed": 526,
+            "coverage": 0.738289,
+            "error_share": 0.089002
+          },
+          "compared": {
+            "events": 8005,
+            "flagged": 5915,
+            "failed": 527,
+            "coverage": 0.738913,
+            "error_share": 0.089096
+          }
+        },
+        "holm_family": "H1: ehtimoliy qoida — bajarilganlik va o‘tish bali"
+      },
+      {
+        "rule": "pass_mark",
+        "tau_per_fold": [
+          0.0,
+          0.0,
+          0.0,
+          0.0,
+          0.0
+        ],
+        "k": 5,
+        "probabilistic": {
+          "events": 9664,
+          "flagged": 9664,
+          "failed": 1365,
+          "coverage": 1.0,
+          "error_share": 0.141246
+        },
+        "compared": {
+          "events": 9664,
+          "flagged": 9239,
+          "failed": 1153,
+          "coverage": 0.956022,
+          "error_share": 0.124797
+        },
+        "coverage_gap": 0.043978,
+        "difference": {
+          "estimate": 0.016449,
+          "ci_low": 0.011813,
+          "ci_high": 0.021625,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "p_two_sided": 0.0,
+          "p_holm": 0.0
+        },
+        "complete_window": {
+          "probabilistic": {
+            "events": 8005,
+            "flagged": 8005,
+            "failed": 700,
+            "coverage": 1.0,
+            "error_share": 0.087445
+          },
+          "compared": {
+            "events": 8005,
+            "flagged": 7731,
+            "failed": 605,
+            "coverage": 0.965771,
+            "error_share": 0.078256
+          }
+        },
+        "holm_family": "H1: ehtimoliy qoida — bajarilganlik va o‘tish bali"
+      }
+    ]
+  },
+  "tau_chosen": {
+    "3": {
+      "completeness": 0.027942,
+      "pass_mark": 0.0
+    },
+    "5": {
+      "completeness": 0.027942,
+      "pass_mark": 0.0
+    }
+  },
+  "sensitivity": [
+    {
+      "tau": 0.7,
+      "delta": 0.05,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6849,
+        "failed": 1041,
+        "coverage": 0.708713,
+        "error_share": 0.151993
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6847,
+        "failed": 1040,
+        "coverage": 0.708506,
+        "error_share": 0.151891
+      }
+    },
+    {
+      "tau": 0.7,
+      "delta": 0.1,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6854,
+        "failed": 1041,
+        "coverage": 0.70923,
+        "error_share": 0.151882
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6847,
+        "failed": 1040,
+        "coverage": 0.708506,
+        "error_share": 0.151891
+      }
+    },
+    {
+      "tau": 0.7,
+      "delta": 0.15,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6855,
+        "failed": 1042,
+        "coverage": 0.709334,
+        "error_share": 0.152006
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6847,
+        "failed": 1040,
+        "coverage": 0.708506,
+        "error_share": 0.151891
+      }
+    },
+    {
+      "tau": 0.8,
+      "delta": 0.05,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6834,
+        "failed": 1036,
+        "coverage": 0.707161,
+        "error_share": 0.151595
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6834,
+        "failed": 1036,
+        "coverage": 0.707161,
+        "error_share": 0.151595
+      }
+    },
+    {
+      "tau": 0.8,
+      "delta": 0.1,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6839,
+        "failed": 1036,
+        "coverage": 0.707678,
+        "error_share": 0.151484
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6834,
+        "failed": 1036,
+        "coverage": 0.707161,
+        "error_share": 0.151595
+      }
+    },
+    {
+      "tau": 0.8,
+      "delta": 0.15,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6841,
+        "failed": 1037,
+        "coverage": 0.707885,
+        "error_share": 0.151586
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6834,
+        "failed": 1036,
+        "coverage": 0.707161,
+        "error_share": 0.151595
+      }
+    },
+    {
+      "tau": 0.9,
+      "delta": 0.05,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6823,
+        "failed": 1033,
+        "coverage": 0.706022,
+        "error_share": 0.1514
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6821,
+        "failed": 1033,
+        "coverage": 0.705815,
+        "error_share": 0.151444
+      }
+    },
+    {
+      "tau": 0.9,
+      "delta": 0.1,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6825,
+        "failed": 1035,
+        "coverage": 0.706229,
+        "error_share": 0.151648
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6821,
+        "failed": 1033,
+        "coverage": 0.705815,
+        "error_share": 0.151444
+      }
+    },
+    {
+      "tau": 0.9,
+      "delta": 0.15,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6825,
+        "failed": 1035,
+        "coverage": 0.706229,
+        "error_share": 0.151648
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6821,
+        "failed": 1033,
+        "coverage": 0.705815,
+        "error_share": 0.151444
+      }
+    },
+    {
+      "tau": 0.95,
+      "delta": 0.05,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6801,
+        "failed": 1027,
+        "coverage": 0.703746,
+        "error_share": 0.151007
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6795,
+        "failed": 1023,
+        "coverage": 0.703125,
+        "error_share": 0.150552
+      }
+    },
+    {
+      "tau": 0.95,
+      "delta": 0.1,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6803,
+        "failed": 1027,
+        "coverage": 0.703953,
+        "error_share": 0.150963
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6795,
+        "failed": 1023,
+        "coverage": 0.703125,
+        "error_share": 0.150552
+      }
+    },
+    {
+      "tau": 0.95,
+      "delta": 0.15,
+      "chapter_two": {
+        "events": 9664,
+        "flagged": 6805,
+        "failed": 1029,
+        "coverage": 0.70416,
+        "error_share": 0.151212
+      },
+      "probabilistic": {
+        "events": 9664,
+        "flagged": 6795,
+        "failed": 1023,
+        "coverage": 0.703125,
+        "error_share": 0.150552
+      }
+    }
+  ],
+  "readiness_auc": {
+    "3": {
+      "score": "r_s(w)",
+      "k": 3,
+      "events": 9664,
+      "failures": 1637,
+      "auc": 0.5194810976606975,
+      "auc_interval": {
+        "estimate": 0.519481,
+        "ci_low": 0.501194,
+        "ci_high": 0.537192,
+        "replicates": 1000,
+        "clustered_by_learner": true
+      }
+    },
+    "5": {
+      "score": "r_s(w)",
+      "k": 5,
+      "events": 9664,
+      "failures": 1365,
+      "auc": 0.5232320236296619,
+      "auc_interval": {
+        "estimate": 0.523232,
+        "ci_low": 0.503797,
+        "ci_high": 0.542095,
+        "replicates": 1000,
+        "clustered_by_learner": true
+      }
+    }
+  },
+  "reading": {
+    "status": "qo‘llab-quvvatlanmadi",
+    "rule": "teng qamrovda ehtimoliy qoidaning xato ulushi bajarilganlik va o‘tish bali qoidalaridan past bo‘lsa va farqlarning 95 % CI si nolni kesib o‘tmasa — qo‘llab-quvvatlandi (D61)",
+    "limitation": "cheklov: Junyi platformasi mashqni uning prerekvizitlari o‘zlashtirilgach tavsiya qiladi (suggested), shuning uchun ta’sirning bir qismi grafning o‘zidan emas, platformaning shu graf bo‘yicha yo‘naltirishidan kelishi mumkin (D62a)",
+    "per_rule": [
+      {
+        "rule": "completeness",
+        "difference": -2.3e-05,
+        "ci_low": -0.000336,
+        "ci_high": 0.000193,
+        "verdict": "aniqlanmadi"
+      },
+      {
+        "rule": "pass_mark",
+        "difference": 0.016669,
+        "ci_low": 0.011738,
+        "ci_high": 0.021936,
+        "verdict": "qo‘llab-quvvatlanmadi"
+      }
+    ]
+  },
+  "folds": [
+    {
+      "index": 0,
+      "counts": {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "test_answers": 46539,
+        "test_events": 1756,
+        "validation_events": 2020
+      },
+      "items_warmed": 1783,
+      "parameters": {}
+    },
+    {
+      "index": 1,
+      "counts": {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "test_answers": 54545,
+        "test_events": 2348,
+        "validation_events": 1995
+      },
+      "items_warmed": 1739,
+      "parameters": {}
+    },
+    {
+      "index": 2,
+      "counts": {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "test_answers": 37800,
+        "test_events": 1498,
+        "validation_events": 1703
+      },
+      "items_warmed": 1842,
+      "parameters": {}
+    },
+    {
+      "index": 3,
+      "counts": {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "test_answers": 54386,
+        "test_events": 2089,
+        "validation_events": 2332
+      },
+      "items_warmed": 1803,
+      "parameters": {}
+    },
+    {
+      "index": 4,
+      "counts": {
+        "train": 1280,
+        "validation": 320,
+        "test": 400,
+        "test_answers": 59467,
+        "test_events": 1973,
+        "validation_events": 1247
+      },
+      "items_warmed": 1793,
+      "parameters": {}
+    }
+  ],
+  "replicates": 1000,
+  "confidence_percent": 95,
+  "parameter_fit_workers": 5,
+  "provenance": {
+    "command": "python -m experiments.h1 --workers 5",
+    "code_commit": "2500c77",
+    "code_dirty": false,
+    "created_at": "2026-10-19T10:25:25.927625+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "split": 20261006,
+      "sample": 20261006,
+      "bootstrap": 20261006
+    },
+    "sources": [
+      {
+        "name": "junyi-exercise-table",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_Exercise_table.csv",
+        "sha256": "13292cc2c809985abbacedaba434e39aeb02a7fcb2a32f17b60c4d3f4d769546",
+        "bytes": 139957
+      },
+      {
+        "name": "junyi-problem-log",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+        "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+        "bytes": 2668566436
+      }
+    ],
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.3.3",
+      "scipy": "1.14.1",
+      "sklearn": "1.6.1",
+      "torch": "2.5.1+cpu",
+      "pyBKT": "1.4.3",
+      "pykt": "0.0.38"
+    },
+    "env": {},
+    "git_start": {
+      "commit": "2500c77",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-19T09:47:48.850992+00:00"
+    },
+    "git_end": {
+      "commit": "2500c77",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-19T10:25:25.927605+00:00"
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  }
+}

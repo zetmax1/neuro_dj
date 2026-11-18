@@ -1,0 +1,56 @@
+name: backend-ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: neurolearn
+          POSTGRES_USER: neurolearn
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U neurolearn -d neurolearn"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DJANGO_ENV_FILE: ""
+      DEBUG: "False"
+      SECRET_KEY: ci-only-secret-key-not-used-anywhere-else-0123456789
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      DATABASE_URL: postgres://neurolearn:ci-only-password@127.0.0.1:5432/neurolearn
+      REDIS_URL: redis://127.0.0.1:6379/1
+      SECURE_SSL_REDIRECT: "False"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - name: Django system check
+        run: python manage.py check
+      - name: Migrations are up to date
+        run: python manage.py makemigrations --check --dry-run
+      - name: Tests (PostgreSQL)
+        run: coverage run -m pytest && coverage report
+      # Stage 10 targets (D67); the scope is .coveragerc's.
+      - name: Coverage targets
+        run: |
+          coverage report --include='neuro_model/*' --fail-under=95
+          coverage report --include='*/services/*' --fail-under=85

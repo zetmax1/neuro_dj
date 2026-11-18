@@ -1,0 +1,26 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!--
+  A synthetic graph, not published data. It carries on purpose everything the
+  loader has to handle: a name key that is not "d0", a self-loop (Y2), a
+  duplicate edge, and an isolated node.
+
+      algebra ──► equations ──► quadratics
+              └─► geometry
+      logic (isolated)
+-->
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+  <key id="k7" for="node" attr.name="description" attr.type="string" />
+  <key id="k3" for="node" attr.name="name" attr.type="string" />
+  <graph edgedefault="directed">
+    <node id="n1"><data key="k3">algebra</data></node>
+    <node id="n2"><data key="k3">equations</data></node>
+    <node id="n3"><data key="k3">quadratics</data></node>
+    <node id="n4"><data key="k3">geometry</data></node>
+    <node id="n5"><data key="k3">logic</data></node>
+    <edge source="n1" target="n2" />
+    <edge source="n2" target="n3" />
+    <edge source="n1" target="n4" />
+    <edge source="n1" target="n2" />
+    <edge source="n3" target="n3" />
+  </graph>
+</graphml>

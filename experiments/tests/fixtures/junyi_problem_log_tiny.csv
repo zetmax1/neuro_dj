@@ -1,0 +1,12 @@
+user_id,exercise,problem_type,problem_number,topic_mode,suggested,review_mode,time_done,time_taken,time_taken_attempts,correct,count_attempts,hint_used,count_hints,hint_time_taken_list,earned_proficiency,points_earned
+1,a,p0,1,false,false,false,1400000000000000,4,3,true,1,false,0,null,false,10
+1,a,p0,2,false,false,false,1400000001000000,4,3,true,1,false,0,null,true,10
+1,b,p0,1,false,false,false,1400000002000000,4,3,true,1,false,0,null,false,10
+1,c,p0,1,false,true,false,1400000003000000,4,3,false,2,true,1,5,false,0
+1,c,p0,2,false,true,false,1400000004000000,4,3,false,2,true,1,5,false,0
+2,ghost,p0,1,false,false,false,1400000005000000,4,3,true,1,false,0,null,false,10
+2,a,p0,1,false,false,false,1400000006000000,4,3,false,2,false,0,null,false,0
+2,b,p0,1,true,false,true,1400000007000000,4,3,true,1,false,0,null,false,10
+2,y,p0,1,false,false,false,1400000008000000,4,3,true,1,false,0,null,false,10
+3,a,p0,1,false,false,false,,4,3,true,1,false,0,null,false,10
+3,d,p0,1,false,false,false,1400000010000000,4,3,true,1,false,0,null,false,10

@@ -5,11 +5,12 @@ Management command to seed/reset the database to a clean, presentable demo state
 for thesis defense.
 
 Includes:
-  - Clean MPTT curriculum hierarchy & multi-branch DAG prerequisite convergence.
+  - Clean curriculum hierarchy (course → section → topic) & multi-branch DAG
+    prerequisite convergence, written through curriculum.services.kb.
   - Topic resources with clean educational titles.
   - Realistic 15-20 answer attempt history per demo student executed through the real
     BKT/IRT engine pipeline (process_submission), populating UserKnowledgeHistory,
-    UserAbility (theta), and UserKnowledgeState.
+    UserAbility (theta), and StudentTopicState.
   - Idempotent: Can be run repeatedly to reset the demo environment.
 """
 
@@ -22,20 +23,25 @@ from typing import Any
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management import call_command
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils.timezone import now
 
-from curriculum.models import Topic, TopicPrerequisite
-from curriculum.services.graph import is_unlocked_dag
+from accounts.demo import DEMO_EMAILS, DemoPassword
+from assessments.services import readiness, student_model
+from curriculum.models import TopicKind
+from curriculum.services import kb
+from curriculum.services.graph import get_snapshot
 from assessments.models import (
     AssessmentAttempt,
+    AttemptSource,
     Choice,
     DifficultyLevel,
     Question,
+    TestSessionResult,
     UserAbility,
     UserKnowledgeHistory,
-    UserKnowledgeState,
+    StudentTopicState,
 )
 from assessments.services.orchestrator import process_submission
 
@@ -47,154 +53,89 @@ class Command(BaseCommand):
     help = (
         "Resets and seeds the database with a clean curriculum DAG topology, "
         "prerequisite convergence, and realistic student BKT/IRT learning curves "
-        "for thesis defense."
+        "for thesis defense. Demo accounts that hold answers from other sources "
+        "(adaptive, test sessions, legacy) are only reset with --reset-demo-answers."
     )
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--reset-demo-answers",
+            action="store_true",
+            help="Also delete answers of the demo accounts that were not written by this seed.",
+        )
+
     def handle(self, *args: Any, **options: Any) -> None:
+        foreign = (
+            AssessmentAttempt.objects
+            .filter(user__email__in=DEMO_EMAILS)
+            .exclude(source=AttemptSource.SEED)
+            .count()
+        )
+        if foreign and not options["reset_demo_answers"]:
+            raise CommandError(
+                f"The demo accounts hold {foreign} answer(s) that this seed did not write "
+                "(adaptive, test-session or legacy). Re-run with --reset-demo-answers to "
+                "delete them, or keep them and skip the reset."
+            )
+
         self.stdout.write(
             self.style.MIGRATE_HEADING("=== Starting Thesis Demo Database Seeding ===")
         )
 
-        # 1. Engine Check
-        active_engine = getattr(settings, "STUDENT_MODEL_ENGINE", "streak")
-        if active_engine != "hybrid_bkt_irt":
+        # 1. Engine and ablation flags (D34: there is only one engine).
+        self.stdout.write(
+            self.style.SUCCESS(f"[OK] Engine: {student_model.ENGINE_VERSION}.")
+        )
+        if settings.THESIS_FLAGS != {"use_irt": True, "use_prereq_init": True}:
             self.stdout.write(
                 self.style.WARNING(
-                    f"[WARNING] settings.STUDENT_MODEL_ENGINE is currently '{active_engine}'. "
-                    f"For thesis demo, 'hybrid_bkt_irt' is strongly recommended."
+                    f"[WARNING] settings.THESIS_FLAGS is {settings.THESIS_FLAGS}. "
+                    "The demo expects the full model (both flags on)."
                 )
             )
-        else:
-            self.stdout.write(
-                self.style.SUCCESS("[OK] Student model engine confirmed as 'hybrid_bkt_irt'.")
-            )
+
+        demo_password = DemoPassword(self.stdout)
 
         with transaction.atomic():
-            # 2. Build Curriculum Topics (MPTT Hierarchy)
+            # 2. Build Curriculum Topics
             self.stdout.write("Setting up curriculum topic hierarchy...")
 
-            cs, _ = Topic.objects.get_or_create(
-                slug="computer-science",
-                defaults={
-                    "name": "Computer Science",
-                    "description": "Foundational computation, theory, and software principles.",
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
+            # Created through the KB service (idempotent by slug): kinds,
+            # positions, Y1–Y3 and the KB version are handled there.
+            def node(slug, name, parent=None, kind=None, position=None, description=""):
+                return kb.ensure_node(
+                    slug=slug, name=name, parent=parent, kind=kind,
+                    position=position, description=description,
+                )
 
-            ds, _ = Topic.objects.get_or_create(
-                slug="data-structures",
-                defaults={
-                    "name": "Data Structures",
-                    "description": "Core structures for organizing and managing memory efficiently.",
-                    "parent": cs,
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
-
-            algo, _ = Topic.objects.get_or_create(
-                slug="algorithms",
-                defaults={
-                    "name": "Algorithms",
-                    "description": "Computational procedures for solving logical problems.",
-                    "parent": cs,
-                    "position": 2,
-                    "is_unlocked": True,
-                },
-            )
-
-            binary_trees, _ = Topic.objects.get_or_create(
-                slug="binary-trees",
-                defaults={
-                    "name": "Binary Trees",
-                    "description": "Hierarchical structures where each node has at most two children.",
-                    "parent": ds,
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
-
-            hash_maps, _ = Topic.objects.get_or_create(
-                slug="hash-maps",
-                defaults={
-                    "name": "Hash Maps",
-                    "description": "Key-value mapping data structures utilizing hash functions.",
-                    "parent": ds,
-                    "position": 2,
-                    "is_unlocked": True,
-                },
-            )
-
-            sorting, _ = Topic.objects.get_or_create(
-                slug="sorting",
-                defaults={
-                    "name": "Sorting",
-                    "description": "Algorithms for ordering elements (QuickSort, MergeSort).",
-                    "parent": algo,
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
-
-            graphs, _ = Topic.objects.get_or_create(
-                slug="graph-traversals",
-                defaults={
-                    "name": "Graph Traversals",
-                    "description": "Techniques for visiting nodes in network graphs (BFS/DFS).",
-                    "parent": algo,
-                    "position": 2,
-                    "is_unlocked": True,
-                },
-            )
-
-            se, _ = Topic.objects.get_or_create(
-                slug="software-engineering",
-                defaults={
-                    "name": "Software engineering",
-                    "description": "System architecture, lifecycle models, and engineering practices.",
-                    "position": 2,
-                    "is_unlocked": True,
-                },
-            )
-
-            events, _ = Topic.objects.get_or_create(
-                slug="event-management",
-                defaults={
-                    "name": "event management",
-                    "description": "Event-driven architecture and asynchronous event loops.",
-                    "parent": se,
-                    "position": 1,
-                    "is_unlocked": True,
-                },
-            )
-
-            demo_topic, _ = Topic.objects.get_or_create(
-                slug="demo-topic",
-                defaults={
-                    "name": "Demo Topic",
-                    "description": "Advanced capstone module integrating tree and graph algorithms.",
-                    "position": 3,
-                    "is_unlocked": True,
-                },
-            )
-
-            # Rebuild MPTT tree pointers
-            Topic.objects.rebuild()
+            cs = node("computer-science", "Computer Science", position=1,
+                      description="Foundational computation, theory, and software principles.")
+            ds = node("data-structures", "Data Structures", cs, TopicKind.SECTION, 1,
+                      "Core structures for organizing and managing memory efficiently.")
+            algo = node("algorithms", "Algorithms", cs, TopicKind.SECTION, 2,
+                        "Computational procedures for solving logical problems.")
+            binary_trees = node("binary-trees", "Binary Trees", ds, TopicKind.TOPIC, 1,
+                                "Hierarchical structures where each node has at most two children.")
+            hash_maps = node("hash-maps", "Hash Maps", ds, TopicKind.TOPIC, 2)
+            sorting = node("sorting", "Sorting", algo, TopicKind.TOPIC, 1)
+            graphs = node("graph-traversals", "Graph Traversals", algo, TopicKind.TOPIC, 2)
+            se = node("software-engineering", "Software engineering", position=2)
+            node("event-management", "event management", se, TopicKind.TOPIC, 1)
+            # A topic of the CS course that converges two branches of the DAG.
+            demo_topic = node("demo-topic", "Demo Topic", cs, TopicKind.TOPIC, 3)
 
             # 3. Setup Cross-Branch DAG Prerequisite Convergence
             self.stdout.write("Configuring multi-branch DAG prerequisite edges...")
 
             # Algorithms requires Data Structures
-            TopicPrerequisite.objects.get_or_create(topic=algo, prerequisite=ds)
+            kb.ensure_prerequisite(topic=algo, prerequisite=ds)
 
             # Software engineering requires Hash Maps
-            TopicPrerequisite.objects.get_or_create(topic=se, prerequisite=hash_maps)
+            kb.ensure_prerequisite(topic=se, prerequisite=hash_maps)
 
             # Demo Topic requires BOTH Binary Trees (DS branch) AND Graph Traversals (Algorithms branch)
-            TopicPrerequisite.objects.get_or_create(topic=demo_topic, prerequisite=binary_trees)
-            TopicPrerequisite.objects.get_or_create(topic=demo_topic, prerequisite=graphs)
+            kb.ensure_prerequisite(topic=demo_topic, prerequisite=binary_trees)
+            kb.ensure_prerequisite(topic=demo_topic, prerequisite=graphs)
 
             # 4. Clean Resource Titles
             self.stdout.write("Sanitizing resource titles...")
@@ -303,6 +244,7 @@ class Command(BaseCommand):
             # 6. Seed Demo Student Users and Simulate Algorithmic Attempts
             self.stdout.write("Simulating student learning curves through algorithmic engine pipeline...")
 
+            # Every account here must be listed in accounts.demo.DEMO_EMAILS.
             demo_students_info = [
                 {
                     "email": "hybrid_demo@test.com",
@@ -322,7 +264,7 @@ class Command(BaseCommand):
                     "email": "alex@neuro.learn",
                     "first_name": "Alex",
                     "last_name": "Rivera",
-                    "target_topics": [cs, ds, hash_maps],
+                    "target_topics": [binary_trees, hash_maps],
                     "target_accuracy": 0.30,
                 },
             ]
@@ -339,21 +281,38 @@ class Command(BaseCommand):
                         "is_active": True,
                     },
                 )
-                if _created or not user.check_password("password123"):
-                    user.set_password("password123")
+                if _created or demo_password.from_env:
+                    user.set_password(demo_password.value)
                     user.save()
 
-                # Idempotent cleanup for this demo user
+                # Idempotent cleanup for this demo user. Answers go first: they
+                # RESTRICT their test sessions and carry the linked history rows.
                 AssessmentAttempt.objects.filter(user=user).delete()
-                UserKnowledgeState.objects.filter(user=user).delete()
+                TestSessionResult.objects.filter(user=user).delete()
+                StudentTopicState.objects.filter(user=user).delete()
                 UserKnowledgeHistory.objects.filter(user=user).delete()
                 UserAbility.objects.filter(user=user).delete()
 
                 # Simulate ~15-20 attempts across target topics
                 attempt_count = 0
-                for topic in student_info["target_topics"]:
+                skipped_closed: list[str] = []
+                # Programme order (pos, D4), so a prerequisite is answered —
+                # and can become mastered — before what depends on it. The
+                # demo learner goes through the same readiness gate a real one
+                # does (stage 4), so anything still closed is skipped rather
+                # than forced.
+                snapshot = get_snapshot()
+                ordered_targets = sorted(
+                    student_info["target_topics"],
+                    key=lambda t: snapshot.pos.get(t.pk, 0),
+                )
+                for topic in ordered_targets:
                     topic_questions = list(Question.objects.filter(topic=topic).prefetch_related("choices"))
                     if not topic_questions:
+                        continue
+
+                    if readiness.check_open(user=user, topic_id=topic.pk) is not None:
+                        skipped_closed.append(topic.name)
                         continue
 
                     # Simulate 5-6 attempts per topic
@@ -375,54 +334,58 @@ class Command(BaseCommand):
                         if not selected_choice:
                             continue
 
-                        # Execute submission through real orchestrator (calculates BKT/IRT & writes history)
-                        res = process_submission(
-                            user=user,
-                            question_id=q.id,
-                            choice_id=selected_choice.id,
-                        )
-
                         attempt_count += 1
 
-                        # Spread attempt timestamps backward slightly over the past 3 days for line chart
-                        latest_attempt = AssessmentAttempt.objects.filter(user=user).order_by("-id").first()
-                        latest_history = UserKnowledgeHistory.objects.filter(user=user, topic=topic).order_by("-id").first()
-
+                        # Spread answers over the past 3 days for the line chart. The
+                        # time is set when the seed row is written, so no other row
+                        # is ever re-timed (D10).
                         offset_days = 3 - (attempt_count * 0.15)
                         simulated_time = now_ts - timedelta(days=max(0.1, offset_days))
 
-                        if latest_attempt:
-                            AssessmentAttempt.objects.filter(pk=latest_attempt.pk).update(answered_at=simulated_time)
-                        if latest_history:
-                            UserKnowledgeHistory.objects.filter(pk=latest_history.pk).update(created_at=simulated_time)
+                        # Execute submission through real orchestrator (calculates BKT/IRT & writes history)
+                        process_submission(
+                            user=user,
+                            question_id=q.id,
+                            choice_id=selected_choice.id,
+                            source=AttemptSource.SEED,
+                            answered_at=simulated_time,
+                        )
 
                 self.stdout.write(
                     f"  Seeded {attempt_count} attempts for {user.email} (BKT/IRT history populated)."
                 )
+                if skipped_closed:
+                    self.stdout.write(
+                        self.style.WARNING(
+                            "  Skipped (prerequisites not mastered): "
+                            + ", ".join(skipped_closed)
+                        )
+                    )
 
-            # Verification of DAG unlock condition for demo student
+            # The readiness service is the only authority on this (stage 4):
+            # the demo topic is reachable when every u ∈ Pre(w) is mastered.
             demo_user = User.objects.get(email="hybrid_demo@test.com")
-            dag_unlocked = is_unlocked_dag(demo_user, demo_topic)
-            if dag_unlocked:
+            blocked = readiness.check_open(user=demo_user, topic_id=demo_topic.pk)
+            if blocked is None:
                 self.stdout.write(
                     self.style.SUCCESS(
-                        f"[OK] Demo Topic DAG unlock check PASSED: '{demo_topic.name}' is unlocked for {demo_user.email}."
+                        f"[OK] '{demo_topic.name}' is open for {demo_user.email}."
                     )
                 )
             else:
+                names = ", ".join(item["name"] for item in blocked.missing)
                 self.stdout.write(
-                    self.style.ERROR(
-                        f"[FAIL] Demo Topic DAG unlock check FAILED: '{demo_topic.name}' is NOT unlocked for {demo_user.email}."
+                    self.style.WARNING(
+                        f"[INFO] '{demo_topic.name}' is still closed for {demo_user.email}; "
+                        f"unmastered prerequisites: {names or '—'}."
                     )
                 )
 
         self.stdout.write(
             self.style.SUCCESS(
                 "=== Thesis Demo Database Seeding Completed Successfully! ===\n"
-                "Demo Credentials:\n"
-                "  - Email: hybrid_demo@test.com  | Password: password123\n"
-                "  - Email: yuta@gmail.com        | Password: password123\n"
-                "  - Email: alex@neuro.learn      | Password: password123\n"
+                "Demo accounts: hybrid_demo@test.com, yuta@gmail.com, alex@neuro.learn\n"
+                "  (password: DEMO_PASSWORD, or the generated value printed above for new accounts)\n"
                 "DAG Prerequisite Convergence:\n"
                 "  - 'Demo Topic' converges from 'Binary Trees' and 'Graph Traversals'\n"
             )

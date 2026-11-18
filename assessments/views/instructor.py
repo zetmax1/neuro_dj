@@ -3,31 +3,50 @@ import re
 import csv
 import openpyxl
 from django.db import transaction
+from django.db.models import ProtectedError
 from django.http import HttpResponse
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from drf_spectacular.utils import extend_schema
+from accounts.permissions import IsInstructor
 from curriculum.models import Topic
-from assessments.models import Question, Choice
+from assessments.models import Question
 from assessments.serializers.instructor import InstructorQuestionSerializer
+from assessments.services.question_import import ImportRejected, import_questions
 
 @extend_schema(tags=["Instructor Management"])
 class InstructorQuestionViewSet(viewsets.ModelViewSet):
     """
     ViewSet for instructors to manage the question bank.
-    Restricted to Admin/Instructor users.
+    Restricted to instructors (D15).
+
+    D11: DELETE of a question that has recorded answers deactivates it
+    (200, ``{"archived": true}``) instead of deleting the answers' target.
+    Inactive questions are hidden unless ``?include_inactive=true``.
     """
-    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    permission_classes = [IsInstructor]
     serializer_class = InstructorQuestionSerializer
-    
+
     def get_queryset(self):
         queryset = Question.objects.select_related("topic").prefetch_related("choices")
         topic_id = self.request.query_params.get("topic")
         if topic_id:
             queryset = queryset.filter(topic_id=topic_id)
+        if self.request.query_params.get("include_inactive", "").lower() not in ("1", "true"):
+            queryset = queryset.filter(is_active=True)
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        question = self.get_object()
+        try:
+            with transaction.atomic():
+                question.delete()
+        except ProtectedError:
+            Question.objects.filter(pk=question.pk).update(is_active=False)
+            return Response({"id": question.pk, "archived": True}, status=status.HTTP_200_OK)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 def parse_excel_or_csv(file_obj, filename):
@@ -160,7 +179,7 @@ class ImportQuestionsView(APIView):
     Bulk imports test questions from uploaded Excel (.xlsx, .csv) or Word (.docx, .txt) files.
     RULE: The 1st answer option in the file for each question is marked as CORRECT. Options are shuffled when given to students.
     """
-    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+    permission_classes = [IsInstructor]
     parser_classes = (MultiPartParser, FormParser)
 
     def post(self, request):
@@ -174,7 +193,7 @@ class ImportQuestionsView(APIView):
             )
 
         try:
-            topic = Topic.objects.get(pk=topic_id)
+            topic = Topic.objects.get(pk=topic_id, is_archived=False)
         except Topic.DoesNotExist:
             return Response(
                 {"detail": f"Topic with id={topic_id} not found."},
@@ -198,26 +217,10 @@ class ImportQuestionsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        created_count = 0
-        with transaction.atomic():
-            for q_item in parsed_questions:
-                q_obj = Question.objects.create(
-                    topic=topic,
-                    text=q_item["text"],
-                    difficulty=q_item["difficulty"],
-                    explanation=q_item.get("explanation", ""),
-                    is_active=True
-                )
-                choices_to_create = [
-                    Choice(
-                        question=q_obj,
-                        text=c["text"],
-                        is_correct=c["is_correct"]
-                    )
-                    for c in q_item["choices"]
-                ]
-                Choice.objects.bulk_create(choices_to_create)
-                created_count += 1
+        try:
+            created_count = import_questions(topic, parsed_questions)
+        except ImportRejected as exc:
+            return Response(exc.payload(), status=status.HTTP_400_BAD_REQUEST)
 
         return Response({
             "detail": f"Successfully imported {created_count} questions for topic '{topic.name}'.",
@@ -231,7 +234,7 @@ class DownloadQuestionTemplateView(APIView):
     GET /api/assessments/instructor/templates/questions/?file_format=excel|word
     Downloads a sample template file ("shablon") with instructions that 1st option is ALWAYS the correct answer.
     """
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsInstructor]
 
     def perform_content_negotiation(self, request, force=False):
         # Override DRF content negotiation to prevent ?format=excel from triggering 404

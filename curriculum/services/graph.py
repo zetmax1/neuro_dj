@@ -1,156 +1,213 @@
 """
-curriculum/services/graph.py — Prerequisite DAG operations and algorithms.
+curriculum/services/graph.py — the knowledge base as an immutable snapshot.
 
-Provides graph traversal, topological sorting (Kahn's algorithm), and DAG-based
-unlocking checks for multi-prerequisite topics.
+A ``KBSnapshot`` holds everything chapter II derives from the tree and E_P:
+pos (D4), Leaves, G_L with weights, the Algorithm 2.2 order and lev, Pre/Succ,
+Desc* bitsets, redundant edges and κ. It is computed by ``neuro_model.graph``
+and cached under the KB version (GR1): a KB change bumps the version, so stale
+entries are never read and nothing has to be invalidated. When Redis is down
+the LocMem fallback or a rebuild is used (DJANGO_REDIS_IGNORE_EXCEPTIONS).
+
+Only active (non-archived) nodes are part of the knowledge base. Names are not
+cached: renaming a node does not change the KB, so views read names from the DB.
 """
 
 from __future__ import annotations
 
 import logging
-from collections import defaultdict, deque
-from typing import Any
+import threading
+from collections.abc import Iterable
+from dataclasses import dataclass
 
-from django.apps import apps
-from django.conf import settings
-from django.db.models import QuerySet
+from django.core.cache import cache
 
-from curriculum.models import Topic, TopicPrerequisite
+from curriculum.models import KnowledgeBaseVersion, Topic, TopicKind, TopicPrerequisite
+from neuro_model import graph as g
 
 logger = logging.getLogger(__name__)
 
-
-def get_all_prerequisites(topic: Topic) -> set[Topic]:
-    """
-    Compute the full transitive closure of prerequisite topics for `topic`.
-
-    Iteratively collects all direct and indirect prerequisites by traversing
-    the Directed Acyclic Graph (DAG) backwards.
-    """
-    visited_ids: set[int] = set()
-    stack: list[int] = [topic.id]
-
-    while stack:
-        curr_id = stack.pop()
-        prereq_ids = TopicPrerequisite.objects.filter(
-            topic_id=curr_id
-        ).values_list("prerequisite_id", flat=True)
-
-        for p_id in prereq_ids:
-            if p_id not in visited_ids and p_id != topic.id:
-                visited_ids.add(p_id)
-                stack.append(p_id)
-
-    return set(Topic.objects.filter(id__in=visited_ids))
+Edge = tuple[int, int]
+CACHE_TIMEOUT_SECONDS = 24 * 3600
 
 
-def topological_order(topic_queryset: QuerySet[Topic] | list[Topic]) -> list[Topic]:
-    """
-    Perform Kahn's algorithm topological sort over TopicPrerequisite edges,
-    restricted to topics in `topic_queryset`.
+@dataclass(frozen=True)
+class KBSnapshot:
+    version: int
+    tree: g.Tree
+    pos: dict[int, int]
+    depth: dict[int, int]
+    leaf_sets: dict[int, frozenset[int]]
+    prerequisites: tuple[g.Prerequisite, ...]
+    edges: dict[Edge, g.LeafEdge]
+    order: tuple[int, ...]
+    lev: dict[int, int]
+    pre: dict[int, tuple[int, ...]]
+    succ: dict[int, tuple[int, ...]]
+    desc: dict[int, int]
+    redundant: tuple[Edge, ...]
+    conflicts: tuple[Edge, ...]
 
-    Ordering rule:
-      If topic A requires topic B, B will appear BEFORE A in the returned list.
-      Ties are resolved deterministically by position/id.
-    """
-    topics_list = list(topic_queryset)
-    if not topics_list:
-        return []
+    # --- tree -------------------------------------------------------------
+    def __contains__(self, node: int) -> bool:
+        return node in self.tree.parent
 
-    topic_map: dict[int, Topic] = {t.id: t for t in topics_list}
-    node_ids: set[int] = set(topic_map.keys())
+    def kind(self, node: int) -> str:
+        return self.tree.kind[node]
 
-    # Build in-degree map and adjacency list (prerequisite -> dependent_topic)
-    in_degree: dict[int, int] = {t_id: 0 for t_id in node_ids}
-    adj: dict[int, list[int]] = defaultdict(list)
+    def root_of(self, node: int) -> int:
+        chain = g.ancestors(self.tree, node)
+        return chain[-1] if chain else node
 
-    edges = TopicPrerequisite.objects.filter(
-        topic_id__in=node_ids,
-        prerequisite_id__in=node_ids,
-    ).values_list("prerequisite_id", "topic_id")
+    def leaves_of(self, node: int) -> frozenset[int]:
+        """Leaves(n); empty for unknown or archived nodes."""
+        return self.leaf_sets.get(node, frozenset())
 
-    for prereq_id, dep_id in edges:
-        in_degree[dep_id] += 1
-        adj[prereq_id].append(dep_id)
+    def topics_in_programme_order(self, nodes: Iterable[int] | None = None) -> list[int]:
+        chosen = self.tree.parent.keys() if nodes is None else nodes
+        return sorted((n for n in chosen if n in self.pos), key=lambda n: (self.pos[n], n))
 
-    # Nodes with 0 in-degree (no prerequisites within node_ids)
-    zero_in_degree = sorted(
-        [t_id for t_id in node_ids if in_degree[t_id] == 0],
-        key=lambda tid: (topic_map[tid].position, topic_map[tid].id),
+    # --- G_L --------------------------------------------------------------
+    @property
+    def topics(self) -> tuple[int, ...]:
+        return self.order
+
+    @property
+    def kappa(self) -> int:
+        return len(self.conflicts)
+
+    def descendants(self, topic: int) -> list[int]:
+        """Desc*(v) in topological order."""
+        return g.bitset_members(self.desc.get(topic, 0), list(self.order))
+
+
+def build_snapshot(version: int | None = None) -> KBSnapshot:
+    """Compute the snapshot from the database (no cache). Raises g.CycleError."""
+    if version is None:
+        version = KnowledgeBaseVersion.current()
+    rows = list(
+        Topic.objects.filter(is_archived=False)
+        .values_list("id", "parent_id", "kind", "position")
     )
-    queue = deque(zero_in_degree)
-
-    sorted_ids: list[int] = []
-    while queue:
-        curr_id = queue.popleft()
-        sorted_ids.append(curr_id)
-
-        neighbors = sorted(
-            adj[curr_id],
-            key=lambda tid: (topic_map[tid].position, topic_map[tid].id),
+    # Archiving covers whole subtrees; drop any node whose ancestor is archived
+    # anyway, so the forest is always rooted.
+    parent_of = {pk: parent for pk, parent, _, _ in rows}
+    active = set(parent_of)
+    changed = True
+    while changed:
+        orphans = {pk for pk in active if parent_of[pk] is not None and parent_of[pk] not in active}
+        active -= orphans
+        changed = bool(orphans)
+    rows = [row for row in rows if row[0] in active]
+    tree = g.Tree(
+        parent={pk: parent for pk, parent, _, _ in rows},
+        kind={pk: kind for pk, _, kind, _ in rows},
+        position={pk: position for pk, _, _, position in rows},
+    )
+    prerequisites = tuple(
+        g.Prerequisite(id=pk, source=x, target=y, weight=w)
+        for pk, x, y, w in TopicPrerequisite.objects.order_by("id").values_list(
+            "id", "prerequisite_id", "topic_id", "weight",
         )
-        for nbr_id in neighbors:
-            in_degree[nbr_id] -= 1
-            if in_degree[nbr_id] == 0:
-                queue.append(nbr_id)
-
-    # Append any remaining node_ids if disconnected or cycle edge cases exist
-    if len(sorted_ids) < len(node_ids):
-        remaining = sorted(
-            [tid for tid in node_ids if tid not in set(sorted_ids)],
-            key=lambda tid: (topic_map[tid].position, topic_map[tid].id),
-        )
-        sorted_ids.extend(remaining)
-
-    return [topic_map[t_id] for t_id in sorted_ids]
+        if x in active and y in active
+    )
+    return snapshot_from(version, tree, prerequisites)
 
 
-def is_unlocked_dag(user: Any, topic: Topic) -> bool:
+def snapshot_from(version: int, tree: g.Tree, prerequisites: tuple[g.Prerequisite, ...]) -> KBSnapshot:
+    pos = g.preorder_positions(tree)
+    leaf_sets = g.leaves(tree)
+    edges = g.expand(prerequisites, leaf_sets)
+    topics = [n for n, k in tree.kind.items() if k == TopicKind.TOPIC]
+    order, lev = g.topological_order(topics, edges, pos)
+    succ_lists = g.successors(order, edges)
+    pre_lists: dict[int, list[int]] = {t: [] for t in order}
+    for a, b in edges:
+        pre_lists[b].append(a)
+    rank = {t: i for i, t in enumerate(order)}
+    succ = {t: tuple(sorted(ws, key=rank.get)) for t, ws in succ_lists.items()}
+    pre = {t: tuple(sorted(us, key=rank.get)) for t, us in pre_lists.items()}
+    desc = g.descendant_bitsets(order, succ)
+    return KBSnapshot(
+        version=version,
+        tree=tree,
+        pos=pos,
+        depth=g.depths(tree),
+        leaf_sets=leaf_sets,
+        prerequisites=prerequisites,
+        edges=edges,
+        order=tuple(order),
+        lev=lev,
+        pre=pre,
+        succ=succ,
+        desc=desc,
+        redundant=tuple(g.redundant_edges(order, succ, desc)),
+        conflicts=tuple(g.order_conflicts(edges, pos)),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Version-keyed cache
+# ---------------------------------------------------------------------------
+
+_local = threading.local()
+
+# The instance token of the version row; constant for that row's lifetime, so
+# it is read once instead of on every cache lookup.
+_instance_token: str | None = None
+
+
+def _token() -> str:
+    global _instance_token
+    if _instance_token is None:
+        _instance_token = KnowledgeBaseVersion.token()
+    return _instance_token
+
+
+def _cache_key(version: int) -> str:
+    # D31: the token scopes the key to this counter row, so an entry written
+    # before a counter restart can never be served as the current KB.
+    return f"kb:snapshot:{_token()}:v{version}"
+
+
+def clear_local_cache() -> None:
+    """Forget the per-thread copy (tests reset the database between cases)."""
+    _local.snapshot = None
+    global _instance_token
+    _instance_token = None
+
+
+def get_snapshot(version: int | None = None) -> KBSnapshot:
     """
-    Determine whether a topic is unlocked for a user based on DAG prerequisites.
+    The snapshot of the current committed KB version.
 
-    Unlocking condition:
-      - If topic has explicit TopicPrerequisite edges:
-        Returns True ONLY IF ALL prerequisite topics have user's
-        `mastery_percentage` (from UserKnowledgeState) >= settings.MASTERY_THRESHOLD.
-      - If topic has NO TopicPrerequisite edges:
-        Falls back to parent tree status: root topics (parent_id=None) are unlocked;
-        child topics require parent topic mastery >= MASTERY_THRESHOLD.
+    ``version`` is that version when the caller has already read it in the
+    same request — the answer path reads it in the statement that loads the
+    choice (D66a) — so it is not read twice.
+
+    Never call this inside a KB write transaction: such a snapshot would see
+    uncommitted rows. The KB service uses ``build_snapshot`` instead.
     """
-    raw_threshold = getattr(settings, "MASTERY_THRESHOLD", 0.70)
-    threshold = raw_threshold / 100.0 if raw_threshold > 1.0 else float(raw_threshold)
+    if version is None:
+        version = KnowledgeBaseVersion.current()
+    local = getattr(_local, "snapshot", None)
+    if local is not None and local.version == version:
+        return local
 
-    prereq_qs = TopicPrerequisite.objects.filter(topic=topic)
-    prereq_count = prereq_qs.count()
+    snapshot = cache.get(_cache_key(version))
+    if not isinstance(snapshot, KBSnapshot) or snapshot.version != version:
+        snapshot = _build_committed(version)
+    _local.snapshot = snapshot
+    return snapshot
 
-    if prereq_count > 0:
-        if user is None or not getattr(user, "is_authenticated", False):
-            return False
 
-        UserKnowledgeState = apps.get_model("assessments", "UserKnowledgeState")
-        prereq_ids = list(prereq_qs.values_list("prerequisite_id", flat=True))
-
-        mastered_count = UserKnowledgeState.objects.filter(
-            user=user,
-            topic_id__in=prereq_ids,
-            mastery_percentage__gte=threshold,
-        ).count()
-
-        return mastered_count == prereq_count
-
-    # Fallback when no explicit prerequisites exist:
-    if topic.parent_id is None:
-        return True
-
-    if user is None or not getattr(user, "is_authenticated", False):
-        return True
-
-    UserKnowledgeState = apps.get_model("assessments", "UserKnowledgeState")
-    parent_state = UserKnowledgeState.objects.filter(
-        user=user,
-        topic_id=topic.parent_id,
-    ).first()
-
-    if parent_state:
-        return parent_state.mastery_percentage >= threshold
-    return True
+def _build_committed(version: int) -> KBSnapshot:
+    # The version is read before and after the rows: every KB change bumps it
+    # in the same transaction, so equal values mean the rows belong to it.
+    for _ in range(3):
+        snapshot = build_snapshot(version)
+        after = KnowledgeBaseVersion.current()
+        if after == version:
+            cache.set(_cache_key(version), snapshot, CACHE_TIMEOUT_SECONDS)
+            return snapshot
+        version = after
+    return build_snapshot(version)

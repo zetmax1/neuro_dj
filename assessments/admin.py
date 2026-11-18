@@ -9,9 +9,25 @@ from assessments.models import (
     AssessmentAttempt,
     Choice,
     Question,
+    StudentTopicState,
+    TestSessionResult,
+    TopicModelParams,
+    UserAbility,
     UserKnowledgeHistory,
-    UserKnowledgeState,
 )
+
+
+class ReadOnlyLedgerAdmin(ModelAdmin):
+    """Ledger rows are written by assessments.services.ledger only (D10)."""
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 class ChoiceInline(TabularInline):
@@ -40,21 +56,52 @@ class QuestionAdmin(ModelAdmin):
         return "No image"
 
 
-@admin.register(UserKnowledgeState)
-class UserKnowledgeStateAdmin(ModelAdmin):
+@admin.register(StudentTopicState)
+class StudentTopicStateAdmin(ModelAdmin):
+    """Read-only: states are written by assessments.services.readiness only."""
+
     list_display = [
-        "user", "topic", "mastery_level", "mastery_percentage",
-        "score", "streak", "updated_at",
+        "user", "topic", "status", "p_mastery", "mastered_flag",
+        "missing_count", "accuracy", "attempts", "kb_version", "updated_at",
     ]
-    list_filter = ["mastery_level"]
+    list_filter = ["status", "mastered_flag"]
     search_fields = ["user__email", "topic__name"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(UserAbility)
+class UserAbilityAdmin(ModelAdmin):
+    list_display = ["user", "course", "theta", "n_answers", "theta_updated_at"]
+    search_fields = ["user__email", "course__name"]
+
+
+@admin.register(TopicModelParams)
+class TopicModelParamsAdmin(ModelAdmin):
+    list_display = ["topic", "p0", "pt", "g0", "s0", "source", "fitted_at"]
+    list_filter = ["source"]
+    search_fields = ["topic__name"]
 
 
 @admin.register(AssessmentAttempt)
-class AssessmentAttemptAdmin(ModelAdmin):
-    list_display = ["user", "question", "is_correct", "answered_at"]
-    list_filter = ["is_correct"]
+class AssessmentAttemptAdmin(ReadOnlyLedgerAdmin):
+    list_display = [
+        "user", "topic", "attempt_no", "question", "source",
+        "is_correct", "p_before", "p_after", "answered_at",
+    ]
+    list_filter = ["source", "is_correct"]
     search_fields = ["user__email"]
+
+
+@admin.register(TestSessionResult)
+class TestSessionResultAdmin(ReadOnlyLedgerAdmin):
+    list_display = ["user", "topic", "score_percentage", "passed", "submitted_at"]
+    list_filter = ["passed"]
+    search_fields = ["user__email", "topic__name"]
 
 
 @admin.register(UserKnowledgeHistory)

@@ -14,7 +14,17 @@ from assessments.views.assessment import (
     TestSessionView,
     SubmitTestSessionView,
 )
-from assessments.views.knowledge import UserKnowledgeStateListView
+from assessments.views.knowledge import StudentTopicStateListView
+from assessments.views.learning import (
+    MarkMistakeReviewedView,
+    MeSummaryView,
+    MistakesView,
+    ModelConfigView,
+    PathToTopicView,
+    TopicHistoryView,
+    TopicSearchView,
+    TrajectoryView,
+)
 from assessments.views.instructor import (
     InstructorQuestionViewSet,
     ImportQuestionsView,
@@ -62,8 +72,58 @@ urlpatterns = [
     # GET — All mastery states for the authenticated user
     path(
         "knowledge_states/",
-        UserKnowledgeStateListView.as_view(),
+        StudentTopicStateListView.as_view(),
         name="knowledge_states",
+    ),
+
+    # --- Stage 6: trajectory and the learner-facing API ------------------
+    # GET — Algorithm 2.5, in four groups (?course=<int>)
+    path(
+        "learning/trajectory/",
+        TrajectoryView.as_view(),
+        name="trajectory",
+    ),
+    # GET — Need_s(g) and the route to one topic
+    path(
+        "learning/path-to/<int:topic_id>/",
+        PathToTopicView.as_view(),
+        name="path-to",
+    ),
+    # GET — Wrong answers, grouped by topic (D25)
+    path(
+        "learning/mistakes/",
+        MistakesView.as_view(),
+        name="mistakes",
+    ),
+    # POST — Mark one wrong answer as reviewed
+    path(
+        "learning/mistakes/<int:attempt_id>/reviewed/",
+        MarkMistakeReviewedView.as_view(),
+        name="mistake_reviewed",
+    ),
+    # GET — The model's own trace for one topic
+    path(
+        "learning/topics/<int:topic_id>/history/",
+        TopicHistoryView.as_view(),
+        name="topic_history",
+    ),
+    # GET — Active nodes by name, with status and P(L) (D40)
+    path(
+        "learning/search/",
+        TopicSearchView.as_view(),
+        name="topic_search",
+    ),
+    # GET — The profile, on real data only (D27)
+    path(
+        "me/summary/",
+        MeSummaryView.as_view(),
+        name="me_summary",
+    ),
+    # GET — The chapter II constants (D29)
+    path(
+        "config/model/",
+        ModelConfigView.as_view(),
+        name="config_model",
     ),
     
     # Instructor Excel/Word import & Shablon template endpoints

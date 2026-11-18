@@ -11,8 +11,8 @@ Output shape (DashboardOverviewSerializer):
         "total_submissions": 147,
         "overall_accuracy_pct": 72,
         "average_attempts_to_master": 14.5,
-        "strongest_topic": { "topic_name": "...", "mastery_pct": 96 },
-        "weakest_topic": { "topic_name": "...", "mastery_pct": 23 },
+        "strongest_topic": { "topic_name": "...", "p_mastery": 0.96 },
+        "weakest_topic": { "topic_name": "...", "p_mastery": 0.23 },
         "recent_activity": [ ... ]
     }
 """
@@ -28,8 +28,8 @@ class TopicSnapshotSerializer(serializers.Serializer):
     topic_id: serializers.IntegerField = serializers.IntegerField()
     topic_name: serializers.CharField = serializers.CharField()
     topic_slug: serializers.CharField = serializers.CharField()
-    mastery_pct: serializers.IntegerField = serializers.IntegerField(
-        help_text="Mastery percentage (0–100).",
+    p_mastery: serializers.FloatField = serializers.FloatField(
+        help_text="P(L) on this topic (0.0–1.0).",
     )
 
 
@@ -46,28 +46,41 @@ class HeatmapDataSerializer(serializers.Serializer):
 
     topic_id = serializers.IntegerField()
     topic_name = serializers.CharField()
-    mastery_percentage = serializers.FloatField(
-        help_text="Mastery percentage probability (0.0–1.0)."
+    p_mastery = serializers.FloatField(help_text="P(L) on this topic (0.0–1.0).")
+    status = serializers.CharField(
+        help_text="closed / open / in_progress / mastered / review (3.4).",
     )
 
 
-class RecommendationTopicSerializer(serializers.Serializer):
-    """Minimal topic details for recommendation panels."""
+class TrajectoryReasonSerializer(serializers.Serializer):
+    """Why an item sits where it does: a stable code and the numbers (D20)."""
 
-    id = serializers.IntegerField()
+    code = serializers.CharField()
+    params = serializers.DictField()
+
+
+class TrajectoryItemSerializer(serializers.Serializer):
+    """One entry of Algorithm 2.5."""
+
+    topic_id = serializers.IntegerField()
     name = serializers.CharField()
     slug = serializers.CharField()
-    description = serializers.CharField(allow_blank=True)
-    mastery_percentage = serializers.FloatField()
+    group = serializers.CharField(help_text="A review, B in_progress, C open, D closed.")
+    status = serializers.CharField()
+    p_mastery = serializers.FloatField()
+    accuracy = serializers.FloatField()
+    reason = TrajectoryReasonSerializer()
+    missing = serializers.ListField(child=serializers.DictField())
 
 
-class RecommendationsSerializer(serializers.Serializer):
-    """Dynamic personalized recommendation states for the UI."""
+class TrajectorySerializer(serializers.Serializer):
+    """
+    Algorithm 2.5 in four groups. Replaces the four heuristics the dashboard
+    used to compute, which could disagree with each other.
+    """
 
-    recommended_next = RecommendationTopicSerializer(allow_null=True)
-    needs_revision = RecommendationTopicSerializer(allow_null=True)
-    ready_to_advance = RecommendationTopicSerializer(allow_null=True)
-    coming_soon = RecommendationTopicSerializer(allow_null=True)
+    groups = serializers.DictField(child=TrajectoryItemSerializer(many=True))
+    next = TrajectoryItemSerializer(allow_null=True)
 
 
 class DashboardOverviewSerializer(serializers.Serializer):
@@ -83,10 +96,10 @@ class DashboardOverviewSerializer(serializers.Serializer):
         help_text="Total topics in the curriculum.",
     )
     topics_unlocked: serializers.IntegerField = serializers.IntegerField(
-        help_text="Topics with is_unlocked=True.",
+        help_text="Topics whose status is not 'closed' for this learner (3.4).",
     )
     topics_mastered: serializers.IntegerField = serializers.IntegerField(
-        help_text="Topics where the user's mastery_percentage × 100 >= threshold.",
+        help_text="Topics whose M flag is set (τ/δ hysteresis, not a threshold).",
     )
     mastery_ratio: serializers.FloatField = serializers.FloatField(
         help_text="topics_mastered / total_topics (0.0–1.0).",
@@ -122,4 +135,4 @@ class DashboardOverviewSerializer(serializers.Serializer):
 
     # ── New visual component aggregates ───────────────────────────────
     heatmap_data = HeatmapDataSerializer(many=True)
-    recommendations = RecommendationsSerializer()
+    trajectory = TrajectorySerializer()

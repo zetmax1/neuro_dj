@@ -7,16 +7,10 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from faker import Faker
 
-from assessments.models import (
-    AssessmentAttempt,
-    Choice,
-    DifficultyLevel,
-    Question,
-    UserKnowledgeHistory,
-    UserKnowledgeState,
-)
+from assessments.models import AttemptSource, Choice, DifficultyLevel, Question
 from assessments.services.orchestrator import process_submission
-from curriculum.models import Topic
+from curriculum.models import Topic, TopicKind
+from curriculum.services import kb
 
 User = get_user_model()
 fake = Faker()
@@ -35,7 +29,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--clear",
             action="store_true",
-            help="Wipe existing database tables before seeding",
+            help="Delete previously simulated users (is_simulated=True) and their data first",
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
@@ -57,59 +51,40 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("Simulation complete!"))
 
     def _clear_database(self) -> None:
-        """Safely wipes the tables involved in the simulation."""
-        self.stdout.write(self.style.WARNING("Clearing database..."))
+        """Delete simulated accounts only; their attempts and states cascade with them."""
+        self.stdout.write(self.style.WARNING("Removing simulated users and their data..."))
         with transaction.atomic():
-            AssessmentAttempt.objects.all().delete()
-            UserKnowledgeHistory.objects.all().delete()
-            UserKnowledgeState.objects.all().delete()
-            Question.objects.all().delete()
-            # Deleting topics cascades to questions/choices
-            Topic.objects.all().delete()
-            # Only delete generated users to preserve admins
-            User.objects.filter(is_staff=False).delete()
-        self.stdout.write(self.style.SUCCESS("Database cleared."))
+            deleted, _ = User.all_objects.filter(is_simulated=True).delete()
+        self.stdout.write(self.style.SUCCESS(f"Deleted {deleted} simulated row(s)."))
 
     def _seed_curriculum(self) -> list[Topic]:
         """
-        Builds a 3-level tree and populates leaf nodes with questions.
-        Returns the list of leaf topics.
+        Ensure a separate 3-level simulation tree (slugs prefixed with "sim-") and
+        return its leaf topics. Existing curriculum rows are never touched.
         """
-        self.stdout.write("Seeding curriculum tree...")
+        self.stdout.write("Ensuring simulation curriculum tree...")
 
         with transaction.atomic():
-            # Root Level
-            cs = Topic.objects.create(
-                name="Computer Science", slug="computer-science", is_unlocked=True
-            )
+            cs = kb.ensure_node(slug="sim-computer-science", name="[SIM] Computer Science")
+            ds = kb.ensure_node(slug="sim-data-structures", name="[SIM] Data Structures", parent=cs,
+                                kind=TopicKind.SECTION)
+            algos = kb.ensure_node(slug="sim-algorithms", name="[SIM] Algorithms", parent=cs,
+                                   kind=TopicKind.SECTION)
+            leaf_specs = [
+                ("sim-binary-trees", "[SIM] Binary Trees", ds),
+                ("sim-hash-maps", "[SIM] Hash Maps", ds),
+                ("sim-sorting", "[SIM] Sorting", algos),
+            ]
 
-            # Child Level
-            ds = Topic.objects.create(
-                name="Data Structures", slug="data-structures", parent=cs, is_unlocked=False
-            )
-            algos = Topic.objects.create(
-                name="Algorithms", slug="algorithms", parent=cs, is_unlocked=False
-            )
-
-            # Leaf Level
-            binary_trees = Topic.objects.create(
-                name="Binary Trees", slug="binary-trees", parent=ds, is_unlocked=False
-            )
-            hash_maps = Topic.objects.create(
-                name="Hash Maps", slug="hash-maps", parent=ds, is_unlocked=False
-            )
-            sorting = Topic.objects.create(
-                name="Sorting", slug="sorting", parent=algos, is_unlocked=False
-            )
-
-            leaf_topics = [binary_trees, hash_maps, sorting]
-
-            # Generate questions for leaf topics
+            leaf_topics = []
             choices_to_create = []
-            
-            for topic in leaf_topics:
+            for slug, name, parent in leaf_specs:
+                created = not Topic.objects.filter(slug=slug).exists()
+                topic = kb.ensure_node(slug=slug, name=name, parent=parent, kind=TopicKind.TOPIC)
+                leaf_topics.append(topic)
+                if not created:
+                    continue
                 for diff_level in [DifficultyLevel.EASY, DifficultyLevel.MEDIUM, DifficultyLevel.HARD]:
-                    # 5 questions per difficulty
                     for i in range(5):
                         q = Question.objects.create(
                             topic=topic,
@@ -117,7 +92,6 @@ class Command(BaseCommand):
                             explanation=fake.paragraph(),
                             difficulty=diff_level,
                         )
-                        # 1 correct, 3 incorrect
                         choices_to_create.append(
                             Choice(question=q, text=f"Correct Answer for Q{q.pk}", is_correct=True)
                         )
@@ -125,29 +99,27 @@ class Command(BaseCommand):
                             choices_to_create.append(
                                 Choice(question=q, text=f"Wrong Answer {j+1} for Q{q.pk}", is_correct=False)
                             )
-            
+
             Choice.objects.bulk_create(choices_to_create)
-            
-            self.stdout.write(self.style.SUCCESS(f"Created 3 leaf topics and {len(leaf_topics)*15} questions."))
             return leaf_topics
 
     def _seed_users(self, count: int = 50) -> list[Any]:
-        """Creates realistic users using Faker."""
-        self.stdout.write(f"Seeding {count} users...")
-        
+        """Creates simulated accounts (is_simulated=True, no usable password)."""
+        self.stdout.write(f"Seeding {count} simulated users...")
+
         users = []
         with transaction.atomic():
             for _ in range(count):
-                email = fake.unique.email()
                 user = User.objects.create_user(
-                    email=email,
-                    password="Password123!",
-                    first_name=fake.first_name(),
-                    last_name=fake.last_name()
+                    email=f"sim-{fake.unique.uuid4()}@simulated.invalid",
+                    password=None,
+                    first_name="Simulated",
+                    last_name="Student",
+                    is_simulated=True,
                 )
                 users.append(user)
-        
-        self.stdout.write(self.style.SUCCESS(f"Successfully seeded {count} users."))
+
+        self.stdout.write(self.style.SUCCESS(f"Successfully seeded {count} simulated users."))
         return users
 
     def _simulate_learning(self, users: list[Any], leaf_topics: list[Topic]) -> None:
@@ -193,13 +165,12 @@ class Command(BaseCommand):
                         wrong_choices = [c for c in question.choices.all() if not c.is_correct]
                         choice = random.choice(wrong_choices)
                         
-                    # Pass through the exact same API orchestrator
-                    # Note: We aren't testing 'is_unlocked' gating rigorously for this script, 
-                    # but the orchestrator will update it for parents if they meet mastery threshold.
+                    # Same orchestrator as the API, labelled source=simulated (D13)
                     process_submission(
                         user=user,
                         question_id=question.id,
-                        choice_id=choice.id
+                        choice_id=choice.id,
+                        source=AttemptSource.SIMULATED,
                     )
                     
                     total_interactions += 1

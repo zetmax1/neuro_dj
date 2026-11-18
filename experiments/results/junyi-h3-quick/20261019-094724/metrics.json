@@ -1,0 +1,2865 @@
+{
+  "report": "h3",
+  "spec": "D61",
+  "quick": true,
+  "thesis_result": false,
+  "dataset": {
+    "status": "ok",
+    "name": "junyi",
+    "label": "Junyi Academy (2015)",
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "learners_used": 200,
+    "answers_used": 23238,
+    "skills_used": 345,
+    "log_rows_scanned": 25925992,
+    "log_rows_total": 25925992,
+    "source": {
+      "name": "junyi-problem-log",
+      "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+      "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+      "bytes": 2668566436
+    }
+  },
+  "graph": {
+    "name": "junyi-graph",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_Exercise_table.csv",
+    "sha256": "13292cc2c809985abbacedaba434e39aeb02a7fcb2a32f17b60c4d3f4d769546",
+    "known_sha256": "13292cc2c809985abbacedaba434e39aeb02a7fcb2a32f17b60c4d3f4d769546",
+    "sha256_matches_known": true,
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "edge_direction": "prereq_to_dependent",
+    "edge_direction_note": "a name in the prerequisites column is the knowledge map's parent, so the edge is prerequisite → dependent (D61)",
+    "counts": {
+      "rows": 837,
+      "exercises": 835,
+      "duplicate_names": 2,
+      "areas": 9,
+      "topics": 41,
+      "not_live": 59,
+      "not_live_rows": 61,
+      "raw_edges": 984,
+      "edges": 979,
+      "self_loops": 2,
+      "duplicate_edges": 3,
+      "unknown_prerequisites": 0,
+      "scc_nontrivial": 1,
+      "scc_merged_nodes": 3,
+      "skills": 833,
+      "skill_edges": 976,
+      "longest_path": 65,
+      "without_prerequisites": 97
+    },
+    "longest_path": 65,
+    "areas": [
+      "N/A",
+      "algebra",
+      "analytic-geometry",
+      "arithmetic",
+      "biology",
+      "calculus",
+      "geometry",
+      "logics",
+      "probability-statistics"
+    ],
+    "area_sizes": {
+      "N/A": 19,
+      "algebra": 257,
+      "analytic-geometry": 30,
+      "arithmetic": 301,
+      "biology": 12,
+      "calculus": 10,
+      "geometry": 161,
+      "logics": 5,
+      "probability-statistics": 40
+    },
+    "topics": 41,
+    "duplicate_names": {
+      "matrix_mul_two": 1,
+      "matrix_app_fruit_oil": 1
+    },
+    "unknown_prerequisites": [],
+    "merged_components": [
+      [
+        "adding_and_subtracting_radicals",
+        "radical_multiplication_and_division",
+        "simplifying_radicals"
+      ]
+    ],
+    "self_loops": [
+      "proportions_1",
+      "number_sense_length_l1"
+    ],
+    "weight": 1.0
+  },
+  "log": {
+    "name": "junyi-log",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+    "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "sampling": {
+      "level": "learner",
+      "seed": 20261006,
+      "requested": 200,
+      "selected": 200
+    },
+    "cleaning_rules": [
+      "keep only exercises present in the exercise table",
+      "correct is the published first-attempt column; nothing is recomputed",
+      "order by learner, then time_done (µs), then problem_number, then file order",
+      "one answer is one order: order_id is per row (D57)",
+      "review_mode answers are kept; topic_mode and suggested are metadata only",
+      "live is metadata, not a filter"
+    ],
+    "scanned_rows": 25925992,
+    "counts": {
+      "rows": 23238,
+      "learners": 200,
+      "skills": 345,
+      "problems": 864,
+      "correct": 19288
+    },
+    "dropped": {},
+    "flags": {
+      "topic_mode": 7279,
+      "suggested": 5797,
+      "earned_proficiency": 1133,
+      "review_mode": 323,
+      "correct": 19288
+    },
+    "suggested_share": 0.249462
+  },
+  "inventory": {
+    "name": "junyi-log",
+    "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+    "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+    "licence": "Any form of commercial usage is not allowed! (junyi/README.md)",
+    "citation": "Haw-Shiuan Chang, Hwai-Jung Hsu and Kuan-Ta Chen, “Modeling Exercise Relationships in E-Learning: A Unified Approach”, EDM 2015",
+    "rows": 25925992,
+    "kept": 25925992,
+    "learners": 247606,
+    "exercises": 722,
+    "documented": {
+      "rows": 25925992,
+      "learners": 247606
+    },
+    "matches_documented": {
+      "rows": true,
+      "learners": true
+    },
+    "answers_per_learner": {
+      "min": 1.0,
+      "p25": 3.0,
+      "median": 10.0,
+      "p75": 50.0,
+      "p90": 220.0,
+      "p99": 1670.95,
+      "max": 22067.0,
+      "mean": 104.7066
+    },
+    "answers_per_exercise": {
+      "min": 1.0,
+      "p25": 2122.5,
+      "median": 8474.5,
+      "p75": 34558.25,
+      "p90": 97733.4,
+      "p99": 396477.65,
+      "max": 895736.0,
+      "mean": 35908.5762
+    },
+    "dropped": {},
+    "flags": {
+      "correct": 21463466,
+      "topic_mode": 6458171,
+      "suggested": 5327335,
+      "earned_proficiency": 1194299,
+      "review_mode": 554570,
+      "answers_to_not_live_exercises": 338987
+    }
+  },
+  "split": {
+    "scheme": "k-fold by learner, with a validation split of each training fold",
+    "folds": 5,
+    "seed": 20261006,
+    "validation_fraction": 0.2,
+    "learners": 200,
+    "per_fold": [
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 0
+      },
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 1
+      },
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 2
+      },
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 3
+      },
+      {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "index": 4
+      }
+    ]
+  },
+  "constants": {
+    "lambda_grid": [
+      0.25,
+      0.5,
+      0.75
+    ],
+    "lambda_chapter_two": 0.5,
+    "random_seeds": 3,
+    "random_graphs_used": 3,
+    "random_graphs_skipped": [],
+    "swaps_per_edge": 10,
+    "first_k": [
+      3,
+      5
+    ],
+    "main_k": 3
+  },
+  "arms": [
+    {
+      "name": "asl",
+      "family": "asl",
+      "label": "asl graf (platformaning bilim xaritasi)",
+      "edges": 976,
+      "rewiring": null
+    },
+    {
+      "name": "teskari",
+      "family": "teskari",
+      "label": "teskari graf (barcha qirralar aylantirilgan)",
+      "edges": 976,
+      "rewiring": null
+    },
+    {
+      "name": "tasodifiy-1",
+      "family": "tasodifiy",
+      "label": "daraja saqlangan tasodifiy graf (seed 20261006)",
+      "edges": 976,
+      "rewiring": {
+        "seed": 20261006,
+        "swaps_requested": 9760,
+        "swaps_made": 9760,
+        "edges": 976,
+        "degree_preserved": true,
+        "distinct_from_original": true
+      }
+    },
+    {
+      "name": "tasodifiy-2",
+      "family": "tasodifiy",
+      "label": "daraja saqlangan tasodifiy graf (seed 20261007)",
+      "edges": 976,
+      "rewiring": {
+        "seed": 20261007,
+        "swaps_requested": 9760,
+        "swaps_made": 9760,
+        "edges": 976,
+        "degree_preserved": true,
+        "distinct_from_original": true
+      }
+    },
+    {
+      "name": "tasodifiy-3",
+      "family": "tasodifiy",
+      "label": "daraja saqlangan tasodifiy graf (seed 20261008)",
+      "edges": 976,
+      "rewiring": {
+        "seed": 20261008,
+        "swaps_requested": 9760,
+        "swaps_made": 9760,
+        "edges": 976,
+        "degree_preserved": true,
+        "distinct_from_original": true
+      }
+    },
+    {
+      "name": "grafsiz",
+      "family": "grafsiz",
+      "label": "grafsiz (λ = 0) — BKT+IRT (λ=0)",
+      "edges": 0,
+      "rewiring": null
+    }
+  ],
+  "pooled": {
+    "3": {
+      "k": 3,
+      "answers": 5563,
+      "learners": 200,
+      "replicates": 1000,
+      "confidence_percent": 95,
+      "arms": {
+        "asl": {
+          "family": "asl",
+          "label": "asl graf (platformaning bilim xaritasi)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.752389,
+            "rmse": 0.403758,
+            "accuracy": 0.762718,
+            "n": 5563,
+            "positives": 4300
+          },
+          "scores_all": {
+            "auc": 0.754068,
+            "rmse": 0.35762,
+            "accuracy": 0.83385,
+            "n": 23238,
+            "positives": 19288
+          },
+          "auc_interval": {
+            "estimate": 0.752389,
+            "ci_low": 0.732134,
+            "ci_high": 0.771885,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          }
+        },
+        "teskari": {
+          "family": "teskari",
+          "label": "teskari graf (barcha qirralar aylantirilgan)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.748752,
+            "rmse": 0.411037,
+            "accuracy": 0.748337,
+            "n": 5563,
+            "positives": 4300
+          },
+          "scores_all": {
+            "auc": 0.750848,
+            "rmse": 0.35981,
+            "accuracy": 0.829762,
+            "n": 23238,
+            "positives": 19288
+          },
+          "auc_interval": {
+            "estimate": 0.748752,
+            "ci_low": 0.72781,
+            "ci_high": 0.769539,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          }
+        },
+        "tasodifiy-1": {
+          "family": "tasodifiy",
+          "label": "daraja saqlangan tasodifiy graf (seed 20261006)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.746523,
+            "rmse": 0.411169,
+            "accuracy": 0.747079,
+            "n": 5563,
+            "positives": 4300
+          },
+          "scores_all": {
+            "auc": 0.749555,
+            "rmse": 0.359861,
+            "accuracy": 0.82946,
+            "n": 23238,
+            "positives": 19288
+          },
+          "auc_interval": {
+            "estimate": 0.746523,
+            "ci_low": 0.725906,
+            "ci_high": 0.766271,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          }
+        },
+        "tasodifiy-2": {
+          "family": "tasodifiy",
+          "label": "daraja saqlangan tasodifiy graf (seed 20261007)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.748947,
+            "rmse": 0.409256,
+            "accuracy": 0.750674,
+            "n": 5563,
+            "positives": 4300
+          },
+          "scores_all": {
+            "auc": 0.749876,
+            "rmse": 0.359308,
+            "accuracy": 0.830536,
+            "n": 23238,
+            "positives": 19288
+          }
+        },
+        "tasodifiy-3": {
+          "family": "tasodifiy",
+          "label": "daraja saqlangan tasodifiy graf (seed 20261008)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.743625,
+            "rmse": 0.411396,
+            "accuracy": 0.749596,
+            "n": 5563,
+            "positives": 4300
+          },
+          "scores_all": {
+            "auc": 0.749358,
+            "rmse": 0.359923,
+            "accuracy": 0.830149,
+            "n": 23238,
+            "positives": 19288
+          }
+        },
+        "grafsiz": {
+          "family": "grafsiz",
+          "label": "grafsiz (λ = 0) — BKT+IRT (λ=0)",
+          "edges": 0,
+          "scores": {
+            "auc": 0.746652,
+            "rmse": 0.413896,
+            "accuracy": 0.747079,
+            "n": 5563,
+            "positives": 4300
+          },
+          "scores_all": {
+            "auc": 0.752448,
+            "rmse": 0.360588,
+            "accuracy": 0.82946,
+            "n": 23238,
+            "positives": 19288
+          },
+          "auc_interval": {
+            "estimate": 0.746652,
+            "ci_low": 0.726317,
+            "ci_high": 0.766863,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          }
+        }
+      },
+      "families": {
+        "asl": {
+          "arms": 1,
+          "auc_min": 0.752389,
+          "auc_median": 0.752389,
+          "auc_max": 0.752389,
+          "auc_mean": 0.752389
+        },
+        "teskari": {
+          "arms": 1,
+          "auc_min": 0.748752,
+          "auc_median": 0.748752,
+          "auc_max": 0.748752,
+          "auc_mean": 0.748752
+        },
+        "tasodifiy": {
+          "arms": 3,
+          "auc_min": 0.743625,
+          "auc_median": 0.746523,
+          "auc_max": 0.748947,
+          "auc_mean": 0.746365
+        },
+        "grafsiz": {
+          "arms": 1,
+          "auc_min": 0.746652,
+          "auc_median": 0.746652,
+          "auc_max": 0.746652,
+          "auc_mean": 0.746652
+        }
+      },
+      "contrasts": [
+        {
+          "a": "asl",
+          "b": "teskari",
+          "status": "ok",
+          "arms_in_b": 1,
+          "delong_against": "teskari",
+          "difference": 0.003637,
+          "ci_low": -0.000887,
+          "ci_high": 0.008522,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.02804472,
+          "p_holm": 0.02804472
+        },
+        {
+          "a": "asl",
+          "b": "tasodifiy",
+          "status": "ok",
+          "arms_in_b": 3,
+          "delong_against": "tasodifiy-1",
+          "difference": 0.006025,
+          "ci_low": 0.001719,
+          "ci_high": 0.010354,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.00085358,
+          "p_holm": 0.00183494
+        },
+        {
+          "a": "asl",
+          "b": "grafsiz",
+          "status": "ok",
+          "arms_in_b": 1,
+          "delong_against": "grafsiz",
+          "difference": 0.005737,
+          "ci_low": 0.000945,
+          "ci_high": 0.010583,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.00061165,
+          "p_holm": 0.00183494
+        }
+      ],
+      "original_vs_random_max": {
+        "status": "ok",
+        "random_arms": 3,
+        "original_auc": 0.752389,
+        "random_max_auc": 0.748947,
+        "original_above_max": true,
+        "share_of_replicates_above_max": 0.91,
+        "replicates": 1000
+      },
+      "reading": {
+        "status": "aniqlanmadi",
+        "rule": "asl graf uchtasidan ham yuqori va har uch farqning 95 % CI si nolni kesib o‘tmasa — qo‘llab-quvvatlandi (D61)",
+        "scope": "natija shu graf uchun o‘qiladi — platformaning 2015-yil yanvardagi bilim xaritasi, bitta birlashtirilgan sikl va prerekvizitsiz mashqlar bilan (D61)",
+        "limitation": "cheklov: Junyi platformasi mashqni uning prerekvizitlari o‘zlashtirilgach tavsiya qiladi (suggested), shuning uchun ta’sirning bir qismi grafning o‘zidan emas, platformaning shu graf bo‘yicha yo‘naltirishidan kelishi mumkin (D62a)",
+        "holm_family": "H3: uch kontrast, har k uchun alohida oila (D62a)",
+        "per_contrast": [
+          {
+            "b": "teskari",
+            "difference": 0.003637,
+            "ci_low": -0.000887,
+            "ci_high": 0.008522,
+            "verdict": "aniqlanmadi"
+          },
+          {
+            "b": "tasodifiy",
+            "difference": 0.006025,
+            "ci_low": 0.001719,
+            "ci_high": 0.010354,
+            "verdict": "qo‘llab-quvvatlandi"
+          },
+          {
+            "b": "grafsiz",
+            "difference": 0.005737,
+            "ci_low": 0.000945,
+            "ci_high": 0.010583,
+            "verdict": "qo‘llab-quvvatlandi"
+          }
+        ]
+      }
+    },
+    "5": {
+      "k": 5,
+      "answers": 8455,
+      "learners": 200,
+      "replicates": 1000,
+      "confidence_percent": 95,
+      "arms": {
+        "asl": {
+          "family": "asl",
+          "label": "asl graf (platformaning bilim xaritasi)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.771061,
+            "rmse": 0.37932,
+            "accuracy": 0.796334,
+            "n": 8455,
+            "positives": 6769
+          },
+          "scores_all": {
+            "auc": 0.754068,
+            "rmse": 0.35762,
+            "accuracy": 0.83385,
+            "n": 23238,
+            "positives": 19288
+          },
+          "auc_interval": {
+            "estimate": 0.771061,
+            "ci_low": 0.752063,
+            "ci_high": 0.789373,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          }
+        },
+        "teskari": {
+          "family": "teskari",
+          "label": "teskari graf (barcha qirralar aylantirilgan)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.767629,
+            "rmse": 0.384775,
+            "accuracy": 0.786044,
+            "n": 8455,
+            "positives": 6769
+          },
+          "scores_all": {
+            "auc": 0.750848,
+            "rmse": 0.35981,
+            "accuracy": 0.829762,
+            "n": 23238,
+            "positives": 19288
+          },
+          "auc_interval": {
+            "estimate": 0.767629,
+            "ci_low": 0.748587,
+            "ci_high": 0.786583,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          }
+        },
+        "tasodifiy-1": {
+          "family": "tasodifiy",
+          "label": "daraja saqlangan tasodifiy graf (seed 20261006)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.765687,
+            "rmse": 0.384903,
+            "accuracy": 0.785098,
+            "n": 8455,
+            "positives": 6769
+          },
+          "scores_all": {
+            "auc": 0.749555,
+            "rmse": 0.359861,
+            "accuracy": 0.82946,
+            "n": 23238,
+            "positives": 19288
+          },
+          "auc_interval": {
+            "estimate": 0.765687,
+            "ci_low": 0.747321,
+            "ci_high": 0.784511,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          }
+        },
+        "tasodifiy-2": {
+          "family": "tasodifiy",
+          "label": "daraja saqlangan tasodifiy graf (seed 20261007)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.767041,
+            "rmse": 0.383529,
+            "accuracy": 0.787936,
+            "n": 8455,
+            "positives": 6769
+          },
+          "scores_all": {
+            "auc": 0.749876,
+            "rmse": 0.359308,
+            "accuracy": 0.830536,
+            "n": 23238,
+            "positives": 19288
+          }
+        },
+        "tasodifiy-3": {
+          "family": "tasodifiy",
+          "label": "daraja saqlangan tasodifiy graf (seed 20261008)",
+          "edges": 976,
+          "scores": {
+            "auc": 0.763999,
+            "rmse": 0.385123,
+            "accuracy": 0.78699,
+            "n": 8455,
+            "positives": 6769
+          },
+          "scores_all": {
+            "auc": 0.749358,
+            "rmse": 0.359923,
+            "accuracy": 0.830149,
+            "n": 23238,
+            "positives": 19288
+          }
+        },
+        "grafsiz": {
+          "family": "grafsiz",
+          "label": "grafsiz (λ = 0) — BKT+IRT (λ=0)",
+          "edges": 0,
+          "scores": {
+            "auc": 0.766809,
+            "rmse": 0.386818,
+            "accuracy": 0.785334,
+            "n": 8455,
+            "positives": 6769
+          },
+          "scores_all": {
+            "auc": 0.752448,
+            "rmse": 0.360588,
+            "accuracy": 0.82946,
+            "n": 23238,
+            "positives": 19288
+          },
+          "auc_interval": {
+            "estimate": 0.766809,
+            "ci_low": 0.747942,
+            "ci_high": 0.785332,
+            "replicates": 1000,
+            "clustered_by_learner": true
+          }
+        }
+      },
+      "families": {
+        "asl": {
+          "arms": 1,
+          "auc_min": 0.771061,
+          "auc_median": 0.771061,
+          "auc_max": 0.771061,
+          "auc_mean": 0.771061
+        },
+        "teskari": {
+          "arms": 1,
+          "auc_min": 0.767629,
+          "auc_median": 0.767629,
+          "auc_max": 0.767629,
+          "auc_mean": 0.767629
+        },
+        "tasodifiy": {
+          "arms": 3,
+          "auc_min": 0.763999,
+          "auc_median": 0.765687,
+          "auc_max": 0.767041,
+          "auc_mean": 0.765576
+        },
+        "grafsiz": {
+          "arms": 1,
+          "auc_min": 0.766809,
+          "auc_median": 0.766809,
+          "auc_max": 0.766809,
+          "auc_mean": 0.766809
+        }
+      },
+      "contrasts": [
+        {
+          "a": "asl",
+          "b": "teskari",
+          "status": "ok",
+          "arms_in_b": 1,
+          "delong_against": "teskari",
+          "difference": 0.003432,
+          "ci_low": 0.000678,
+          "ci_high": 0.006282,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.00164786,
+          "p_holm": 0.00164786
+        },
+        {
+          "a": "asl",
+          "b": "tasodifiy",
+          "status": "ok",
+          "arms_in_b": 3,
+          "delong_against": "tasodifiy-1",
+          "difference": 0.005485,
+          "ci_low": 0.002811,
+          "ci_high": 0.00821,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 3.52e-06,
+          "p_holm": 1.057e-05
+        },
+        {
+          "a": "asl",
+          "b": "grafsiz",
+          "status": "ok",
+          "arms_in_b": 1,
+          "delong_against": "grafsiz",
+          "difference": 0.004253,
+          "ci_low": 0.001037,
+          "ci_high": 0.007555,
+          "replicates": 1000,
+          "clustered_by_learner": true,
+          "delong_p": 0.00023748,
+          "p_holm": 0.00047496
+        }
+      ],
+      "original_vs_random_max": {
+        "status": "ok",
+        "random_arms": 3,
+        "original_auc": 0.771061,
+        "random_max_auc": 0.767041,
+        "original_above_max": true,
+        "share_of_replicates_above_max": 0.998,
+        "replicates": 1000
+      },
+      "reading": {
+        "status": "qo‘llab-quvvatlandi",
+        "rule": "asl graf uchtasidan ham yuqori va har uch farqning 95 % CI si nolni kesib o‘tmasa — qo‘llab-quvvatlandi (D61)",
+        "scope": "natija shu graf uchun o‘qiladi — platformaning 2015-yil yanvardagi bilim xaritasi, bitta birlashtirilgan sikl va prerekvizitsiz mashqlar bilan (D61)",
+        "limitation": "cheklov: Junyi platformasi mashqni uning prerekvizitlari o‘zlashtirilgach tavsiya qiladi (suggested), shuning uchun ta’sirning bir qismi grafning o‘zidan emas, platformaning shu graf bo‘yicha yo‘naltirishidan kelishi mumkin (D62a)",
+        "holm_family": "H3: uch kontrast, har k uchun alohida oila (D62a)",
+        "per_contrast": [
+          {
+            "b": "teskari",
+            "difference": 0.003432,
+            "ci_low": 0.000678,
+            "ci_high": 0.006282,
+            "verdict": "qo‘llab-quvvatlandi"
+          },
+          {
+            "b": "tasodifiy",
+            "difference": 0.005485,
+            "ci_low": 0.002811,
+            "ci_high": 0.00821,
+            "verdict": "qo‘llab-quvvatlandi"
+          },
+          {
+            "b": "grafsiz",
+            "difference": 0.004253,
+            "ci_low": 0.001037,
+            "ci_high": 0.007555,
+            "verdict": "qo‘llab-quvvatlandi"
+          }
+        ]
+      }
+    }
+  },
+  "main_k": "3",
+  "folds": [
+    {
+      "index": 0,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 4508
+      },
+      "arms": {
+        "asl": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.745804,
+                "auc_all": 0.786325
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.743026,
+                "auc_all": 0.784649
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.73927,
+                "auc_all": 0.783473
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.722364,
+              "rmse": 0.369404,
+              "accuracy": 0.823203,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.716597,
+              "rmse": 0.413352,
+              "accuracy": 0.759312,
+              "n": 1047,
+              "positives": 812
+            },
+            "first_5": {
+              "auc": 0.741499,
+              "rmse": 0.390936,
+              "accuracy": 0.786815,
+              "n": 1623,
+              "positives": 1295
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.722364,
+              "rmse": 0.369404,
+              "accuracy": 0.823203,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.641986,
+              "rmse": 0.459133,
+              "accuracy": 0.709091,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.678244,
+              "rmse": 0.433666,
+              "accuracy": 0.74269,
+              "n": 171,
+              "positives": 131
+            }
+          },
+          "seconds": 0.7
+        },
+        "teskari": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.736223,
+                "auc_all": 0.784953
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.717557,
+                "auc_all": 0.781079
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.692425,
+                "auc_all": 0.77695
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.719232,
+              "rmse": 0.371265,
+              "accuracy": 0.820098,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.708898,
+              "rmse": 0.419304,
+              "accuracy": 0.747851,
+              "n": 1047,
+              "positives": 812
+            },
+            "first_5": {
+              "auc": 0.735479,
+              "rmse": 0.39553,
+              "accuracy": 0.778805,
+              "n": 1623,
+              "positives": 1295
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.719232,
+              "rmse": 0.371265,
+              "accuracy": 0.820098,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.641551,
+              "rmse": 0.460438,
+              "accuracy": 0.709091,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.667748,
+              "rmse": 0.435161,
+              "accuracy": 0.748538,
+              "n": 171,
+              "positives": 131
+            }
+          },
+          "seconds": 0.7
+        },
+        "tasodifiy-1": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.743411,
+                "auc_all": 0.784498
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.734538,
+                "auc_all": 0.781616
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.718183,
+                "auc_all": 0.777361
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.719353,
+              "rmse": 0.371229,
+              "accuracy": 0.818545,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.709533,
+              "rmse": 0.419068,
+              "accuracy": 0.74212,
+              "n": 1047,
+              "positives": 812
+            },
+            "first_5": {
+              "auc": 0.734789,
+              "rmse": 0.395603,
+              "accuracy": 0.774492,
+              "n": 1623,
+              "positives": 1295
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.719353,
+              "rmse": 0.371229,
+              "accuracy": 0.818545,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.646777,
+              "rmse": 0.45745,
+              "accuracy": 0.709091,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.678244,
+              "rmse": 0.432219,
+              "accuracy": 0.74269,
+              "n": 171,
+              "positives": 131
+            }
+          },
+          "seconds": 0.7
+        },
+        "tasodifiy-2": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.719469,
+              "rmse": 0.370192,
+              "accuracy": 0.81921,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.714144,
+              "rmse": 0.415233,
+              "accuracy": 0.744986,
+              "n": 1047,
+              "positives": 812
+            },
+            "first_5": {
+              "auc": 0.737447,
+              "rmse": 0.392796,
+              "accuracy": 0.776956,
+              "n": 1623,
+              "positives": 1295
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.719469,
+              "rmse": 0.370192,
+              "accuracy": 0.81921,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.648519,
+              "rmse": 0.451738,
+              "accuracy": 0.709091,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.677863,
+              "rmse": 0.428352,
+              "accuracy": 0.74269,
+              "n": 171,
+              "positives": 131
+            }
+          },
+          "seconds": 0.2
+        },
+        "tasodifiy-3": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.71875,
+              "rmse": 0.371061,
+              "accuracy": 0.819876,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.709611,
+              "rmse": 0.418328,
+              "accuracy": 0.747851,
+              "n": 1047,
+              "positives": 812
+            },
+            "first_5": {
+              "auc": 0.734615,
+              "rmse": 0.395137,
+              "accuracy": 0.778805,
+              "n": 1623,
+              "positives": 1295
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.71875,
+              "rmse": 0.371061,
+              "accuracy": 0.819876,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.642857,
+              "rmse": 0.459358,
+              "accuracy": 0.709091,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.680344,
+              "rmse": 0.433053,
+              "accuracy": 0.748538,
+              "n": 171,
+              "positives": 131
+            }
+          },
+          "seconds": 0.2
+        },
+        "grafsiz": {
+          "status": "ok",
+          "lambda": 0.0,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 0,
+          "scores": {
+            "all": {
+              "auc": 0.722439,
+              "rmse": 0.371637,
+              "accuracy": 0.818767,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.714233,
+              "rmse": 0.420971,
+              "accuracy": 0.74212,
+              "n": 1047,
+              "positives": 812
+            },
+            "first_5": {
+              "auc": 0.739394,
+              "rmse": 0.396644,
+              "accuracy": 0.774492,
+              "n": 1623,
+              "positives": 1295
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.722439,
+              "rmse": 0.371637,
+              "accuracy": 0.818767,
+              "n": 4508,
+              "positives": 3723
+            },
+            "first_3": {
+              "auc": 0.641115,
+              "rmse": 0.459447,
+              "accuracy": 0.709091,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.676145,
+              "rmse": 0.434084,
+              "accuracy": 0.74269,
+              "n": 171,
+              "positives": 131
+            }
+          },
+          "seconds": 0.2
+        }
+      }
+    },
+    {
+      "index": 1,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 6476
+      },
+      "arms": {
+        "asl": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.738456,
+                "auc_all": 0.736249
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.733213,
+                "auc_all": 0.735459
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.724608,
+                "auc_all": 0.733987
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.756065,
+              "rmse": 0.363166,
+              "accuracy": 0.824892,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.765022,
+              "rmse": 0.405704,
+              "accuracy": 0.754729,
+              "n": 1586,
+              "positives": 1199
+            },
+            "first_5": {
+              "auc": 0.786064,
+              "rmse": 0.381772,
+              "accuracy": 0.788309,
+              "n": 2395,
+              "positives": 1874
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.756065,
+              "rmse": 0.363166,
+              "accuracy": 0.824892,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.813043,
+              "rmse": 0.370882,
+              "accuracy": 0.811966,
+              "n": 117,
+              "positives": 92
+            },
+            "first_5": {
+              "auc": 0.79241,
+              "rmse": 0.353571,
+              "accuracy": 0.84127,
+              "n": 189,
+              "positives": 155
+            }
+          },
+          "seconds": 0.8
+        },
+        "teskari": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.730396,
+                "auc_all": 0.730139
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.723028,
+                "auc_all": 0.727568
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.715091,
+                "auc_all": 0.725003
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.755386,
+              "rmse": 0.364612,
+              "accuracy": 0.823348,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.768588,
+              "rmse": 0.41046,
+              "accuracy": 0.748424,
+              "n": 1586,
+              "positives": 1199
+            },
+            "first_5": {
+              "auc": 0.787712,
+              "rmse": 0.385456,
+              "accuracy": 0.784134,
+              "n": 2395,
+              "positives": 1874
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.755386,
+              "rmse": 0.364612,
+              "accuracy": 0.823348,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.816957,
+              "rmse": 0.368824,
+              "accuracy": 0.811966,
+              "n": 117,
+              "positives": 92
+            },
+            "first_5": {
+              "auc": 0.797913,
+              "rmse": 0.351376,
+              "accuracy": 0.84127,
+              "n": 189,
+              "positives": 155
+            }
+          },
+          "seconds": 0.8
+        },
+        "tasodifiy-1": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.733368,
+                "auc_all": 0.729978
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.726488,
+                "auc_all": 0.725714
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.709449,
+                "auc_all": 0.720839
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.75366,
+              "rmse": 0.364577,
+              "accuracy": 0.82273,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.764343,
+              "rmse": 0.410205,
+              "accuracy": 0.745902,
+              "n": 1586,
+              "positives": 1199
+            },
+            "first_5": {
+              "auc": 0.784674,
+              "rmse": 0.385402,
+              "accuracy": 0.782046,
+              "n": 2395,
+              "positives": 1874
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.75366,
+              "rmse": 0.364577,
+              "accuracy": 0.82273,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.82087,
+              "rmse": 0.370742,
+              "accuracy": 0.811966,
+              "n": 117,
+              "positives": 92
+            },
+            "first_5": {
+              "auc": 0.79962,
+              "rmse": 0.351943,
+              "accuracy": 0.835979,
+              "n": 189,
+              "positives": 155
+            }
+          },
+          "seconds": 0.8
+        },
+        "tasodifiy-2": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.753838,
+              "rmse": 0.364308,
+              "accuracy": 0.823193,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.768315,
+              "rmse": 0.409192,
+              "accuracy": 0.746532,
+              "n": 1586,
+              "positives": 1199
+            },
+            "first_5": {
+              "auc": 0.786427,
+              "rmse": 0.384743,
+              "accuracy": 0.783299,
+              "n": 2395,
+              "positives": 1874
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.753838,
+              "rmse": 0.364308,
+              "accuracy": 0.823193,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.82087,
+              "rmse": 0.369177,
+              "accuracy": 0.811966,
+              "n": 117,
+              "positives": 92
+            },
+            "first_5": {
+              "auc": 0.79981,
+              "rmse": 0.350983,
+              "accuracy": 0.835979,
+              "n": 189,
+              "positives": 155
+            }
+          },
+          "seconds": 0.3
+        },
+        "tasodifiy-3": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.753278,
+              "rmse": 0.365026,
+              "accuracy": 0.823348,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.759183,
+              "rmse": 0.412035,
+              "accuracy": 0.747163,
+              "n": 1586,
+              "positives": 1199
+            },
+            "first_5": {
+              "auc": 0.781779,
+              "rmse": 0.386644,
+              "accuracy": 0.783716,
+              "n": 2395,
+              "positives": 1874
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.753278,
+              "rmse": 0.365026,
+              "accuracy": 0.823348,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.818261,
+              "rmse": 0.36829,
+              "accuracy": 0.811966,
+              "n": 117,
+              "positives": 92
+            },
+            "first_5": {
+              "auc": 0.796205,
+              "rmse": 0.352282,
+              "accuracy": 0.835979,
+              "n": 189,
+              "positives": 155
+            }
+          },
+          "seconds": 0.3
+        },
+        "grafsiz": {
+          "status": "ok",
+          "lambda": 0.0,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 0,
+          "scores": {
+            "all": {
+              "auc": 0.756474,
+              "rmse": 0.364943,
+              "accuracy": 0.824274,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.766918,
+              "rmse": 0.411731,
+              "accuracy": 0.750946,
+              "n": 1586,
+              "positives": 1199
+            },
+            "first_5": {
+              "auc": 0.787176,
+              "rmse": 0.386385,
+              "accuracy": 0.786639,
+              "n": 2395,
+              "positives": 1874
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.756474,
+              "rmse": 0.364943,
+              "accuracy": 0.824274,
+              "n": 6476,
+              "positives": 5280
+            },
+            "first_3": {
+              "auc": 0.801739,
+              "rmse": 0.371833,
+              "accuracy": 0.820513,
+              "n": 117,
+              "positives": 92
+            },
+            "first_5": {
+              "auc": 0.79241,
+              "rmse": 0.352698,
+              "accuracy": 0.851852,
+              "n": 189,
+              "positives": 155
+            }
+          },
+          "seconds": 0.2
+        }
+      }
+    },
+    {
+      "index": 2,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 4329
+      },
+      "arms": {
+        "asl": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.770724,
+                "auc_all": 0.780135
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.759483,
+                "auc_all": 0.778661
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.741006,
+                "auc_all": 0.775526
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.73573,
+              "rmse": 0.315745,
+              "accuracy": 0.87295,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.761342,
+              "rmse": 0.379534,
+              "accuracy": 0.790155,
+              "n": 1158,
+              "positives": 961
+            },
+            "first_5": {
+              "auc": 0.754642,
+              "rmse": 0.355255,
+              "accuracy": 0.824571,
+              "n": 1750,
+              "positives": 1492
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.73573,
+              "rmse": 0.315745,
+              "accuracy": 0.87295,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.845673,
+              "rmse": 0.37048,
+              "accuracy": 0.811321,
+              "n": 106,
+              "positives": 80
+            },
+            "first_5": {
+              "auc": 0.825926,
+              "rmse": 0.347426,
+              "accuracy": 0.842424,
+              "n": 165,
+              "positives": 135
+            }
+          },
+          "seconds": 0.9
+        },
+        "teskari": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.773588,
+                "auc_all": 0.778301
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.766309,
+                "auc_all": 0.776658
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.75501,
+                "auc_all": 0.773835
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.730444,
+              "rmse": 0.320723,
+              "accuracy": 0.863941,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.753173,
+              "rmse": 0.393805,
+              "accuracy": 0.763385,
+              "n": 1158,
+              "positives": 961
+            },
+            "first_5": {
+              "auc": 0.746671,
+              "rmse": 0.365661,
+              "accuracy": 0.804571,
+              "n": 1750,
+              "positives": 1492
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.730444,
+              "rmse": 0.320723,
+              "accuracy": 0.863941,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.834856,
+              "rmse": 0.370268,
+              "accuracy": 0.811321,
+              "n": 106,
+              "positives": 80
+            },
+            "first_5": {
+              "auc": 0.818889,
+              "rmse": 0.346858,
+              "accuracy": 0.842424,
+              "n": 165,
+              "positives": 135
+            }
+          },
+          "seconds": 0.9
+        },
+        "tasodifiy-1": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.773236,
+                "auc_all": 0.77726
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.762777,
+                "auc_all": 0.772879
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.741372,
+                "auc_all": 0.767478
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.729766,
+              "rmse": 0.32024,
+              "accuracy": 0.867406,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.754602,
+              "rmse": 0.392322,
+              "accuracy": 0.773748,
+              "n": 1158,
+              "positives": 961
+            },
+            "first_5": {
+              "auc": 0.746186,
+              "rmse": 0.364562,
+              "accuracy": 0.812,
+              "n": 1750,
+              "positives": 1492
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.729766,
+              "rmse": 0.32024,
+              "accuracy": 0.867406,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.853365,
+              "rmse": 0.366816,
+              "accuracy": 0.820755,
+              "n": 106,
+              "positives": 80
+            },
+            "first_5": {
+              "auc": 0.83037,
+              "rmse": 0.343831,
+              "accuracy": 0.848485,
+              "n": 165,
+              "positives": 135
+            }
+          },
+          "seconds": 0.9
+        },
+        "tasodifiy-2": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.73016,
+              "rmse": 0.319503,
+              "accuracy": 0.869485,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.753361,
+              "rmse": 0.390633,
+              "accuracy": 0.782383,
+              "n": 1158,
+              "positives": 961
+            },
+            "first_5": {
+              "auc": 0.746729,
+              "rmse": 0.363141,
+              "accuracy": 0.817714,
+              "n": 1750,
+              "positives": 1492
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.73016,
+              "rmse": 0.319503,
+              "accuracy": 0.869485,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.847115,
+              "rmse": 0.368677,
+              "accuracy": 0.820755,
+              "n": 106,
+              "positives": 80
+            },
+            "first_5": {
+              "auc": 0.828889,
+              "rmse": 0.344838,
+              "accuracy": 0.848485,
+              "n": 165,
+              "positives": 135
+            }
+          },
+          "seconds": 0.3
+        },
+        "tasodifiy-3": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.728973,
+              "rmse": 0.320103,
+              "accuracy": 0.867637,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.75025,
+              "rmse": 0.392204,
+              "accuracy": 0.775475,
+              "n": 1158,
+              "positives": 961
+            },
+            "first_5": {
+              "auc": 0.743511,
+              "rmse": 0.364537,
+              "accuracy": 0.813143,
+              "n": 1750,
+              "positives": 1492
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.728973,
+              "rmse": 0.320103,
+              "accuracy": 0.867637,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.847115,
+              "rmse": 0.37116,
+              "accuracy": 0.820755,
+              "n": 106,
+              "positives": 80
+            },
+            "first_5": {
+              "auc": 0.827901,
+              "rmse": 0.346648,
+              "accuracy": 0.848485,
+              "n": 165,
+              "positives": 135
+            }
+          },
+          "seconds": 0.3
+        },
+        "grafsiz": {
+          "status": "ok",
+          "lambda": 0.0,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 0,
+          "scores": {
+            "all": {
+              "auc": 0.731639,
+              "rmse": 0.321561,
+              "accuracy": 0.863248,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.747136,
+              "rmse": 0.396452,
+              "accuracy": 0.762522,
+              "n": 1158,
+              "positives": 961
+            },
+            "first_5": {
+              "auc": 0.744146,
+              "rmse": 0.367436,
+              "accuracy": 0.804,
+              "n": 1750,
+              "positives": 1492
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.731639,
+              "rmse": 0.321561,
+              "accuracy": 0.863248,
+              "n": 4329,
+              "positives": 3817
+            },
+            "first_3": {
+              "auc": 0.853606,
+              "rmse": 0.366516,
+              "accuracy": 0.820755,
+              "n": 106,
+              "positives": 80
+            },
+            "first_5": {
+              "auc": 0.831728,
+              "rmse": 0.34417,
+              "accuracy": 0.848485,
+              "n": 165,
+              "positives": 135
+            }
+          },
+          "seconds": 0.2
+        }
+      }
+    },
+    {
+      "index": 3,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 7064
+      },
+      "arms": {
+        "asl": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.787993,
+                "auc_all": 0.802936
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.784793,
+                "auc_all": 0.80146
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.774632,
+                "auc_all": 0.797367
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.776565,
+              "rmse": 0.367733,
+              "accuracy": 0.826727,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.758036,
+              "rmse": 0.411902,
+              "accuracy": 0.753266,
+              "n": 1378,
+              "positives": 1024
+            },
+            "first_5": {
+              "auc": 0.787528,
+              "rmse": 0.383249,
+              "accuracy": 0.792329,
+              "n": 2138,
+              "positives": 1671
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.776565,
+              "rmse": 0.367733,
+              "accuracy": 0.826727,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.687282,
+              "rmse": 0.461963,
+              "accuracy": 0.663636,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.713594,
+              "rmse": 0.434183,
+              "accuracy": 0.707602,
+              "n": 171,
+              "positives": 134
+            }
+          },
+          "seconds": 0.8
+        },
+        "teskari": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.786932,
+                "auc_all": 0.799526
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.777956,
+                "auc_all": 0.794788
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.769824,
+                "auc_all": 0.790304
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.772637,
+              "rmse": 0.369622,
+              "accuracy": 0.821772,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.751454,
+              "rmse": 0.419811,
+              "accuracy": 0.731495,
+              "n": 1378,
+              "positives": 1024
+            },
+            "first_5": {
+              "auc": 0.783457,
+              "rmse": 0.38911,
+              "accuracy": 0.777362,
+              "n": 2138,
+              "positives": 1671
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.772637,
+              "rmse": 0.369622,
+              "accuracy": 0.821772,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.66115,
+              "rmse": 0.464173,
+              "accuracy": 0.663636,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.700081,
+              "rmse": 0.4356,
+              "accuracy": 0.71345,
+              "n": 171,
+              "positives": 134
+            }
+          },
+          "seconds": 0.8
+        },
+        "tasodifiy-1": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.784138,
+                "auc_all": 0.799254
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.777176,
+                "auc_all": 0.794629
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.765844,
+                "auc_all": 0.788977
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.770599,
+              "rmse": 0.3699,
+              "accuracy": 0.821065,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.745967,
+              "rmse": 0.42105,
+              "accuracy": 0.729318,
+              "n": 1378,
+              "positives": 1024
+            },
+            "first_5": {
+              "auc": 0.779637,
+              "rmse": 0.389842,
+              "accuracy": 0.775959,
+              "n": 2138,
+              "positives": 1671
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.770599,
+              "rmse": 0.3699,
+              "accuracy": 0.821065,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.671167,
+              "rmse": 0.463734,
+              "accuracy": 0.654545,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.706938,
+              "rmse": 0.435343,
+              "accuracy": 0.701754,
+              "n": 171,
+              "positives": 134
+            }
+          },
+          "seconds": 0.8
+        },
+        "tasodifiy-2": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.770829,
+              "rmse": 0.369665,
+              "accuracy": 0.821914,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.747048,
+              "rmse": 0.419952,
+              "accuracy": 0.730769,
+              "n": 1378,
+              "positives": 1024
+            },
+            "first_5": {
+              "auc": 0.779742,
+              "rmse": 0.389227,
+              "accuracy": 0.777362,
+              "n": 2138,
+              "positives": 1671
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.770829,
+              "rmse": 0.369665,
+              "accuracy": 0.821914,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.680749,
+              "rmse": 0.463743,
+              "accuracy": 0.663636,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.710972,
+              "rmse": 0.43618,
+              "accuracy": 0.707602,
+              "n": 171,
+              "positives": 134
+            }
+          },
+          "seconds": 0.3
+        },
+        "tasodifiy-3": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.770974,
+              "rmse": 0.370019,
+              "accuracy": 0.821631,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.743793,
+              "rmse": 0.421416,
+              "accuracy": 0.731495,
+              "n": 1378,
+              "positives": 1024
+            },
+            "first_5": {
+              "auc": 0.778391,
+              "rmse": 0.390242,
+              "accuracy": 0.776894,
+              "n": 2138,
+              "positives": 1671
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.770974,
+              "rmse": 0.370019,
+              "accuracy": 0.821631,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.683362,
+              "rmse": 0.462946,
+              "accuracy": 0.654545,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.711981,
+              "rmse": 0.436048,
+              "accuracy": 0.701754,
+              "n": 171,
+              "positives": 134
+            }
+          },
+          "seconds": 0.3
+        },
+        "grafsiz": {
+          "status": "ok",
+          "lambda": 0.0,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 0,
+          "scores": {
+            "all": {
+              "auc": 0.773871,
+              "rmse": 0.370843,
+              "accuracy": 0.821631,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.745225,
+              "rmse": 0.424939,
+              "accuracy": 0.730769,
+              "n": 1378,
+              "positives": 1024
+            },
+            "first_5": {
+              "auc": 0.779195,
+              "rmse": 0.39286,
+              "accuracy": 0.776894,
+              "n": 2138,
+              "positives": 1671
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.773871,
+              "rmse": 0.370843,
+              "accuracy": 0.821631,
+              "n": 7064,
+              "positives": 5756
+            },
+            "first_3": {
+              "auc": 0.676394,
+              "rmse": 0.466959,
+              "accuracy": 0.663636,
+              "n": 110,
+              "positives": 82
+            },
+            "first_5": {
+              "auc": 0.704316,
+              "rmse": 0.44006,
+              "accuracy": 0.71345,
+              "n": 171,
+              "positives": 134
+            }
+          },
+          "seconds": 0.2
+        }
+      }
+    },
+    {
+      "index": 4,
+      "counts": {
+        "train": 128,
+        "validation": 32,
+        "test": 40,
+        "test_answers": 861
+      },
+      "arms": {
+        "asl": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.783363,
+                "auc_all": 0.803215
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.778047,
+                "auc_all": 0.802196
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.768782,
+                "auc_all": 0.800628
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.753412,
+              "rmse": 0.366827,
+              "accuracy": 0.818815,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.752851,
+              "rmse": 0.41035,
+              "accuracy": 0.756345,
+              "n": 394,
+              "positives": 304
+            },
+            "first_5": {
+              "auc": 0.752288,
+              "rmse": 0.392393,
+              "accuracy": 0.785064,
+              "n": 549,
+              "positives": 437
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.753412,
+              "rmse": 0.366827,
+              "accuracy": 0.818815,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.671611,
+              "rmse": 0.450175,
+              "accuracy": 0.722222,
+              "n": 108,
+              "positives": 85
+            },
+            "first_5": {
+              "auc": 0.702217,
+              "rmse": 0.411833,
+              "accuracy": 0.769231,
+              "n": 169,
+              "positives": 140
+            }
+          },
+          "seconds": 1.0
+        },
+        "teskari": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.779464,
+                "auc_all": 0.801249
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.772324,
+                "auc_all": 0.799101
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.761836,
+                "auc_all": 0.797019
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.74983,
+              "rmse": 0.366708,
+              "accuracy": 0.8223,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.755592,
+              "rmse": 0.409743,
+              "accuracy": 0.763959,
+              "n": 394,
+              "positives": 304
+            },
+            "first_5": {
+              "auc": 0.752738,
+              "rmse": 0.391925,
+              "accuracy": 0.790528,
+              "n": 549,
+              "positives": 437
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.74983,
+              "rmse": 0.366708,
+              "accuracy": 0.8223,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.675192,
+              "rmse": 0.442167,
+              "accuracy": 0.740741,
+              "n": 108,
+              "positives": 85
+            },
+            "first_5": {
+              "auc": 0.707389,
+              "rmse": 0.404881,
+              "accuracy": 0.781065,
+              "n": 169,
+              "positives": 140
+            }
+          },
+          "seconds": 1.0
+        },
+        "tasodifiy-1": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": 0.25,
+            "candidates": [
+              {
+                "lambda": 0.25,
+                "auc": 0.77852,
+                "auc_all": 0.800045
+              },
+              {
+                "lambda": 0.5,
+                "auc": 0.769791,
+                "auc_all": 0.796265
+              },
+              {
+                "lambda": 0.75,
+                "auc": 0.751859,
+                "auc_all": 0.791584
+              }
+            ]
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.749434,
+              "rmse": 0.368317,
+              "accuracy": 0.815331,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.750256,
+              "rmse": 0.412996,
+              "accuracy": 0.748731,
+              "n": 394,
+              "positives": 304
+            },
+            "first_5": {
+              "auc": 0.74951,
+              "rmse": 0.394299,
+              "accuracy": 0.779599,
+              "n": 549,
+              "positives": 437
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.749434,
+              "rmse": 0.368317,
+              "accuracy": 0.815331,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.668542,
+              "rmse": 0.450853,
+              "accuracy": 0.722222,
+              "n": 108,
+              "positives": 85
+            },
+            "first_5": {
+              "auc": 0.698768,
+              "rmse": 0.412485,
+              "accuracy": 0.769231,
+              "n": 169,
+              "positives": 140
+            }
+          },
+          "seconds": 0.9
+        },
+        "tasodifiy-2": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.75197,
+              "rmse": 0.366368,
+              "accuracy": 0.819977,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.756177,
+              "rmse": 0.409112,
+              "accuracy": 0.758883,
+              "n": 394,
+              "positives": 304
+            },
+            "first_5": {
+              "auc": 0.753678,
+              "rmse": 0.391324,
+              "accuracy": 0.786885,
+              "n": 549,
+              "positives": 437
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.75197,
+              "rmse": 0.366368,
+              "accuracy": 0.819977,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.662916,
+              "rmse": 0.449895,
+              "accuracy": 0.740741,
+              "n": 108,
+              "positives": 85
+            },
+            "first_5": {
+              "auc": 0.698768,
+              "rmse": 0.41111,
+              "accuracy": 0.781065,
+              "n": 169,
+              "positives": 140
+            }
+          },
+          "seconds": 0.2
+        },
+        "tasodifiy-3": {
+          "status": "ok",
+          "lambda": 0.25,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 976,
+          "scores": {
+            "all": {
+              "auc": 0.75,
+              "rmse": 0.367128,
+              "accuracy": 0.816492,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.753545,
+              "rmse": 0.409862,
+              "accuracy": 0.751269,
+              "n": 394,
+              "positives": 304
+            },
+            "first_5": {
+              "auc": 0.751205,
+              "rmse": 0.392217,
+              "accuracy": 0.781421,
+              "n": 549,
+              "positives": 437
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.75,
+              "rmse": 0.367128,
+              "accuracy": 0.816492,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.669565,
+              "rmse": 0.443901,
+              "accuracy": 0.722222,
+              "n": 108,
+              "positives": 85
+            },
+            "first_5": {
+              "auc": 0.703695,
+              "rmse": 0.406152,
+              "accuracy": 0.769231,
+              "n": 169,
+              "positives": 140
+            }
+          },
+          "seconds": 0.2
+        },
+        "grafsiz": {
+          "status": "ok",
+          "lambda": 0.0,
+          "lambda_choice": {
+            "lambda": null,
+            "candidates": []
+          },
+          "edges": 0,
+          "scores": {
+            "all": {
+              "auc": 0.752611,
+              "rmse": 0.369058,
+              "accuracy": 0.818815,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.75201,
+              "rmse": 0.414674,
+              "accuracy": 0.756345,
+              "n": 394,
+              "positives": 304
+            },
+            "first_5": {
+              "auc": 0.751532,
+              "rmse": 0.395713,
+              "accuracy": 0.785064,
+              "n": 549,
+              "positives": 437
+            }
+          },
+          "scores_by_learner": {
+            "all": {
+              "auc": 0.752611,
+              "rmse": 0.369058,
+              "accuracy": 0.818815,
+              "n": 861,
+              "positives": 712
+            },
+            "first_3": {
+              "auc": 0.67468,
+              "rmse": 0.448468,
+              "accuracy": 0.722222,
+              "n": 108,
+              "positives": 85
+            },
+            "first_5": {
+              "auc": 0.706158,
+              "rmse": 0.410698,
+              "accuracy": 0.769231,
+              "n": 169,
+              "positives": 140
+            }
+          },
+          "seconds": 0.2
+        }
+      }
+    }
+  ],
+  "replicates": 1000,
+  "parameter_fit_workers": 4,
+  "provenance": {
+    "command": "python -m experiments.h3 --quick --workers 4",
+    "code_commit": "a0b3480",
+    "code_dirty": false,
+    "created_at": "2026-10-19T09:47:24.879568+00:00",
+    "python": "3.12.3",
+    "platform": "Linux-7.0.0-38-generic-x86_64-with-glibc2.43",
+    "seeds": {
+      "split": 20261006,
+      "sample": 20261006,
+      "bootstrap": 20261006,
+      "graphs": 20261006
+    },
+    "sources": [
+      {
+        "name": "junyi-exercise-table",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_Exercise_table.csv",
+        "sha256": "13292cc2c809985abbacedaba434e39aeb02a7fcb2a32f17b60c4d3f4d769546",
+        "bytes": 139957
+      },
+      {
+        "name": "junyi-problem-log",
+        "path": "/home/zokhidjon/Desktop/neuro_dj/experiments/data/junyi/junyi_ProblemLog_original.csv",
+        "sha256": "a7c99ede1f9b19648fdcd953b6ca0b0282bd31f2f913bd9d26b23aa9fcb36a25",
+        "bytes": 2668566436
+      }
+    ],
+    "packages": {
+      "numpy": "1.26.4",
+      "pandas": "2.3.3",
+      "scipy": "1.14.1",
+      "sklearn": "1.6.1",
+      "torch": "2.5.1+cpu",
+      "pyBKT": "1.4.3",
+      "pykt": "0.0.38"
+    },
+    "env": {},
+    "git_start": {
+      "commit": "a0b3480",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-19T09:37:21.391808+00:00"
+    },
+    "git_end": {
+      "commit": "a0b3480",
+      "dirty": false,
+      "changes": [],
+      "at": "2026-10-19T09:47:24.879548+00:00"
+    },
+    "tree_changed": false,
+    "tree_warnings": []
+  }
+}

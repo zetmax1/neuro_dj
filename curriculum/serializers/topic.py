@@ -1,17 +1,15 @@
 """
 curriculum/serializers/topic.py — Serializer for the hierarchical topic tree.
 
-Handles the MPTT tree structure and injects dynamic user progress
-metrics (mastery_percentage, is_unlocked) without executing recursive
-database queries. Tree construction happens in-memory from a pre-fetched
-flat queryset passed via serializer context.
+Handles the topic tree structure and injects the learner's state (3.4)
+without executing recursive database queries. Tree construction happens
+in-memory from a pre-fetched flat queryset passed via serializer context.
 
 Cross-app isolation:
-  This serializer does NOT import any model from assessments. The mastery
-  data arrives as annotation values on the Topic queryset (injected by
-  curriculum.services.get_learning_path_queryset). The mastery level
-  display mapping and unlocking threshold use raw integer constants —
-  no import of assessments.MasteryLevel is needed.
+  This serializer does NOT import any model from assessments. The state
+  arrives as annotation values on the Topic queryset (injected by
+  curriculum.services.get_learning_path_queryset), and the status strings
+  come from ``neuro_model.readiness``, which has no Django dependency.
 """
 
 from __future__ import annotations
@@ -21,22 +19,7 @@ from typing import Any
 from rest_framework import serializers
 
 from curriculum.models import Topic
-from curriculum.services.graph import is_unlocked_dag
-
-# ---------------------------------------------------------------------------
-# Mastery level display mapping — local constant to avoid cross-app imports.
-# Mirrors assessments.models.MasteryLevel choices but as a plain dict.
-# ---------------------------------------------------------------------------
-_MASTERY_DISPLAY: dict[int, str] = {
-    0: "Not Started",
-    1: "Beginner",
-    2: "Intermediate",
-    3: "Advanced",
-    4: "Mastered",
-}
-
-# Unlocking threshold: parent must be at least BEGINNER (level >= 1)
-_UNLOCK_THRESHOLD: int = 1
+from neuro_model import readiness as r
 
 
 class TopicTreeSerializer(serializers.ModelSerializer):
@@ -54,29 +37,30 @@ class TopicTreeSerializer(serializers.ModelSerializer):
 
     Result: full nested tree serialization with exactly 1 DB query.
 
-    Dynamic fields (not stored on the model):
-      - mastery_percentage: User's accuracy score (0–100) on this topic.
-      - is_unlocked: Whether the user can access this topic.
-      - mastery_level / mastery_level_display: Current state-machine level.
-      - tree_depth: Depth in the tree (from django-mptt's `level` field).
+    Dynamic fields (not stored on the model), from the learner's state:
+      - p_mastery: P(L) on this topic — a probability, never a percentage.
+      - accuracy: correct / attempts, in [0, 1].
+      - status: closed / open / in_progress / mastered / review (3.4).
+      - mastered: the M flag, which carries τ/δ hysteresis.
+      - missing_count: unmastered immediate predecessors in G_L.
+      - tree_depth: Depth in the tree (0 for courses).
+      - kind, pos (D4) and lev (Algorithm 2.2, topics only) from the KB snapshot.
     """
 
     # --- Annotated fields (injected at query time, not stored) -------------
-    mastery_percentage = serializers.IntegerField(
-        source="user_mastery_score",
-        read_only=True,
-        default=0,
+    p_mastery = serializers.FloatField(source="user_p_mastery", read_only=True, default=0.0)
+    accuracy = serializers.FloatField(source="user_accuracy", read_only=True, default=0.0)
+    status = serializers.CharField(source="user_status", read_only=True, default=r.CLOSED)
+    mastered = serializers.BooleanField(source="user_mastered", read_only=True, default=False)
+    missing_count = serializers.IntegerField(
+        source="user_missing_count", read_only=True, default=0,
     )
-    mastery_level = serializers.IntegerField(
-        source="user_mastery_level",
-        read_only=True,
-        default=0,
-    )
-    mastery_level_display = serializers.SerializerMethodField()
-    is_unlocked = serializers.SerializerMethodField()
+    attempts = serializers.IntegerField(source="user_attempts", read_only=True, default=0)
 
-    # Tree depth from django-mptt's built-in `level` field
-    tree_depth = serializers.IntegerField(source="level", read_only=True, default=0)
+    # Tree position data from the KB snapshot passed in the context
+    tree_depth = serializers.SerializerMethodField()
+    pos = serializers.SerializerMethodField()
+    lev = serializers.SerializerMethodField()
 
     # Aggregated total duration from all related resources
     total_duration_minutes = serializers.IntegerField(read_only=True, default=0)
@@ -92,39 +76,33 @@ class TopicTreeSerializer(serializers.ModelSerializer):
             "slug",
             "description",
             "parent_id",
+            "kind",
             "tree_depth",
+            "pos",
+            "lev",
             "position",
             "pass_mark_percentage",
             "test_question_count",
-            "mastery_percentage",
-            "mastery_level",
-            "mastery_level_display",
-            "is_unlocked",
+            "p_mastery",
+            "accuracy",
+            "status",
+            "mastered",
+            "missing_count",
+            "attempts",
             "total_duration_minutes",
             "children",
         ]
         read_only_fields = fields
 
 
-    def get_mastery_level_display(self, obj: Topic) -> str:
-        """Human-readable mastery level label from the annotated integer."""
-        level: int = getattr(obj, "user_mastery_level", 0) or 0
-        return _MASTERY_DISPLAY.get(level, "Not Started")
+    def get_tree_depth(self, obj: Topic) -> int:
+        return self.context["kb"].depth.get(obj.pk, 0)
 
-    def get_is_unlocked(self, obj: Topic) -> bool:
-        """
-        Determine if the topic is accessible to the user using DAG prerequisite rules.
+    def get_pos(self, obj: Topic) -> int | None:
+        return self.context["kb"].pos.get(obj.pk)
 
-        Reads pre-computed `unlocked_topic_ids` set from serializer context if available (O(1)),
-        or delegates to `is_unlocked_dag(user, obj)`.
-        """
-        unlocked_set = self.context.get("unlocked_topic_ids")
-        if unlocked_set is not None:
-            return obj.pk in unlocked_set
-
-        request = self.context.get("request")
-        user = getattr(request, "user", None) if request else None
-        return is_unlocked_dag(user, obj)
+    def get_lev(self, obj: Topic) -> int | None:
+        return self.context["kb"].lev.get(obj.pk)
 
     def get_children(self, obj: Topic) -> list[dict[str, Any]]:
         """

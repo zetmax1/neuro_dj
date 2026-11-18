@@ -7,13 +7,14 @@ Backward-compatible re-exports:
 Internal architecture:
     services/
     ├── __init__.py              ← You are here (public re-exports)
-    ├── base.py                  ← BaseStudentModel abstract interface
-    ├── orchestrator.py          ← Transactional orchestration + engine resolution
-    ├── question_selection.py    ← Adaptive next-question logic
-    └── engines/
-        ├── __init__.py          ← Engine registry
-        ├── streak.py            ← StreakEstimationEngine (current default)
-        └── bayesian.py          ← BayesianKnowledgeTracingEngine (stub)
+    ├── ledger.py                ← Only writer of the AssessmentAttempt answer ledger
+    ├── orchestrator.py          ← Transactional orchestration (Algorithm 2.4)
+    ├── student_model.py         ← The one engine, thesis_hybrid (D34)
+    ├── question_import.py       ← Bulk question import
+    └── question_selection.py    ← Adaptive next-question logic
+
+The arithmetic itself lives in ``neuro_model`` (rule 7): this layer only loads
+state, calls it and stores the result.
 """
 
 from assessments.services.orchestrator import process_submission
