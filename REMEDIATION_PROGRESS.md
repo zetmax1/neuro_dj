@@ -3904,6 +3904,55 @@ Model kodi va natijalar o‘zgarmagani uchun `experiments/.venv` testlari va
 
 ---
 
+## D72 — P(L) uchun ixtiyoriy yuqori chegara va tavsiya etilgan ish sozlamalari (foydalanuvchi qarori, 2026-11-18, koddan oldin)
+
+**Muammo (dissertatsiyada cheklov sifatida yozilgan).** Ketma-ket to‘g‘ri
+javoblardan keyin P(L) 1 ga juda yaqinlashadi va bir necha noto‘g‘ri javob ham
+mavzuni takrorlashga qaytarmaydi: P(L) = 1 da Bayes qadami P·S/(1 − p̂) = 1 + O(1e-15)
+beradi, ya’ni noto‘g‘ri javob ham holatni qimirlatmaydi (D65a, F6).
+
+**Nima o‘zgaradi.**
+
+- `neuro_model/bkt.py`: `transition` va `step` ga ixtiyoriy `p_max: float = 1.0`
+  parametri qo‘shiladi. Formulasi: P(L)′ = min(p_max, P(L|x) + (1 − P(L|x))·PT),
+  so‘ng [0, 1] ga clamp (D65a o‘zgarmaydi). Posterior **chegaralanmaydi**: 2.5-tasdiq
+  posterior uchun aytilgan, p_max esa holatni saqlash siyosati, Bayes qadami emas.
+- `neuro_model/student.py`: `Constants` ga `p_l_max: float = 1.0` maydoni (oxirida,
+  standart qiymat bilan — mavjud konstruktorlarning hech biri o‘zgarmaydi);
+  `observe` uni `bkt.step` ga uzatadi.
+- `config/settings.py`: `_THESIS_DEFAULTS` ga `"P_L_MAX": 1.0` (muhit o‘zgaruvchisi
+  `THESIS_P_L_MAX`). Server qatlami — `assessments/services/student_model.constants()` —
+  shu qiymatni uzatadi.
+- Eksperiment kodi (`experiments/models/classical.py` dagi `CONSTANTS`) **o‘zgarmaydi**:
+  u `p_l_max` bermaydi, ya’ni standart 1.0 bilan ishlaydi. Shuning uchun H2 ning
+  barcha sonlari o‘zgarmaydi.
+- `_THESIS_DEFAULTS["LAMBDA"]` va `THESIS_FLAGS` standartlari **o‘zgarmaydi**.
+  `config/.env.example` ga izoh bilan tavsiya etilgan ish sozlamalari qo‘shiladi:
+  `THESIS_P_L_MAX=0.999` va `THESIS_LAMBDA=0.0`.
+
+**Nega tavsiya shunday.** λ = 0: D71 ning post-hoc tahlilida AUC λ oshgan sari
+monoton kamaygan (λ = 0,1 grafsizga eng yaqin, II bobning λ = 0,5 i grafsizdan
+k = 3 da ~0,0075 past), shuning uchun mahalliy ma’lumotda foydasi ko‘rsatilmaguncha
+prerekvizitlardan olinadigan boshlang‘ich baho o‘chiriladi. p_max = 0.999:
+quyidagi o‘qish qoidasidagi uchta javob chegarasini beradi.
+
+**Nima o‘lchanadi va qanday qoida bilan o‘qiladi (natijadan oldin).**
+
+1. `p_max = 1.0` da mavjud barcha etalon va xossa testlari o‘zgarishsiz o‘tadi;
+   `experiments/reproduce.py` darvozalari (`--quick` qayta hosil qilish) avvalgi
+   sonlarni 1e-9 gacha beradi. Aks holda — qo‘shimcha qaytariladi.
+2. `p_max = 0.999` va standart parametrlar (P(T) = 0,20; G = 0,20; S = 0,05) da,
+   P(L) chegarada turganida: ketma-ket **uchta** noto‘g‘ri javobdan keyin
+   P(L) < τ − δ = 0,85, **ikkitadan** keyin esa hali emas. Shu ikki shart testda
+   qotiriladi.
+
+**Nima o‘zgarmaydi.** II bobning formulalari, `_THESIS_DEFAULTS` ning mavjud
+qiymatlari, migratsiyalar, `verification/`, hech bir natija papkasi. Standart
+sozlamada (`P_L_MAX = 1.0`) xatti-harakat bit darajasida eski holicha qoladi.
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
