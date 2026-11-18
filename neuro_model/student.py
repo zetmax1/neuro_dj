@@ -61,6 +61,9 @@ class Constants:
     tau: float
     c_offset: float
     theta_clamp: float
+    # Deployment policy, not part of chapter II (D72): the ceiling of P(L)′.
+    # At 1.0 — the default, and what the experiments use — nothing changes.
+    p_l_max: float = 1.0
 
     @property
     def prior_cap(self) -> float:
@@ -150,6 +153,7 @@ def observe(
     observed = bkt.step(
         p_l=p_before, guess=guess, slip=slip,
         pt=params.pt, is_correct=observation.is_correct,
+        p_max=constants.p_l_max,
     )
 
     # 6. Elo. Skipped entirely without IRT, so θ and b stay where they were.

@@ -315,6 +315,10 @@ _THESIS_DEFAULTS = {
     "LAMBDA": 0.5,        # weight of prerequisites in P(L0)
     "C_OFFSET": 0.05,     # P(L0) cap c = TAU - C_OFFSET
     "THETA_CLAMP": 4.0,   # numerical safeguard, not part of chapter II
+    # D72, not part of chapter II: the ceiling of P(L)' . At 1.0 the model is
+    # chapter II bit for bit; below it, P(L) cannot saturate, so a few wrong
+    # answers still bring the topic back under tau - delta. See .env.example.
+    "P_L_MAX": 1.0,
     "DEFAULT_P0": 0.15,
     "DEFAULT_PT": 0.20,
     "DEFAULT_G0": 0.20,

@@ -79,6 +79,7 @@ def constants() -> student.Constants:
         tau=values["TAU"],
         c_offset=values["C_OFFSET"],
         theta_clamp=values["THETA_CLAMP"],
+        p_l_max=values["P_L_MAX"],
     )
 
 
