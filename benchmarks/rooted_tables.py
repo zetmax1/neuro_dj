@@ -155,6 +155,8 @@ def render(metrics: dict) -> str:
         "",
         f"- tekshiruvlar soni: {_cell(metrics.get('equivalence_checks'))}",
         f"- mos kelmaganlari: {_cell(metrics.get('equivalence_failures'))}",
+        f"- tekshirib bo‘lmaganlari (kutubxonaning so‘rovi tugamadi): "
+        f"{_cell(metrics.get('equivalence_not_checked'))}",
         "",
         "## 5. O‘qish qoidasi (D74, natijadan oldin belgilangan)",
         "",

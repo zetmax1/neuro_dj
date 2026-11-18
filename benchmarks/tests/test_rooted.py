@@ -260,3 +260,63 @@ def test_the_csv_has_one_row_per_method_and_repeat():
         "seconds", "queries", "rows_touched",
     ]
     assert len(rows) == 1 + 3 * len(rooted.READING_METHODS)
+
+
+# ---------------------------------------------------------------------------
+# A check that could not be made is not a check that failed
+# (D74, amended after the first full run died on deep_chain/100000)
+# ---------------------------------------------------------------------------
+
+def test_a_library_query_that_times_out_is_recorded_not_raised(monkeypatch):
+    """The cell D63 could not measure either must not kill the whole pass."""
+    from django.db.utils import OperationalError
+
+    spec = build()
+    targets = operations.targets(spec, count=2)
+
+    def exhausted(*_args, **_kwargs):
+        raise OperationalError("canceling statement due to statement timeout")
+
+    monkeypatch.setattr(CteNode, "descendants", exhausted, raising=False)
+    monkeypatch.setattr(CteNode, "ancestors", exhausted, raising=False)
+
+    checks = rooted.check_equivalence(targets, using=ALIAS)
+
+    assert checks
+    assert all(item.status == rooted.NOT_CHECKED for item in checks)
+    assert all(not item.disagrees for item in checks)
+    assert all("statement_timeout" in item.reason for item in checks)
+
+
+def test_a_real_error_still_propagates(monkeypatch):
+    """Only the budget is swallowed; a bug is not."""
+    def broken(*_args, **_kwargs):
+        raise ValueError("something is actually wrong")
+
+    spec = build()
+    monkeypatch.setattr(CteNode, "descendants", broken, raising=False)
+
+    with pytest.raises(ValueError, match="actually wrong"):
+        rooted.check_equivalence(operations.targets(spec, count=1), using=ALIAS)
+
+
+def test_an_unverifiable_block_is_reported_as_not_measured(monkeypatch):
+    from django.db.utils import OperationalError
+
+    def exhausted(*_args, **_kwargs):
+        raise OperationalError("canceling statement due to statement timeout")
+
+    monkeypatch.setattr(CteNode, "descendants", exhausted, raising=False)
+    monkeypatch.setattr(CteNode, "ancestors", exhausted, raising=False)
+
+    document = rooted.run(
+        using=ALIAS, shapes=(Shape.COURSE_LIKE,), sizes=(120,),
+        warmups=1, repeats=1, timeout=120.0, seed=20261006, log=lambda *_: None,
+    )
+
+    assert len(document["cells"]) == len(rooted.OPERATIONS)
+    assert all(cell["status"] == "not_measured" for cell in document["cells"])
+    assert document["equivalence_failures"] == 0
+    reading = document["reading"]
+    assert reading["status"] == rooted.NOT_COMPUTED
+    assert reading["cells_not_measured"] == len(rooted.OPERATIONS)

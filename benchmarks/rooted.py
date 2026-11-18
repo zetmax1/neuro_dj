@@ -111,24 +111,70 @@ BY_NAME = {operation.name: operation for operation in OPERATIONS}
 # Correctness: the same nodes as the library, or no measurement
 # ---------------------------------------------------------------------------
 
+#: A check that could not be carried out, because the *library's* own query
+#: did not finish inside the per-repeat budget or ran out of memory. Not a
+#: disagreement: nothing was compared (D74, amended 2026-11-18).
+NOT_CHECKED = "tekshirib bo‘lmadi — kutubxonaning so‘rovi tugamadi"
+
+
 @dataclass(frozen=True)
 class Equivalence:
     """One correctness check: the two id sets and whether they agree."""
 
     operation: str
     node: int
-    library_count: int
-    rooted_count: int
+    library_count: int | None
+    rooted_count: int | None
     equal: bool
+    status: str = "ok"
+    reason: str = ""
+
+    @property
+    def disagrees(self) -> bool:
+        """True only for a check that ran and found different nodes."""
+        return self.status == "ok" and not self.equal
 
     def payload(self) -> dict:
-        return {
+        out = {
             "operation": self.operation,
             "node": self.node,
             "library_nodes": self.library_count,
             "rooted_nodes": self.rooted_count,
             "equal": self.equal,
+            "status": self.status,
         }
+        if self.reason:
+            out["reason"] = self.reason
+        return out
+
+
+def _exhausted(error: Exception) -> str | None:
+    """The reason string when an error is the budget, not a bug."""
+    text = f"{type(error).__name__}: {error}"
+    lowered = text.lower()
+    if "statement timeout" in lowered or "canceling statement" in lowered:
+        return f"statement_timeout — {text}"
+    if "out of memory" in lowered or isinstance(error, MemoryError):
+        return f"memory — {text}"
+    return None
+
+
+def _compare(operation: str, node, library_call, rooted_sql, *, using: str) -> Equivalence:
+    """One id-set comparison, or a recorded reason why it could not be made."""
+    try:
+        library = {row.pk for row in library_call()}
+        rooted = {
+            row.pk for row in CteNode.objects.using(using).raw(
+                rooted_sql, [node.pk, node.pk],
+            )
+        }
+    except Exception as error:  # noqa: BLE001 - re-raised unless it is the budget
+        reason = _exhausted(error)
+        if reason is None:
+            raise
+        return Equivalence(operation, node.pk, None, None, False,
+                           status=NOT_CHECKED, reason=reason)
+    return Equivalence(operation, node.pk, len(library), len(rooted), library == rooted)
 
 
 def check_equivalence(targets: list[dict], *, using: str) -> list[Equivalence]:
@@ -138,29 +184,22 @@ def check_equivalence(targets: list[dict], *, using: str) -> list[Equivalence]:
     Sets, not sequences: ordering is the library's contract and the hand-written
     CTE does not promise it. What has to hold is that the rooted query sees
     exactly the same nodes — anything else makes the timings meaningless.
+
+    A check needs the library's answer, and on the largest deep chain the
+    library's own query is exactly what cannot finish — ``cte`` is the cell
+    D63 could not measure either. Such a check is recorded as
+    :data:`NOT_CHECKED` with its reason and the cell goes on to be reported as
+    not measured; only a check that *ran* and disagreed stops the pass
+    (D74, amended 2026-11-18 after the first full run died here).
     """
     out: list[Equivalence] = []
     for target in targets:
         node = _node(target["node"], using=using)
-
-        library = {row.pk for row in node.descendants()}
-        rooted = {
-            row.pk for row in CteNode.objects.using(using).raw(
-                DESCENDANTS_SQL, [node.pk, node.pk],
-            )
-        }
-        out.append(Equivalence(
-            "read_branch", node.pk, len(library), len(rooted), library == rooted,
+        out.append(_compare(
+            "read_branch", node, node.descendants, DESCENDANTS_SQL, using=using,
         ))
-
-        library = {row.pk for row in node.ancestors()}
-        rooted = {
-            row.pk for row in CteNode.objects.using(using).raw(
-                ANCESTORS_SQL, [node.pk, node.pk],
-            )
-        }
-        out.append(Equivalence(
-            "read_ancestors", node.pk, len(library), len(rooted), library == rooted,
+        out.append(_compare(
+            "read_ancestors", node, node.ancestors, ANCESTORS_SQL, using=using,
         ))
     return out
 
@@ -340,6 +379,30 @@ def csv_rows(cells: list[dict]) -> list[list]:
     return rows
 
 
+def _unverified_cell(spec: generator.TreeSpec, operation, reason: str) -> dict:
+    """A cell that was never timed, because its correctness could not be checked."""
+    statuses = {method: NOT_CHECKED for method in READING_METHODS}
+    return {
+        "shape": spec.shape,
+        "size": spec.size,
+        "operation": operation.name,
+        "kind": operations.READ,
+        "label": operation.label,
+        "targets": 0,
+        "methods": {method: {"status": NOT_CHECKED, "reason": reason}
+                    for method in READING_METHODS},
+        "ratios": {
+            f"{CTE_ROOTED}_over_{other}": {
+                "ratio": None, "ci_low": None, "ci_high": None,
+                "replicates": 0, "reason": reason,
+            }
+            for other in (MPTT, CTE)
+        },
+        "status": "not_measured",
+        "statuses": statuses,
+    }
+
+
 def run(
     *,
     using: str,
@@ -381,12 +444,21 @@ def run(
                 {**item.payload(), "shape": shape, "size": size}
                 for item in equivalence
             )
-            disagreeing = [item for item in equivalence if not item.equal]
+            disagreeing = [item for item in equivalence if item.disagrees]
             if disagreeing:
                 raise RuntimeError(
                     f"{shape}/{size}: the rooted CTE returned a different node set "
                     f"than the library for {len(disagreeing)} check(s) (D74)"
                 )
+            if all(item.status != "ok" for item in equivalence):
+                # The library could not answer on this tree at all, so there is
+                # nothing to verify the rooted query against. Timing it anyway
+                # would put an unverified number in the table (D74).
+                reason = next(item.reason for item in equivalence)
+                log(f"  {shape}/{size}: not measured — {reason}")
+                for operation in OPERATIONS:
+                    cells.append(_unverified_cell(spec, operation, reason))
+                continue
 
             for operation in OPERATIONS:
                 cells.append(run_cell(
@@ -401,7 +473,14 @@ def run(
         "trees": trees,
         "equivalence": checks,
         "equivalence_checks": len(checks),
-        "equivalence_failures": sum(1 for item in checks if not item["equal"]),
+        # Only a check that ran and disagreed is a failure; one that could not
+        # be made is counted separately (D74, amended 2026-11-18).
+        "equivalence_failures": sum(
+            1 for item in checks if item["status"] == "ok" and not item["equal"]
+        ),
+        "equivalence_not_checked": sum(
+            1 for item in checks if item["status"] != "ok"
+        ),
         "reading": reading(cells),
         "total_seconds": round(time.perf_counter() - started, 3),
     }
@@ -411,5 +490,6 @@ __all__ = [
     "CTE_ROOTED", "READING_METHODS", "DESCENDANTS_SQL", "ANCESTORS_SQL",
     "OPERATIONS", "BY_NAME", "read_branch", "read_ancestors",
     "Equivalence", "check_equivalence", "run_cell", "reading", "csv_rows", "run",
+    "NOT_CHECKED",
     "SLOWDOWN_LIMIT", "CONFIRMED", "PARTLY", "NOT_COMPUTED",
 ]

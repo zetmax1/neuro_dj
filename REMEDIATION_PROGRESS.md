@@ -4062,6 +4062,29 @@ natija papkalari ham. Yangi kod yangi fayllarda: `benchmarks/rooted.py` va
 `experiments/results/tree-benchmark-rooted/<vaqt>/` (`--quick` esa
 `tree-benchmark-rooted-quick/`).
 
+### D74 ga tuzatish (2026-11-18, birinchi to‘liq run'dan keyin, natijani ko‘rmasdan)
+
+**Nima bo‘ldi.** Birinchi to‘liq run `deep_chain/100000` blokida to‘xtadi:
+to‘g‘rilik tekshiruvi kutubxonaning `descendants()` iga tayanadi, va aynan shu
+so‘rov 120 soniyalik chegaradan oshdi (D63 da ham shu katak `cte` uchun
+o‘lchanmagan edi). Istisno `runner.measure` ning byudjet ishlovidan tashqarida
+ko‘tarilib, butun ishni tugatdi.
+
+**Tuzatish (o‘qish qoidasi o‘zgarmaydi).** Tekshirib **bo‘lmagan** holat
+tekshiruvdan **o‘tmagan** holatdan ajratiladi:
+- kutubxonaning so‘rovi `statement_timeout` yoki xotira sababli tugamasa, tekshiruv
+  `tekshirib bo‘lmadi` holati va sababi bilan yoziladi; boshqa har qanday xato
+  avvalgidek ko‘tariladi (bu — kod xatosi, byudjet emas);
+- bir blokda birorta ham tekshiruv bajarilmasa, o‘sha blokning kataklari
+  **o‘lchanmaydi** va “o‘lchanmagan katak” sifatida sanaladi — tekshirilmagan
+  son jadvalga tushmasligi uchun;
+- faqat **bajarilgan va mos kelmagan** tekshiruv ishni to‘xtatadi.
+
+Bu D74 ning o‘qish qoidasidagi “timeout yoki xotira sababli o‘lchanmagan katak
+‘tasdiqlanmadi’ deb hisoblanmaydi, alohida sanaladi” bandining to‘g‘ridan-to‘g‘ri
+davomi: endi u tekshiruv bosqichiga ham taalluqli. Chegara (1,5) va hukm
+o‘zgarmaydi. Testlar: `benchmarks/tests/test_rooted.py` da uchta yangi test.
+
 
 ---
 
