@@ -339,6 +339,24 @@ Barcha sonlar `REMEDIATION_REPORT.md` dagi `experiments/report_values.py` blokid
 | H3: asl graf, λ ∈ {0; 0,1; 0,25; 0,5; 0,75; 1} bo‘yicha dastlabki k ∈ {3, 5} AUC [95 % CI] | `junyi-h3-lambda/20261020-180934` | `experiments/d71.py:h3_part` | `test_d71.py` |
 | Takrorlash darvozasi va fit checkpoint'i | ikkala papkada `reproduction_gate`, `checkpoint` | `experiments/d71.py:gate`, `fit`, `fit_checkpoint` | `test_d71.py::test_the_gate_stops_a_run_that_does_not_reproduce_h1`, `::test_a_finished_fold_is_read_back_from_the_checkpoint` |
 
+
+**D72–D74 — himoya oldidan qo‘shilgan ishlar** (qarorlar `REMEDIATION_PROGRESS.md` da,
+har biri koddan va natijadan oldin yozilgan). Ularning hech biri H1–H4 ning hukmini
+o‘zgartirmaydi va hech bir mavjud natija papkasiga tegmaydi.
+
+| Qaror | Nima | Kod (yangi fayllar) | Test | Natija papkasi |
+|---|---|---|---|---|
+| D72 | P(L)′ uchun ixtiyoriy yuqori chegara `p_max` (standart 1.0 da xatti-harakat bit darajasida eski holicha) va tavsiya etilgan ish sozlamalari (`THESIS_P_L_MAX=0.999`, `THESIS_LAMBDA=0.0`) | `neuro_model/bkt.py` (`transition`, `step` ga parametr), `neuro_model/student.py` (`Constants.p_l_max`), `config/settings.py` (`P_L_MAX`), `config/.env.example` | `neuro_model/tests/test_p_l_max.py`, `assessments/tests/test_p_l_max_setting.py` | — (natija emas, sozlama) |
+| D73 | H2 ning neyron modellarini to‘liq o‘qitish: 200 epoch, `patience = 10` (pyKT ning `train_model` dagi qiymati), DKT uchun 12 nomzodli to‘r, AKT/AKT-R uchun 2 ta; tanlov faqat validatsiya AUC bo‘yicha. **Post-hoc sezgirlik** | `experiments/h2_tuned.py`, `experiments/h2_tuned_tables.py` | `experiments/tests/test_h2_tuned.py` | `assist09-neural-tuned/<vaqt>` |
+| D74 | H4 uchun uchinchi **o‘qish** usuli `cte_rooted`: rekursiya so‘ralgan tugundan boshlanadi; saqlash usuli `cte` bilan bir xil, yozish o‘lchanmaydi | `benchmarks/rooted.py`, `benchmarks/rooted_tables.py`, `benchmarks/management/commands/run_rooted_benchmark.py` | `benchmarks/tests/test_rooted.py` | `tree-benchmark-rooted/<vaqt>` |
+
+D73 ning o‘qish qoidasi: BKT+IRT − DKT farqining 95 % CI pastki chegarasi ≥ −0,01
+bo‘lsa — ikkinchi shart to‘liq o‘qitilgan DKT ga nisbatan ham bajariladi; aks holda
+u faqat 10 epoch bilan cheklangan DKT ga nisbatan bajarilgan deb yoziladi.
+D74 ning o‘qish qoidasi: barcha o‘lchangan o‘qish kataklarida
+`cte_rooted / mptt` ≤ 1,5 bo‘lsa — tavsiya tasdiqlandi; aks holda qaysi kataklarda
+bajarilmagani sonlar bilan yoziladi.
+
 ---
 
 ## 11. Farqlar — koddagi, II bobda yo‘q narsalar
