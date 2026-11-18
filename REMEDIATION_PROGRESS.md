@@ -3953,6 +3953,118 @@ sozlamada (`P_L_MAX = 1.0`) xatti-harakat bit darajasida eski holicha qoladi.
 
 ---
 
+## D73 — neyron modellarni to‘liq o‘qitish: H2 uchun post-hoc sezgirlik tahlili (foydalanuvchi qarori, 2026-11-18, koddan va natijadan oldin)
+
+**Nega.** Asosiy natijada (`assist09/20261010-060005`) DKT besh qismning
+hammasida 10 epoch chegarasida to‘xtagan, validatsiya AUC esa hali o‘sayotgan
+edi; AKT va AKT-R uchtadan qismda `patience = 2` sababli 3–4-epochda to‘xtagan.
+Demak H2 ning ikkinchi sharti to‘liq o‘qitilmagan DKT ga nisbatan tekshirilgan.
+
+**pyKT bilan solishtirish (hujjat emas, kodning o‘zi).**
+`pykt/models/train_model.py:180` — `if i - best_epoch >= 10: break`, ya’ni
+pyKT ning sabri **10**; shu faylda yaxshilanish chegarasi `auc > max_auc + 1e-3`.
+Bu yerdagi `experiments/models/neural.py` da chegara `1e-5`. Farq qaror matniga
+yoziladi va **o‘zgartirilmaydi**: kichikroq chegara kechroq to‘xtatadi, ya’ni
+DKT foydasiga ishlaydi — bu tahlilning maqsadi aynan shu.
+
+**Nima o‘zgarmaydi (natijadan oldin belgilangan).**
+- Ma’lumot, D50 tozalash, foldlar, seed (20261006), D57 baholash tartibi va
+  pooled statistika — asosiy natijadagi bilan aynan bir xil kod yo‘li
+  (`h2.prepare`, `h2.fold_sets`, `h2.fit_predict`, `h2.analyse_pooled`).
+- `experiments/h2.py`, `experiments/models/neural.py`, `_THESIS_DEFAULTS`,
+  mavjud natija papkalari — **tegilmaydi**. Yangi kod yangi faylda:
+  `experiments/h2_tuned.py` (`neural.py` da `epochs` va `patience` allaqachon
+  konstruktor parametrlari, shuning uchun unga qo‘shimcha kerak emas).
+
+**O‘qitish.** Ko‘pi bilan 200 epoch, `patience = 10`. Eng yaxshi validatsiya
+og‘irliklari saqlanadi (`neural._SequenceModel.fit` allaqachon shunday qiladi).
+
+**Giperparametrlar to‘ri.**
+- DKT: vektor o‘lchami {64, 100, 200} × dropout {0,1; 0,3} × lr {10⁻³; 10⁻⁴} = 12 nomzod.
+- AKT va AKT-R: arxitektura o‘zgarmaydi, lr {10⁻³; 10⁻⁴} = 2 nomzod.
+- Har bir fold uchun eng yaxshi kombinatsiya **faqat validatsiya AUC** bo‘yicha
+  tanlanadi (`fit()` qaytaradigan `best_validation_auc`). Sinov qismi tanlash
+  paytida umuman ochilmaydi: tanlangan nomzod allaqachon eng yaxshi validatsiya
+  og‘irliklarini saqlab turibdi, shuning uchun qayta o‘qitish ham yo‘q.
+
+**Vaqt darvozasi.** Birinchi fold tugagach umumiy vaqt chiziqli ekstrapolyatsiya
+bilan hisoblanadi; 24 soatdan oshsa — ishga tushirish to‘xtatiladi, sabab va
+o‘lchangan vaqt yoziladi, natija papkasi yozilmaydi.
+
+**Nazorat.** BKT+IRT (λ = 0) shu yo‘l bilan qayta hisoblanadi va uning pooled
+AUC si asosiy natijadagi **0,7239** ga teng ekani tekshiriladi (1e-4 gacha).
+Teng bo‘lmasa — natija yozilmaydi: yo‘l bir xil emas degani.
+
+**Hisoblanadi.** Sozlangan DKT, AKT, AKT-R ning pooled AUC, RMSE va talabalar
+bo‘yicha bootstrap (1 000) ishonch oraliqlari; BKT+IRT − DKT va BKT+IRT − AKT-R
+farqlari [95 % CI]; har fold uchun tanlangan kombinatsiya, bajarilgan epochlar
+va validatsiya AUC.
+
+**O‘qish qoidasi.** H2 ning asosiy hukmi **o‘zgarmaydi**: u natijadan oldin
+belgilangan qoidaga ko‘ra chiqarilgan. Bu tahlil “post-hoc sezgirlik” deb
+belgilanadi va ikki xil o‘qiladi:
+(a) BKT+IRT − DKT farqining 95 % CI pastki chegarasi ≥ −0,01 bo‘lsa —
+“ikkinchi shart to‘liq o‘qitilgan DKT ga nisbatan ham bajariladi”;
+(b) aks holda — “ikkinchi shart faqat 10 epoch bilan cheklangan DKT ga nisbatan
+bajarilgan”. Qaysi biri chiqsa, o‘sha dissertatsiyaga yoziladi.
+
+**Natija papkasi:** `experiments/results/assist09-neural-tuned/<vaqt>/`
+(`--quick` esa `assist09-neural-tuned-quick/`).
+
+
+---
+
+## D74 — H4 uchun uchinchi o‘qish usuli: so‘ralgan tugundan boshlanadigan CTE (`cte_rooted`) (foydalanuvchi qarori, 2026-11-18, koddan va natijadan oldin)
+
+**Nega.** D63 dagi o‘qishdagi sekinlik usulning o‘zidan emas, so‘rovning
+shaklidan kelishi mumkin: `django-tree-queries` rekursiyani jadvaldagi **barcha**
+ildizlardan boshlaydi va kerakli shoxni keyin filtrlaydi. Dissertatsiya
+“rekursiyani so‘ralgan tugundan boshlash” ni tavsiya qiladi, lekin bu o‘lchanmagan.
+
+**Nima o‘lchanadi.**
+
+- Yangi usul nomi `cte_rooted`. Jadval — mavjud `benchmarks.CteNode`, ya’ni
+  saqlash usuli `cte` bilan **aynan bir xil**; farq faqat o‘qish so‘rovining
+  shaklida. Yozish amallari o‘lchanmaydi (ular `cte` bilan bir xil kod).
+- Ikki o‘qish amali qo‘lda yozilgan rekursiv CTE bilan:
+  shoxni o‘qish — `WHERE id = %s` dan boshlab `parent_id` bo‘yicha pastga;
+  ajdodlarni o‘qish — tugundan boshlab `parent_id` bo‘yicha yuqoriga.
+  Ikkalasi ham model obyektlarini qaytaradi (`Model.objects.raw`), chunki qolgan
+  ikki usul ham obyekt qaytaradi; tugunning o‘zi avval alohida so‘rov bilan
+  olinadi, xuddi `cte` va `mptt` dagidek (D63: hech bir usulga tugun tekin berilmaydi).
+- O‘lchov D63 bilan aynan bir xil: 3 shakl × 10³, 10⁴, 10⁵ tugun, bir xil seed
+  (20261006) va **bir xil nishon tugunlar** (`operations.targets`), 5 isitish +
+  30 takror, bir xil vaqt chegarasi, `statement_timeout` va xotira himoyasi (D63f).
+  Uch usul ham bitta blokda, bir xil daraxtda, bir xil takror indeksida ishlaydi,
+  shuning uchun nisbatlar juftlashtirilgan bootstrap bilan o‘qiladi (D63 dagi
+  `runner.ratio_interval`, 1 000 replika, 95 %).
+
+**To‘g‘rilik testi (natijadan oldin).** Har ikki amal uchun, har bir shaklda,
+qaytgan `id` lar to‘plami kutubxonaning `descendants()` / `ancestors()` natijasiga
+**teng** (tartib emas, to‘plam). Teng bo‘lmasa — o‘lchov yozilmaydi.
+
+**Hisoblanadi.** Har bir o‘qish katagi uchun: uch usulning medianasi va p95 i,
+`cte_rooted / mptt` va `cte_rooted / cte` nisbatlari D63 ning juftlashtirilgan
+interval usuli bilan.
+
+**O‘qish qoidasi.** H4 ning hukmi o‘zgarmaydi — u D63 da natijadan oldin
+belgilangan qoida bo‘yicha chiqarilgan. Bu qo‘shimcha o‘lchov faqat tavsiyani
+tekshiradi: **barcha** o‘qish kataklarida (3 shakl × 3 hajm × 2 amal = 18 katak)
+`cte_rooted / mptt` nisbatining nuqtaviy bahosi ≤ 1,5 bo‘lsa — “tavsiya
+tasdiqlandi”; aks holda “tavsiya qisman tasdiqlandi” va qaysi kataklarda
+bajarilmagani sonlar bilan yoziladi. Timeout yoki xotira sababli o‘lchanmagan
+katak “tasdiqlanmadi” deb hisoblanmaydi, alohida sanaladi.
+
+**Nima o‘zgarmaydi.** `benchmarks/runner.py`, `operations.py`, `generator.py`,
+`models.py`, migratsiyalar va `experiments/tables.py` — tegilmaydi; D63 ning
+natija papkalari ham. Yangi kod yangi fayllarda: `benchmarks/rooted.py` va
+`benchmarks/management/commands/run_rooted_benchmark.py`. Natija yangi papkaga:
+`experiments/results/tree-benchmark-rooted/<vaqt>/` (`--quick` esa
+`tree-benchmark-rooted-quick/`).
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |
