@@ -350,10 +350,32 @@ def run_fold(
 # The two guards and the reading rule
 # ---------------------------------------------------------------------------
 
-def control_check(analysis: dict) -> dict:
-    """The control model has to land on the main run's pooled AUC (D73)."""
+def control_check(analysis: dict, *, quick: bool = False) -> dict:
+    """
+    The control model has to land on the main run's pooled AUC (D73).
+
+    The reference is the *full* run's number, so it says nothing about a
+    ``--quick`` pass, which sees a fraction of the learners. A quick pass
+    therefore records the control as not applicable rather than comparing it
+    with a number it was never going to reach — and a quick pass is not a
+    thesis result either way.
+    """
     entry = (analysis.get("models") or {}).get(CONTROL) or {}
     auc = ((entry.get("scores") or {}).get("all") or {}).get("auc")
+    if quick:
+        return {
+            "model": CONTROL,
+            "reference_auc": CONTROL_REFERENCE_AUC,
+            "auc": auc,
+            "absolute_difference": None,
+            "tolerance": CONTROL_TOLERANCE,
+            "agrees": None,
+            "status": "not_applicable",
+            "reason": (
+                "--quick: nazorat soni to‘liq ishga tushirishniki, "
+                "talabalarning bir qismi bilan solishtirilmaydi"
+            ),
+        }
     difference = None if auc is None else round(abs(auc - CONTROL_REFERENCE_AUC), 6)
     return {
         "model": CONTROL,
@@ -362,6 +384,7 @@ def control_check(analysis: dict) -> dict:
         "absolute_difference": difference,
         "tolerance": CONTROL_TOLERANCE,
         "agrees": bool(difference is not None and difference <= CONTROL_TOLERANCE),
+        "status": "ok",
     }
 
 
@@ -518,10 +541,10 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
         replicates=args.replicates, seed=args.seed,
         cold_rows=cold, first_in_order=first_rows,
     )
-    control = control_check(analysis)
+    control = control_check(analysis, quick=bool(args.quick))
     print(f"  control {CONTROL}: auc={_text(control['auc'])} "
           f"(reference {control['reference_auc']}, agrees={control['agrees']})")
-    if not control["agrees"] and not args.ignore_control:
+    if control["status"] == "ok" and not control["agrees"] and not args.ignore_control:
         raise RuntimeError(
             f"the control model did not reproduce the main result "
             f"({control['auc']} vs {control['reference_auc']}): the evaluation "

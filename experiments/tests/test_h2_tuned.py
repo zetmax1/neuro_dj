@@ -258,3 +258,17 @@ def test_a_disabled_checkpoint_writes_nothing(tmp_path):
 
     assert not checkpoint.directory.exists()
     assert checkpoint.load("fold-0") is None
+
+
+def test_a_quick_pass_does_not_compare_against_the_full_runs_number():
+    """The reference is the full run's AUC; --quick sees a fraction of it."""
+    check = h2_tuned.control_check(_analysis(0.6911), quick=True)
+
+    assert check["status"] == "not_applicable"
+    assert check["agrees"] is None
+    assert check["auc"] == 0.6911
+
+
+def test_a_full_pass_still_has_to_match():
+    assert h2_tuned.control_check(_analysis(0.6911), quick=False)["agrees"] is False
+    assert h2_tuned.control_check(_analysis(0.7239), quick=False)["agrees"] is True
