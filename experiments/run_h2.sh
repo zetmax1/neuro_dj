@@ -26,6 +26,17 @@
 #                                   # the same two parts of D63h, one at a time
 #                                   # D63h: deep_chain/100000 whole, then the
 #                                   # parallel phase of the other eight blocks
+#   experiments/run_h2.sh tuned-quick | tuned-full | tuned-both
+#                                   # D73: experiments.h2_tuned — H2's neural
+#                                   # models trained to convergence (200
+#                                   # epochs, patience 10, a grid chosen on
+#                                   # validation AUC). Checkpoints each fold;
+#                                   # stops itself past a 24 h projection
+#   experiments/run_h2.sh rooted-quick | rooted-full | rooted-both
+#                                   # D74: manage.py run_rooted_benchmark —
+#                                   # H4's third reading method. A Django
+#                                   # command, so the Django venv and the
+#                                   # dj5433.sh wrapper, like the bench modes
 #   experiments/run_h2.sh bench-quick | bench-full | bench-both
 #                                   # H4, stage 9 (D63): manage.py
 #                                   # run_tree_benchmark. A Django command, so
@@ -174,6 +185,7 @@ FROZEN=experiments.h2_frozen
 H1=experiments.h1
 H3=experiments.h3
 D71=experiments.d71
+TUNED=experiments.h2_tuned
 BENCH=manage.py
 WRAP=""
 REF=""
@@ -226,6 +238,31 @@ case "$MODE" in
                && run bench-reselect-parallel $BENCH run_tree_benchmark --only-parallel --shapes course_like,random \
                && run bench-reselect-deep $BENCH run_tree_benchmark --only-parallel --shapes deep_chain --sizes 1000,10000"
         ;;
+    tuned-quick|tuned-full|tuned-both)
+        # D73: the neural models trained to convergence. The full pass is the
+        # long one here — twelve DKT candidates and two each for AKT/AKT-R,
+        # per fold — and h2_tuned checkpoints every finished fold, so a unit
+        # that is killed resumes rather than restarting. It also stops itself
+        # after the first fold if the projection passes 24 hours.
+        case "$MODE" in
+            tuned-quick) CHAIN="run tuned-quick $TUNED --quick $POOL" ;;
+            tuned-full)  CHAIN="run tuned-full $TUNED $POOL" ;;
+            tuned-both)  CHAIN="run tuned-quick $TUNED --quick $POOL \
+                                && run tuned-full $TUNED $POOL" ;;
+        esac
+        ;;
+    rooted-quick|rooted-full|rooted-both)
+        # D74: the third reading method of H4. A Django command, so the
+        # Django venv and the 5433 wrapper, like the bench modes.
+        PY="${H4_PY:-venv/bin/python}"
+        WRAP="${H4_WRAP:-$PWD/scripts/dj5433.sh}"
+        case "$MODE" in
+            rooted-quick) CHAIN="run rooted-quick $BENCH run_rooted_benchmark --quick" ;;
+            rooted-full)  CHAIN="run rooted-full $BENCH run_rooted_benchmark" ;;
+            rooted-both)  CHAIN="run rooted-quick $BENCH run_rooted_benchmark --quick \
+                                 && run rooted-full $BENCH run_rooted_benchmark" ;;
+        esac
+        ;;
     bench-quick|bench-full|bench-both)
         # A Django command: the Django venv, through the 5433 wrapper (D63).
         PY="${H4_PY:-venv/bin/python}"
@@ -237,7 +274,7 @@ case "$MODE" in
                                 && run bench-full $BENCH run_tree_benchmark" ;;
         esac
         ;;
-    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both|d71-quick|d71-full|d71-both|bench-quick|bench-full|bench-both|bench-reselect|bench-reselect-parallel|bench-reselect-block}" >&2; exit 2 ;;
+    *) echo "usage: $0 {quick|full|both|bounds-quick|bounds-full|bounds-both|frozen-quick|frozen-full|frozen-both|h1-quick|h1-full|h1-both|h3-quick|h3-full|h3-both|junyi-quick|junyi-full|junyi-both|d71-quick|d71-full|d71-both|bench-quick|bench-full|bench-both|bench-reselect|bench-reselect-parallel|bench-reselect-block|tuned-quick|tuned-full|tuned-both|rooted-quick|rooted-full|rooted-both}" >&2; exit 2 ;;
 esac
 
 LAUNCHER="${H2_LAUNCHER:-}"

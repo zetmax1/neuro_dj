@@ -221,3 +221,40 @@ def test_the_table_contains_no_number_that_is_not_in_the_metrics():
     assert tables.verify(markdown, metrics) == []
     assert h2_tuned.LIMITED in markdown or h2_tuned.HOLDS in markdown
     assert "H2 ning hukmi emas" in markdown
+
+
+# ---------------------------------------------------------------------------
+# The checkpoint (rule 8: a pass of this length must survive being killed)
+# ---------------------------------------------------------------------------
+
+def test_a_saved_fold_is_read_back(tmp_path):
+    key = {"commit": "abc", "seed": 1}
+    first = h2_tuned.Checkpoint(tmp_path, key, enabled=True)
+    first.save("fold-0", {"report": {"index": 0}, "labels": [1, 0]})
+
+    again = h2_tuned.Checkpoint(tmp_path, key, enabled=True)
+    stored = again.load("fold-0")
+
+    assert stored["report"]["index"] == 0
+    assert again.payload()["resumed_folds"] == 1
+
+
+def test_a_changed_setting_does_not_resume_another_runs_folds(tmp_path):
+    h2_tuned.Checkpoint(tmp_path, {"commit": "abc", "seed": 1}, enabled=True).save(
+        "fold-0", {"report": {"index": 0}},
+    )
+
+    other = h2_tuned.Checkpoint(tmp_path, {"commit": "abc", "seed": 2}, enabled=True)
+
+    assert other.load("fold-0") is None
+    assert other.directory != h2_tuned.Checkpoint(
+        tmp_path, {"commit": "abc", "seed": 1}, enabled=True,
+    ).directory
+
+
+def test_a_disabled_checkpoint_writes_nothing(tmp_path):
+    checkpoint = h2_tuned.Checkpoint(tmp_path, {"commit": "abc"}, enabled=False)
+    checkpoint.save("fold-0", {"report": {}})
+
+    assert not checkpoint.directory.exists()
+    assert checkpoint.load("fold-0") is None

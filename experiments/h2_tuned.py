@@ -84,6 +84,69 @@ NOT_COMPUTED = "o‘qish qoidasi qo‘llanmadi — farq hisoblanmadi"
 #: The time gate of D73, in hours.
 TIME_BUDGET_HOURS = 24.0
 
+#: Where a finished fold is parked so an interrupted pass resumes (rule 8).
+CHECKPOINTS = "experiments/.runs/checkpoints"
+
+
+class Checkpoint:
+    """
+    Finished folds, so a pass that is killed does not start from zero.
+
+    Keyed by the digest of everything that could change a number — commit,
+    seed, folds, epochs, patience, the grid, the quick flag — and the key is
+    stored and compared, so a changed setting starts afresh instead of mixing
+    two runs. Nothing here is a result: ``results/`` is written at the end
+    and only from the finished document (D48).
+
+    ``benchmarks/runner.py`` has the same class for stage 9. It is not
+    imported here because that module imports Django, and the experiments
+    deliberately do not.
+    """
+
+    def __init__(self, root: str | Path, key: dict, *, enabled: bool) -> None:
+        import hashlib
+
+        self.key = key
+        self.enabled = enabled
+        self.digest = hashlib.sha256(
+            json.dumps(key, sort_keys=True).encode()
+        ).hexdigest()[:16]
+        self.directory = Path(root) / f"h2-tuned-{self.digest}"
+        self.resumed = 0
+
+    def _matches(self) -> bool:
+        stored = self.directory / "key.json"
+        if not stored.exists():
+            return False
+        return json.loads(stored.read_text(encoding="utf-8")) == self.key
+
+    def load(self, name: str):
+        if not self.enabled or not self._matches():
+            return None
+        path = self.directory / f"{name}.json"
+        if not path.exists():
+            return None
+        self.resumed += 1
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def save(self, name: str, payload) -> None:
+        if not self.enabled:
+            return
+        self.directory.mkdir(parents=True, exist_ok=True)
+        stored = self.directory / "key.json"
+        if not stored.exists():
+            stored.write_text(json.dumps(self.key, sort_keys=True), encoding="utf-8")
+        temporary = self.directory / f"{name}.tmp"
+        temporary.write_text(json.dumps(payload), encoding="utf-8")
+        temporary.replace(self.directory / f"{name}.json")
+
+    def payload(self) -> dict:
+        return {
+            "enabled": self.enabled,
+            "key_digest": self.digest,
+            "resumed_folds": self.resumed,
+        }
+
 
 # ---------------------------------------------------------------------------
 # The grid
@@ -371,10 +434,40 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
     print(f"  fitting the BKT parameters of {len(folds)} folds on {workers} worker(s)")
     fitted = h2.fit_parameters(folds, rows, workers=workers)
 
+    checkpoint = Checkpoint(
+        args.checkpoint_dir,
+        {
+            "commit": git_start.commit,
+            "dirty": git_start.dirty,
+            "seed": args.seed,
+            "folds": args.folds,
+            "validation_fraction": args.validation_fraction,
+            "epochs": epochs,
+            "patience": patience,
+            "quick": bool(args.quick),
+            "quick_learners": args.quick_learners if args.quick else None,
+            "grid_dkt": [candidate.payload() for candidate in grid("DKT")],
+            "grid_attention": [candidate.payload() for candidate in grid("AKT")],
+        },
+        enabled=bool(git_start.dirty is False and not args.no_checkpoint),
+    )
+    print(f"  checkpoint: {checkpoint.directory if checkpoint.enabled else 'off (tree not clean or --no-checkpoint)'}")
+
     fold_reports, fold_outputs = [], []
     gate: dict | None = None
     for position, fold in enumerate(folds):
         print(f"  fold {fold.index + 1}/{len(folds)}: {fold.counts()}")
+        stored = checkpoint.load(f"fold-{fold.index}")
+        if stored is not None:
+            print(f"  fold {fold.index + 1}: resumed from the checkpoint")
+            fold_reports.append(stored["report"])
+            fold_outputs.append((
+                stored["predictions"], stored["labels"], stored["learners"],
+            ))
+            if position == 0 and stored.get("gate"):
+                gate = stored["gate"]
+            continue
+
         started = time.perf_counter()
         report, output = run_fold(
             fold, rows, params=fitted[fold.index][0],
@@ -398,6 +491,15 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
                     file=sys.stderr,
                 )
                 return {"report": "h2_tuned", "stopped": "time_gate", "time_gate": gate}, None
+
+        predictions, labels_, learners_ = output
+        checkpoint.save(f"fold-{fold.index}", {
+            "report": report,
+            "predictions": predictions,
+            "labels": labels_,
+            "learners": learners_,
+            "gate": gate if position == 0 else None,
+        })
 
     pooled, labels, pooled_learners = h2.pool(fold_outputs)
     print(f"  pooled {len(labels)} answers from {len(set(pooled_learners))} learners")
@@ -466,6 +568,7 @@ def run(args, argv: list[str]) -> tuple[dict, Provenance]:
             "selected_on": "validation_auc",
         },
         "parameter_fit_workers": workers,
+        "checkpoint": checkpoint.payload(),
         "time_gate": gate,
         "control_check": control,
         "folds": fold_reports,
@@ -497,6 +600,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--replicates", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=splits.DEFAULT_SEED)
     parser.add_argument("--workers", type=int, default=5)
+    parser.add_argument("--checkpoint-dir", default=CHECKPOINTS)
+    parser.add_argument("--no-checkpoint", action="store_true")
     parser.add_argument("--ignore-time-gate", action="store_true",
                         help="Run past D73's 24-hour projection (recorded in the metrics).")
     parser.add_argument("--ignore-control", action="store_true",
