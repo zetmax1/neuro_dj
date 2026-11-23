@@ -4011,6 +4011,31 @@ bajarilgan”. Qaysi biri chiqsa, o‘sha dissertatsiyaga yoziladi.
 **Natija papkasi:** `experiments/results/assist09-neural-tuned/<vaqt>/`
 (`--quick` esa `assist09-neural-tuned-quick/`).
 
+### D73a — vaqt darvozasi oshsa nima qilinadi (foydalanuvchi qarori, 2026-11-18, darvoza qatori chiqishidan oldin)
+
+**Qayd (D54 ruhida: qaror qachon qabul qilingani va qachon yozilgani boshqa
+narsa).** Bu qaror chatda **2026-11-18** da, D73 ning birinchi foldi tugamasdan
+— ya’ni vaqt darvozasi qatori chiqishidan **oldin** — qabul qilindi. Faylga esa
+**2026-11-23** da, run tugagach, birinchi commit sifatida yozildi: oraliqda
+repoga tegish mumkin emas edi, chunki checkpoint kaliti commit hashiga
+bog‘langan va yangi commit tugagan foldlarni qayta o‘qitishga majbur qilardi.
+
+**Qaror.**
+- Darvoza 24 soatdan oshsa va prognoz **40 soatdan oshmasa** — ish o‘sha
+  buyruqqa `--ignore-time-gate` qo‘shib qayta ishga tushiriladi. Tugagan foldlar
+  checkpointdan o‘qiladi; to‘r, seed, foldlar va baholash tartibi — protokolning
+  hammasi — o‘zgarmaydi. Ya’ni darvoza faqat “bu qancha turadi” degan savolga
+  javob beradi, natijaning qanday o‘qilishiga tegmaydi.
+- Prognoz **40 soatdan oshsa** — D73 natijasiz yopiladi va dissertatsiyadagi
+  “neyron modellar to‘liq sozlanmagan” cheklovi o‘zgarishsiz qoladi. Bu holda
+  hech qanday son yozilmaydi: yarim sozlangan modelning natijasi D73 ning
+  savoliga javob emas.
+
+**Qo‘llanilishi (2026-11-23).** Darvoza byudjet **ichida** chiqdi — birinchi fold
+14 435,5 s → prognoz 20,05 soat (byudjet 24,0 soat). Shuning uchun D73a ning
+ikki shoxi ham ishga tushmadi: ish asl buyruq bilan, `--ignore-time-gate` siz
+tugadi.
+
 
 ---
 
