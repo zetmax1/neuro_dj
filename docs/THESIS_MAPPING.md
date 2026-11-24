@@ -357,6 +357,10 @@ D74 ning o‘qish qoidasi: barcha o‘lchangan o‘qish kataklarida
 `cte_rooted / mptt` ≤ 1,5 bo‘lsa — tavsiya tasdiqlandi; aks holda qaysi kataklarda
 bajarilmagani sonlar bilan yoziladi.
 
+| Qaror | Nima | Holat |
+|---|---|---|
+| D75 | H2 ni XES3G5M to‘plamida takrorlash (`NEUROLEARN_YAKUNIY.md` 5-bosqich) | **ishga tushirilmaydi** — bekor qilindi (2026-11-24): hisoblash quvvati va dastlabki himoyagacha vaqt yetmaydi (`REMEDIATION_PROGRESS.md` D75). Kod, natija papkasi va hukm yo‘q; H2 faqat ASSISTments 2009 da tekshirilgan — cheklov |
+
 ---
 
 ## 11. Farqlar — koddagi, II bobda yo‘q narsalar

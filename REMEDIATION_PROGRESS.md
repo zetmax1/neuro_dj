@@ -4113,6 +4113,27 @@ o‘zgarmaydi. Testlar: `benchmarks/tests/test_rooted.py` da uchta yangi test.
 
 ---
 
+## D75 — H2 ni XES3G5M to‘plamida takrorlash: bekor qilindi (foydalanuvchi qarori, 2026-11-24)
+
+**Qaror.** D75 bekor qilindi (2026-11-24): hisoblash quvvati va dastlabki
+himoyagacha vaqt yetmaydi.
+
+**Nima bo‘ldi.** `NEUROLEARN_YAKUNIY.md` ning 5-bosqichi (XES3G5M yuklovchisi,
+4 000 talabalik namuna, H2 modellari D73 tartibida) bo‘yicha qaror matni, kod va
+natija yozilmagan: ma’lumot yuklanmagan, `experiments/datasets/xes3g5m.py` va
+`experiments/results/xes3g5m/` yaratilmagan. Taqqoslash uchun: D73 ning o‘zi —
+bitta to‘plam, faqat uchta neyron model — vaqt darvozasida 20,05 soatga
+baholangan edi (birinchi fold 14 435,5 s); D75 esa yana yetti modelni D73
+tartibida o‘qitishni talab qilardi.
+
+**Oqibati.** H2 faqat ASSISTments 2009 da tekshirilgan bo‘lib qoladi; ikkinchi
+to‘plamda takrorlanmagani dissertatsiyada cheklov sifatida yoziladi. H1–H4 ning
+hukmlari, D72–D74 va mavjud natija papkalari o‘zgarmaydi. Natija bo‘lmagani
+uchun D75 ga o‘qish qoidasi qo‘llanmaydi — na “takrorlandi”, na “takrorlanmadi”.
+
+
+---
+
 ## Savollar va qarorlar
 
 | # | Savol / ziddiyat | Qaror |

@@ -165,6 +165,11 @@ tugundan boshlash” ni tavsiya qiladi, lekin bu o‘lchanmagan.
 
 ## 5-bosqich. D75 — H2 ni XES3G5M to‘plamida takrorlash
 
+> **Bekor qilindi (2026-11-24):** hisoblash quvvati va dastlabki himoyagacha vaqt
+> yetmaydi. Bosqich ishga tushirilmaydi; qaror — `REMEDIATION_PROGRESS.md` D75,
+> holat — `docs/THESIS_MAPPING.md` (D72–D75 jadvali). Quyidagi matn reja sifatida
+> o‘zgarishsiz qoldirildi.
+
 **Ma’lumot.** XES3G5M (NeurIPS 2023, MIT litsenziyasi). Fayllarni men
 `github.com/ai4ed/XES3G5M` sahifasidagi Google Drive havolasidan qo‘lda yuklab, yo‘lini beraman.
 Sen avval to‘plamning README va fayl tuzilishini o‘qi; tuzilish quyidagi rejaga mos kelmasa — to‘xta.
@@ -202,6 +207,8 @@ standartlar orasida nechta prerekvizit qirra bor; sikl bormi; nechta talaba kami
 ---
 
 ## Yakuniy hisobot
+
+(D75 bekor qilingani uchun yakuniy hisobot D72–D74 ni qamraydi.)
 
 Barcha bosqichlar tugagach bitta qisqa hujjat: har bir qaror (D72–D75) uchun commit hash,
 natija papkasi, `tables.md` ning o‘zi (ko‘chirma emas), ishga ketgan vaqt va rejadan
