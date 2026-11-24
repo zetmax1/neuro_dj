@@ -36,6 +36,72 @@ SHA-256 sums). Every result folder holds `metrics.json`, `tables.md` (built
 from `metrics.json` only, D48) and `env.txt` with the commit it was produced
 from. H4 is run with `manage.py run_tree_benchmark` (`benchmarks/README.md`).
 
+The tag `thesis-v2-final` is the state after the pre-defence work
+(`NEUROLEARN_YAKUNIY.md`): D72–D74 added code and three new result folders,
+D75 (H2 on XES3G5M) was cancelled on 2026-11-24 and has neither code nor a
+result. No folder that `thesis-v1-frozen` produced was changed.
+
+### Environments
+
+```sh
+python3.12 -m venv venv && venv/bin/pip install --require-hashes -r requirements.lock
+python3.12 -m venv experiments/.venv && \
+  experiments/.venv/bin/pip install --require-hashes -r experiments/requirements.lock
+docker compose up -d postgres redis        # Postgres on 127.0.0.1:5433 (D1)
+```
+
+`venv` runs Django (the graph report, H4, the load test); `experiments/.venv`
+runs H1–H3 (pyBKT, pyKT, torch). Django commands go through
+`scripts/dj5433.sh`, which builds the database URL from the container's own
+environment and does not read `config/.env`. H4 needs its own database once:
+see `benchmarks/README.md`.
+
+### Result folders and the command behind each
+
+Every path is under `experiments/results/`. “Commit” is `code_commit` from the
+folder's `env.txt` — check it out to reproduce that folder exactly. Long runs
+can be started detached with `experiments/run_h2.sh <mode>` (the mode is in
+the last column); the log is `experiments/.runs/h2-<mode>.log`. That script
+passes `--reference` and `--workers` only from `H2_REFERENCE` and
+`H2_WORKERS`, so set them to the values in the command column; the command
+column, copied from `env.txt`, is the authoritative one.
+
+| Result | Folder | Commit | Command | `run_h2.sh` |
+|---|---|---|---|---|
+| Published graphs, readiness speed-up 14×–283× (D51, D52) | `graphs/20261006-052348` | `c1a683b` | `venv/bin/python -m experiments.graph_report` | — |
+| H2, ASSISTments 2009 (D53, D56, D59) | `assist09/20261010-060005` | `66ff452` | `experiments/.venv/bin/python -m experiments.h2` | `full` |
+| H2 under three G/S bounds (D55) | `assist09-bounds/20261011-183756` | `30ad4e4` | `experiments/.venv/bin/python -m experiments.h2_bounds --reference experiments/results/assist09/20261010-060005 --workers 4` | `bounds-full` |
+| H2 with b frozen on the test stream (D60) | `assist09-frozen/20261012-063439` | `244f046` | `experiments/.venv/bin/python -m experiments.h2_frozen --reference experiments/results/assist09/20261010-060005 --workers 4` | `frozen-full` |
+| H1, Junyi, 2 000 learners (D61, D62) | `junyi-h1/20261019-102526` | `2500c77` | `experiments/.venv/bin/python -m experiments.h1 --workers 5` | `h1-full` |
+| H3, Junyi, 2 000 learners (D61, D62a, D64) | `junyi-h3/20261019-122423` | `2500c77` | `experiments/.venv/bin/python -m experiments.h3 --workers 5` | `h3-full` |
+| D71 post-hoc: H1 subset and curve, H3 λ curve | `junyi-h1-posthoc/20261020-180934`, `junyi-h3-lambda/20261020-180934` | `c1ad4a9` | `experiments/.venv/bin/python -m experiments.d71 --workers 5` | `d71-full` |
+| H4, nine blocks (D63) | `tree-benchmark/20261016-093916` | `b8d6b3a` | `scripts/dj5433.sh venv/bin/python manage.py run_tree_benchmark --database benchmark --shapes course_like,deep_chain,random --warmups 5 --repeats 30 --timeout 120.0 --parallel-repeats 3 --seed 20261006 --memory-limit-gb 8.0` | `bench-full` |
+| H4 re-measurement (D63h): parallel phase | `tree-benchmark/20261019-161430`, `tree-benchmark/20261019-163435` | `9f97aa7` | the same command with `--only-parallel`, and `--shapes course_like,random` or `--shapes deep_chain --sizes 1000,10000` | `bench-reselect-parallel` |
+| H4 re-measurement (D63h): `deep_chain/100000` whole | `tree-benchmark/20261020-050428` | `9f97aa7` | the same command with `--shapes deep_chain --sizes 100000` | `bench-reselect-block` |
+| Load test, gunicorn 8 workers, 50 users × 2 min: 11 812 requests, 0 failures (V-F2, D68a) | `locust/20261020-100901` | `8f58a42` | `scripts/dj5433.sh venv/bin/python -m benchmarks.load_test --workers 8` | — |
+| D72 gate: a clean `--quick` H2 reproduces the previous one | `assist09-quick/20261118-050149` | `3b798cd` | `experiments/.venv/bin/python -m experiments.h2 --quick --data experiments/data/assistments2009/as.csv` | `quick` |
+| D73: neural models trained to convergence (post-hoc) | `assist09-neural-tuned/20261123-085502` | `4e8403c` | `experiments/.venv/bin/python -m experiments.h2_tuned` | `tuned-full` |
+| D74: `cte_rooted` reads against MPTT and CTE | `tree-benchmark-rooted/20261118-063042` | `309fe20` | `scripts/dj5433.sh venv/bin/python manage.py run_rooted_benchmark --database benchmark --shapes course_like,deep_chain,random --warmups 5 --repeats 30 --timeout 120.0 --seed 20261006 --memory-limit-gb 8.0` | `rooted-full` |
+| D75: H2 on XES3G5M | — | — | cancelled (2026-11-24), not run | — |
+
+The load test's 11 812 requests include 50 `csrf` and 50 `login` requests
+besides the three measured endpoints (`metrics.json`, `endpoints`).
+Folders ending in `-quick`, and the other `locust/` and `assist09/` folders,
+are pipeline checks and earlier runs that the decision log explains; none of
+them is a dissertation number.
+
+### Checking a result without re-running it
+
+```sh
+# The report's values block against every metrics.json it cites
+experiments/.venv/bin/python -m experiments.report_values --check REMEDIATION_REPORT.md
+```
+
+`tables.md` is a pure function of `metrics.json` (D48): rendering it again
+with the renderer the run used (`experiments/tables.py`, or
+`experiments/h2_tuned_tables.py` and `benchmarks/rooted_tables.py` for D73 and
+D74) gives the committed file byte for byte, and `tables.verify` returns `[]`.
+
 The `SECRET_KEY` that appears in the early history (the initial commit and the
 August prototype on `main`) belonged to the development period and has been
 revoked; no environment uses it, and settings now read the key only from the

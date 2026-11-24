@@ -346,9 +346,9 @@ o‘zgartirmaydi va hech bir mavjud natija papkasiga tegmaydi.
 
 | Qaror | Nima | Kod (yangi fayllar) | Test | Natija papkasi |
 |---|---|---|---|---|
-| D72 | P(L)′ uchun ixtiyoriy yuqori chegara `p_max` (standart 1.0 da xatti-harakat bit darajasida eski holicha) va tavsiya etilgan ish sozlamalari (`THESIS_P_L_MAX=0.999`, `THESIS_LAMBDA=0.0`) | `neuro_model/bkt.py` (`transition`, `step` ga parametr), `neuro_model/student.py` (`Constants.p_l_max`), `config/settings.py` (`P_L_MAX`), `config/.env.example` | `neuro_model/tests/test_p_l_max.py`, `assessments/tests/test_p_l_max_setting.py` | — (natija emas, sozlama) |
-| D73 | H2 ning neyron modellarini to‘liq o‘qitish: 200 epoch, `patience = 10` (pyKT ning `train_model` dagi qiymati), DKT uchun 12 nomzodli to‘r, AKT/AKT-R uchun 2 ta; tanlov faqat validatsiya AUC bo‘yicha. **Post-hoc sezgirlik** | `experiments/h2_tuned.py`, `experiments/h2_tuned_tables.py` | `experiments/tests/test_h2_tuned.py` | `assist09-neural-tuned/<vaqt>` |
-| D74 | H4 uchun uchinchi **o‘qish** usuli `cte_rooted`: rekursiya so‘ralgan tugundan boshlanadi; saqlash usuli `cte` bilan bir xil, yozish o‘lchanmaydi | `benchmarks/rooted.py`, `benchmarks/rooted_tables.py`, `benchmarks/management/commands/run_rooted_benchmark.py` | `benchmarks/tests/test_rooted.py` | `tree-benchmark-rooted/<vaqt>` |
+| D72 | P(L)′ uchun ixtiyoriy yuqori chegara `p_max` (standart 1.0 da xatti-harakat bit darajasida eski holicha) va tavsiya etilgan ish sozlamalari (`THESIS_P_L_MAX=0.999`, `THESIS_LAMBDA=0.0`) | `neuro_model/bkt.py` (`transition`, `step` ga parametr), `neuro_model/student.py` (`Constants.p_l_max`), `config/settings.py` (`P_L_MAX`), `config/.env.example` | `neuro_model/tests/test_p_l_max.py`, `assessments/tests/test_p_l_max_setting.py` | — (natija emas, sozlama); qayta hosil qilish darvozasi: `assist09-quick/20261118-050149` |
+| D73 | H2 ning neyron modellarini to‘liq o‘qitish: 200 epoch, `patience = 10` (pyKT ning `train_model` dagi qiymati), DKT uchun 12 nomzodli to‘r, AKT/AKT-R uchun 2 ta; tanlov faqat validatsiya AUC bo‘yicha. **Post-hoc sezgirlik** | `experiments/h2_tuned.py`, `experiments/h2_tuned_tables.py` | `experiments/tests/test_h2_tuned.py` | `assist09-neural-tuned/20261123-085502` (`--quick`: `assist09-neural-tuned-quick/20261118-072942`) |
+| D74 | H4 uchun uchinchi **o‘qish** usuli `cte_rooted`: rekursiya so‘ralgan tugundan boshlanadi; saqlash usuli `cte` bilan bir xil, yozish o‘lchanmaydi | `benchmarks/rooted.py`, `benchmarks/rooted_tables.py`, `benchmarks/management/commands/run_rooted_benchmark.py` | `benchmarks/tests/test_rooted.py` | `tree-benchmark-rooted/20261118-063042` |
 
 D73 ning o‘qish qoidasi: BKT+IRT − DKT farqining 95 % CI pastki chegarasi ≥ −0,01
 bo‘lsa — ikkinchi shart to‘liq o‘qitilgan DKT ga nisbatan ham bajariladi; aks holda
@@ -461,6 +461,7 @@ Har biri ataylab qo‘shilgan va shu yerda qayd etiladi.
 |---|---|---|---|
 | Backend `neuro_dj` | `thesis-v1-frozen` | `6692a99` | D1–D71; yuqoridagi 9–11-bo‘limlardagi barcha natija papkalari shu holatdan qayta hosil bo‘ladi |
 | Frontend `neuro` | `thesis-v1-frozen` | `7166fe7` | 7-bosqich va keyingi frontend tuzatishlari (D15, D24) |
+| Backend `neuro_dj` | `thesis-v2-final` (annotated) | shu qatorni o‘z ichiga olgan commit | D72–D74 va ularning natija papkalari; D75 bekor qilingan (2026-11-24). `thesis-v1-frozen` dagi papkalar o‘zgarmagan |
 
 Tegdan keyingi commit'lar mavjud natija papkalarini o‘zgartirmaydi; yangi
 tahlillar (D72 dan boshlab) yangi papkalarga yoziladi va shu xaritaga alohida
